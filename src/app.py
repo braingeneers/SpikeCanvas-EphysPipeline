@@ -17,9 +17,6 @@ sttc_thr = 0.35
 fr_coef = 10
 # fs = 20000
 
-# TODO: get the path from callback functions of dropdowns
-path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/original/data/" \
-       "Trace_20220518_12_53_35_chip11350.raw.h5"
 main_path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/"
 phy_path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/derived/kilosort2/" \
            "Trace_20220518_12_53_35_chip11350_curated.zip"
@@ -165,22 +162,6 @@ def drop_down(search_value):
     return uuids
 
 
-# # These lines are needed when using local data
-# fs = 20  # ms as the unit
-# folder_dir = "data/example_phy_data_0518/"
-# Connectoid_0518 = SpikeData(fs, folder_dir)  # TODO: should change to braingeneers class
-# fig, circle_colors, chn_map_df = electrode_map(Connectoid_0518)
-# fig2, df = raster_plot(Connectoid_0518)
-
-#
-#
-
-print("WE ARE HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE")
-
-
-# print(chn_map_df)
-# print(list(chn_map_df['fire_rate']))
-
 @app.callback(
     Output('electrode-map', 'figure'),
     Output('raster_plot', 'figure'),
@@ -202,62 +183,44 @@ def plot_elec(value, electrode_click, raster_click, sub_plot_value):
     global fig_map, circle_colors
     global fig_raster
     button_id = ctx.triggered_id if not None else 'No clicks yet'
-    print('button_id')
-    print(button_id)
-    print("click")
-    print(electrode_click)
-    print("raster click")
-    print(raster_click)
+    # print('button_id')
+    # print(button_id)
+    # print("click")
+    # print(electrode_click)
+    # print("raster click")
+    # print(raster_click)
     firing_rate = ''
     if button_id == 'drop_down_subplot':
-        print("OASMFASMFOSAMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM")
-        print(original_data)
         ephys_dash = MaxWellEphys(sub_plot_value, fr_coef, sttc_delta, sttc_thr)
         fig_map, circle_colors = ephys_dash.plot_map()
         fig_raster = ephys_dash.plot_raster()
 
     if value.startswith('s3'):
 
-        # print(br.datasets_electrophysiology.load_metadata('2022-05-18'))
-        # print(br.data.datasets.load_batch(value))
-        # print(wr.list_directories(value))
-        # "s3://braingeneers/ephys/2022-05-18-e-connectoid/derived/kilosort2/" \
-        #   "Trace_20220518_12_53_35_chip11350_curated.zip"
         if button_id == 'drop_down':
             original_data = wr.list_objects(value + 'derived/kilosort2/')
             if original_data:
                 subfolder_dropdown_disable = False
             else:
                 subfolder_dropdown_disable = True
-        # print(value + 'original/data/')
 
     if raster_click and button_id == 'raster_plot':
         raster_number = raster_click['points'][0]['y']
         cluster_number = list(ephys_dash.chn_map_df['cluster_number']).index(int(raster_number))
         fig_raster.add_shape(type='line',
-                x0=0,
-                y0=int(raster_number),
-                x1=max(ephys_dash.spike_times[int(cluster_number)]),
-                y1=int(raster_number),
-                line=dict(color='rgba(90, 228, 125, 0.4)'
-                          , width=6),
-                xref='x',
-                yref='y'
-        )
-        # ephys_dash.raster_df.loc[ephys_dash.raster_df["cluster_number"] == raster_number,
-        #                          ["pos"]] = 'black'
-        # fig_raster.update_traces(
-        #     marker=dict(
-        #         color=ephys_dash.raster_df['pos'],
-        #     )
-        # )
+                             x0=0,
+                             y0=int(raster_number),
+                             x1=max(ephys_dash.spike_times[int(cluster_number)]),
+                             y1=int(raster_number),
+                             line=dict(color='rgba(90, 228, 125, 0.4)'
+                                       , width=6),
+                             xref='x',
+                             yref='y'
+                             )
 
         firing_rate = ephys_dash.chn_map_df.loc[ephys_dash.chn_map_df['cluster_number'] ==
                                                 int(raster_number)]['fire_rate'].values[0]
         firing_rate = "{:.3f}".format(float(firing_rate))
-        # print("here")
-        # print(firing_rate)
-        # print(int(raster_number))
         circle_colors[cluster_number] = '#00FF00'
         fig_map.update_traces(
             marker=dict(
@@ -287,22 +250,10 @@ def plot_elec(value, electrode_click, raster_click, sub_plot_value):
                              xref='x',
                              yref='y'
                              )
-        # ephys_dash.raster_df.loc[ephys_dash.raster_df["cluster_number"] ==
-        #                          int(raster_number), ["pos"]] = 'red'
-        # fig_raster.update_traces(
-        #     marker=dict(
-        #         color=ephys_dash.raster_df['pos'],
-        #     )
-        # )
-    # print(firing_rate)
-    # print(type(firing_rate))
-    # try:
 
     return fig_map, fig_raster, subfolder_dropdown_disable, 'Fire rate ' + str(firing_rate), original_data
-    # except:
-    #     original_data = wr.list_objects(main_path + 'derived/kilosort2/')
-    #     return fig_map, fig_raster, False, 'Fire rate ' + str(firing_rate), original_data
 
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=8050, host='0.0.0.0')  # include hot-reloading by default
+    app.run_server(debug=False, port=8050, host='0.0.0.0')  # include hot-reloading by default
+    # app.run_server(debug=True, port=8050)  # include hot-reloading by default
