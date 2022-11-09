@@ -1,5 +1,6 @@
 # Run this app with `python app.py` and
 # visit http://127.0.0.1:8050/ in your web browser.
+import dash
 from dash import Dash, html, dcc, Input, Output, ctx
 import dash_daq as daq
 import braingeneers.utils.s3wrangler as wr
@@ -7,6 +8,7 @@ from maxwellEphys import *
 
 # dash setting
 app = Dash(__name__)
+
 server = app.server
 colors = {'background': 'white',
           'borderline': 'black'}
@@ -25,9 +27,12 @@ fig_map, circle_colors = ephys_dash.plot_map()
 fig_raster = ephys_dash.plot_raster()
 initial_dropdown_values = wr.list_objects(main_path + 'derived/kilosort2/')
 subfolder_dropdown_disable = False
-fire_rate = ''
+# fire_rate = ''
 callback_clicks = 0
 original_data = wr.list_objects(main_path + 'derived/kilosort2/')
+template_plot = ephys_dash.plot_template(4)
+isi_plot = ephys_dash.plot_isi(4)
+
 # print(ephys_dash.raster_df)
 ########## end ##########
 
@@ -88,66 +93,38 @@ app.layout = html.Div([
                               on=False,
                               label="Show Network",
                               labelPosition="top"),
-            dcc.Graph(id='electrode-map'),
+            # html.Script(type="text/javascript",
+            #             src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-MML-AM_SVG"),
+            dcc.Graph(id='electrode-map', mathjax=True),
         ], style={'padding': 10}),
         html.Div(children=[
             html.Div(children=[
                 html.Div(children=[
-                    html.P("Spike Template"),
-                ], style={'background-color': '#e4e7ed',
-                          'margin': '10px',
-                          'padding': '15px',
-                          'box-shadow': '2px',
-                          'width': '200px',
-                          'height': '50px',
-                          'border-style': 'groove',
-                          'text-align': 'center',
-                          }),
+                    dcc.Graph(id='template_plot')
+                ], ),
                 html.Div(children=[
-                    html.P("ISI"),
-                ], style={'background-color': '#e4e7ed',
-                          'margin': '10px',
-                          'padding': '15px',
-                          'box-shadow': '2px',
-                          'width': '200px',
-                          'height': '50px',
-                          'border-style': 'groove',
-                          'text-align': 'center',
-                          }),
+                    dcc.Graph(id='isi_plot')
+                ]),
 
-                html.Div(children=[
-                    html.P(children="Firing Rate", id="fire_rate"),
-                ], style={'background-color': '#e4e7ed',
-                          'margin': '10px',
-                          'padding': '15px',
-                          'box-shadow': '2px',
-                          'width': '200px',
-                          'height': '50px',
-                          'border-style': 'groove',
-                          'text-align': 'center', }),
+                # html.Div(children=[
+                #     html.P(children="Firing Rate", id="fire_rate"),
+                # ], style={'background-color': '#e4e7ed',
+                #           'margin': '10px',
+                #           'padding': '15px',
+                #           'box-shadow': '2px',
+                #           'width': '200px',
+                #           'height': '50px',
+                #           'border-style': 'groove',
+                #           'text-align': 'center', }),
             ], style={'padding': 10, 'display': 'flex', 'flex-direction': 'row'}),
-
-            html.Br(),
-            html.Div([
-                html.P("Raw trace with highlighted spikes"),
-            ], style={
-                'background-color': '#e4e7ed',
-                'margin': '10px',
-                'padding': '15px',
-                'box-shadow': '2px',
-                'width': '800px',
-                'height': '50px',
-                'border-style': 'solid',
-                'text-align': 'center',
-            }),
-
-            html.Br(),
-            dcc.Graph(id='raster_plot'),
 
         ], style={'flex-direction': 'column', 'display': 'flex'}),
 
     ], style={'display': 'flex', 'flex-direction': 'row'}),
-
+    html.Br(),
+    html.Div([
+        dcc.Graph(id='raster_plot'),
+    ], style={'display': 'flex', 'justify-content': 'center'}),
 ], )
 
 
@@ -165,8 +142,10 @@ def drop_down(search_value):
 @app.callback(
     Output('electrode-map', 'figure'),
     Output('raster_plot', 'figure'),
+    Output('isi_plot', 'figure'),
+    Output('template_plot', 'figure'),
     Output('drop_down_subplot', 'disabled'),
-    Output('fire_rate', 'children'),
+    # Output('fire_rate', 'children'),
     Output('drop_down_subplot', 'options'),
     Input('drop_down', 'value'),
     Input('electrode-map', 'clickData'),
@@ -182,18 +161,15 @@ def plot_elec(value, electrode_click, raster_click, sub_plot_value):
     global ephys_dash
     global fig_map, circle_colors
     global fig_raster
+    global isi_plot
+    global template_plot
     button_id = ctx.triggered_id if not None else 'No clicks yet'
-    # print('button_id')
-    # print(button_id)
-    # print("click")
-    # print(electrode_click)
-    # print("raster click")
-    # print(raster_click)
-    firing_rate = ''
+
     if button_id == 'drop_down_subplot':
         ephys_dash = MaxWellEphys(sub_plot_value, fr_coef, sttc_delta, sttc_thr)
         fig_map, circle_colors = ephys_dash.plot_map()
         fig_raster = ephys_dash.plot_raster()
+        return fig_map, fig_raster, isi_plot, template_plot, dash.no_update, dash.no_update
 
     if value.startswith('s3'):
 
@@ -203,6 +179,7 @@ def plot_elec(value, electrode_click, raster_click, sub_plot_value):
                 subfolder_dropdown_disable = False
             else:
                 subfolder_dropdown_disable = True
+            return dash.no_update, dash.no_update, dash.no_update, dash.no_update, subfolder_dropdown_disable, original_data
 
     if raster_click and button_id == 'raster_plot':
         raster_number = raster_click['points'][0]['y']
@@ -218,15 +195,18 @@ def plot_elec(value, electrode_click, raster_click, sub_plot_value):
                              yref='y'
                              )
 
-        firing_rate = ephys_dash.chn_map_df.loc[ephys_dash.chn_map_df['cluster_number'] ==
-                                                int(raster_number)]['fire_rate'].values[0]
-        firing_rate = "{:.3f}".format(float(firing_rate))
+        # firing_rate = ephys_dash.chn_map_df.loc[ephys_dash.chn_map_df['cluster_number'] ==
+        #                                         int(raster_number)]['fire_rate'].values[0]
+        # firing_rate = "{:.3f}".format(float(firing_rate))
         circle_colors[cluster_number] = '#00FF00'
         fig_map.update_traces(
             marker=dict(
                 color=circle_colors
             )
         )
+        isi_plot = ephys_dash.plot_isi(int(cluster_number))
+        template_plot = ephys_dash.plot_template(int(cluster_number))
+        return fig_map, fig_raster, isi_plot, template_plot, dash.no_update, dash.no_update
     if electrode_click and (button_id == 'electrode-map'):
         cluster_number = int(electrode_click['points'][0]['pointNumber'])
         circle_colors[cluster_number] = '#FF0000'
@@ -237,9 +217,9 @@ def plot_elec(value, electrode_click, raster_click, sub_plot_value):
         )
 
         raster_number = electrode_click['points'][0]['hovertext']
-        firing_rate = ephys_dash.chn_map_df.loc[ephys_dash.chn_map_df['cluster_number'] ==
-                                                int(raster_number)]['fire_rate'].values[0]
-        firing_rate = "{:.3f}".format(float(firing_rate))
+        # firing_rate = ephys_dash.chn_map_df.loc[ephys_dash.chn_map_df['cluster_number'] ==
+        #                                         int(raster_number)]['fire_rate'].values[0]
+        # firing_rate = "{:.3f}".format(float(firing_rate))
         fig_raster.add_shape(type='line',
                              x0=0,
                              y0=int(raster_number),
@@ -250,8 +230,11 @@ def plot_elec(value, electrode_click, raster_click, sub_plot_value):
                              xref='x',
                              yref='y'
                              )
+        isi_plot = ephys_dash.plot_isi(int(cluster_number))
+        template_plot = ephys_dash.plot_template(int(cluster_number))
+        return fig_map, fig_raster, isi_plot, template_plot, dash.no_update, dash.no_update
 
-    return fig_map, fig_raster, subfolder_dropdown_disable, 'Fire rate ' + str(firing_rate), original_data
+    return fig_map, fig_raster, isi_plot, template_plot, subfolder_dropdown_disable, original_data
 
 
 if __name__ == '__main__':

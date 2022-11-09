@@ -58,27 +58,13 @@ class MaxWellEphys():
                             paired_direction[k].append(pair[ind])
         self.paired_dir_df = pd.DataFrame(data=paired_direction)
 
-        ##----- Create raster -----##
-        # raster = {"cluster_number": cluster_num,
-        #           "spike_times": self.spike_times,
-        #           "pos": ['blue' * len(cluster_num)]}
-
+        ##----- Create raster data -----##
         self.raster_x = []
         self.raster_y = []
 
         for i in range(len(cluster_num)):
             self.raster_x.extend(self.spike_times[i])
             self.raster_y.extend([cluster_num[i]] * len(self.spike_times[i]))
-        # raster = {"cluster_number": [],
-        #           "spike_times": [],
-        #           "pos": []}  # the pos is actually the color in the raster plot we can change
-        # # it later to the actual position to have different colors base on the actual positions
-        # raster = pd.DataFrame(data=raster)
-        # for i in range(len(cluster_num)):
-        #     for spike in self.spike_times[i]:
-        #         raster.loc[len(raster)] = [cluster_num[i], spike, 'blue']
-        #
-        # self.raster_df = raster
 
     def plot_raster(self):
         """
@@ -88,11 +74,11 @@ class MaxWellEphys():
         fig_raster = go.Figure()
         raw_symbols = SymbolValidator().values
 
-        fig_raster.add_trace(go.Scatter(
+        fig_raster.add_trace(go.Scattergl(
             # x=self.raster_df['spike_times'],
             # y=self.raster_df['cluster_number'],
-            x = self.raster_x,
-            y = self.raster_y,
+            x=self.raster_x,
+            y=self.raster_y,
             mode='markers',
             marker=dict(
                 size=6,
@@ -119,8 +105,8 @@ class MaxWellEphys():
         # circle_colors[-1] = '#a3a7e4'
 
         fig_map = px.scatter(self.chn_map_df, x="pos_x", y="pos_y", hover_name="cluster_number",
-                             size="fire_rate", width=550, height=300,
-                             labels={"pos_x": r'$\mu$m', "pos_y": r'$\mu$m'},
+                             size="fire_rate", width=770, height=420,
+                             labels={"pos_x": r'$\mu m$', "pos_y": r'$\mu m$'},
                              title="Electrode Map")
 
         fig_map.update_traces(marker=dict(color=circle_colors))
@@ -141,7 +127,7 @@ class MaxWellEphys():
         """
         template = self.neuron_data[n][2]
         xx = np.arange(0, len(template)/self.fs, 1/self.fs) * 1000   # unit is ms
-        fig_temp = px.line(x=xx, y=template, labels={'x': "Time (ms)"})
+        fig_temp = px.line(x=xx, y=template, labels={'x': "Time (ms)"}, title="Spike Template", width=550, height=380)
         fig_temp.update_yaxes(visible=False, showticklabels=False)
         fig_temp.update_layout(font=dict(size=18))
         fig_temp.show()
@@ -154,9 +140,10 @@ class MaxWellEphys():
         :return: a template figure object
         """
         isi = np.diff(self.spike_times[n])
-        fig_isi = px.histogram(isi, nbins=round(max(isi)))
+        fig_isi = px.histogram(isi, nbins=round(max(isi)), title="ISI Plot", width=550, height=380)
         fig_isi.update_layout(xaxis_title="Time (ms)", yaxis_title="Count", font=dict(size=18))
         fig_isi.update_layout(xaxis_range=[0, 100])
+        fig_isi.update_layout(showlegend=False)
         fig_isi.show()
         return fig_isi
 
