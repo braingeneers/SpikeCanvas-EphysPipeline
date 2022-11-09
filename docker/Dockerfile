@@ -2,7 +2,7 @@ FROM python:3.10
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DASH_DEBUG_MODE=False
 
-RUN python -m pip install --force-reinstall 'git+https://github.com/braingeneers/braingeneerspy.git#egg=braingeneerspy[all]'
+RUN python -m pip install --force-reinstall 'git+https://github.com/braingeneers/braingeneerspy.git#egg=braingeneerspy[iot,analysis,data]'
 COPY requirements.txt ./src/requirements.txt
 RUN set -ex && \
     pip install -r ./src/requirements.txt
