@@ -65,6 +65,9 @@ class MaxWellEphys():
             self.raster_x.extend(self.spike_times[i])
             self.raster_y.extend([cluster_num[i]] * len(self.spike_times[i]))
 
+        ##----- Others -----##
+        self.colors = {'background': 'white', 'borderline': 'black'}
+
     def print_ephys(self):
         print("Recording length: {} minutes".format(self.rec_length / 1000 / 60))
         print("Number of neurons: ", len(self.spike_times))
@@ -74,7 +77,6 @@ class MaxWellEphys():
         :return: The raster plot figure and the df that the raster plot is created by, in order to change color later
         """
         fr_bins, firing_rate = moving_fr_rate(self.spike_times)
-        colors = {'background': 'white', 'borderline': 'black'}
         # fig_raster = go.Figure()
         raw_symbols = SymbolValidator().values
         fig_raster = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02,
@@ -87,24 +89,25 @@ class MaxWellEphys():
             y=self.raster_y,
             mode='markers',
             marker=dict(size=4, color='black', symbol='line-ns'),
+            # labels={'y': "Unit"}
         ), row=1, col=1)
 
         fig_raster.add_trace(go.Scattergl(
             x=fr_bins[:-1], y=firing_rate,
-            mode='lines'),
-            row=2, col=1)
+            mode='lines',
+            # labels={'x': "Time (ms)", 'y': "Rate (Hz)"}
+        ), row=2, col=1)
 
         fig_raster.update_xaxes(showticklabels=False)
         fig_raster.update_xaxes(showticklabels=True, row=2, col=1)
-        fig_raster.update_layout(font=dict(size=18))
-        fig_raster.update_layout(autosize=False,
-                                 width=1400,
-                                 height=700,
-                                 title="Raster Plot", )
-        fig_raster.update_xaxes(showline=True, linewidth=1, linecolor=colors['borderline'], mirror=True)
-        fig_raster.update_yaxes(showline=True, linewidth=1, linecolor=colors['borderline'], mirror=True)
-        fig_raster.update_layout(showlegend=False, plot_bgcolor=colors['background'],
-                                 paper_bgcolor=colors['background'])
+
+        fig_raster.update_xaxes(showline=True, linewidth=1, linecolor=self.colors['borderline'], mirror=True)
+        fig_raster.update_yaxes(showline=True, linewidth=1, linecolor=self.colors['borderline'], mirror=True)
+        fig_raster.update_layout(showlegend=False,
+                                 font=dict(size=16),
+                                 margin=dict(b=55, l=70, r=0, t=0),
+                                 plot_bgcolor=self.colors['background'],
+                                 paper_bgcolor=self.colors['background'])
 
         return fig_raster
 
@@ -114,22 +117,21 @@ class MaxWellEphys():
         plot electrode map
         :return: a figure of the map
         """
-        colors = {'background': 'white', 'borderline': 'black'}
         circle_colors = ['#000000'] * self.chn_map_df['pos_x'].size
         # circle_colors[-1] = '#a3a7e4'
 
         fig_map = px.scatter(self.chn_map_df, x="pos_x", y="pos_y", hover_name="cluster_number",
-                             size="fire_rate", width=770, height=420,
-                             labels={"pos_x": u"\u03BC" + "m", "pos_y": u"\u03BC" + "m"},
-                             title="Electrode Map")
+                             size="fire_rate",
+                             labels={"pos_x": u"\u03BC" + "m", "pos_y": u"\u03BC" + "m"})
 
         fig_map.update_traces(marker=dict(color=circle_colors))
 
-        fig_map.update_yaxes(autorange="reversed", showline=True, linewidth=1, linecolor=colors['borderline'],
+        fig_map.update_yaxes(autorange="reversed", showline=True, linewidth=1, linecolor=self.colors['borderline'],
                              mirror=True)
-        fig_map.update_xaxes(showline=True, linewidth=1, linecolor=colors['borderline'], mirror=True)
-        fig_map.update_layout(plot_bgcolor=colors['background'],
-                              paper_bgcolor=colors['background'])
+        fig_map.update_xaxes(showline=True, linewidth=1, linecolor=self.colors['borderline'], mirror=True)
+        fig_map.update_layout(margin=dict(b=55, l=70, r=0, t=0),
+                              plot_bgcolor=self.colors['background'],
+                              paper_bgcolor=self.colors['background'])
 
         return fig_map, circle_colors
 
@@ -141,9 +143,13 @@ class MaxWellEphys():
         """
         template = self.neuron_data[n][2]
         xx = np.arange(0, len(template) / self.fs, 1 / self.fs) * 1000  # unit is ms
-        fig_temp = px.line(x=xx, y=template, labels={'x': "Time (ms)"}, title="Spike Template", width=550, height=380)
+        fig_temp = px.line(x=xx, y=template, labels={'x': "Time (ms)"})
         fig_temp.update_yaxes(visible=False, showticklabels=False)
-        fig_temp.update_layout(font=dict(size=18))
+        fig_temp.update_layout(font=dict(size=16),
+                               margin=dict(b=55, l=70, r=0, t=0),
+                               plot_bgcolor=self.colors['background'],
+                               paper_bgcolor=self.colors['background']
+                               )
         fig_temp.show()
         return fig_temp
 
@@ -154,10 +160,14 @@ class MaxWellEphys():
         :return: a template figure object
         """
         isi = np.diff(self.spike_times[n])
-        fig_isi = px.histogram(isi, nbins=round(max(isi)), title="ISI Plot", width=550, height=380)
-        fig_isi.update_layout(xaxis_title="Time (ms)", yaxis_title="Count", font=dict(size=18))
+        fig_isi = px.histogram(isi, nbins=round(max(isi)))
+        fig_isi.update_layout(xaxis_title="Time (ms)", yaxis_title="Count", font=dict(size=16))
         fig_isi.update_layout(xaxis_range=[0, 100])
-        fig_isi.update_layout(showlegend=False)
+        fig_isi.update_layout(showlegend=False,
+                              margin=dict(b=55, l=70, r=0, t=0),
+                              plot_bgcolor=self.colors['background'],
+                              paper_bgcolor=self.colors['background']
+                              )
         fig_isi.show()
         return fig_isi
 

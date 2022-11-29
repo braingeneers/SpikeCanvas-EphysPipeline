@@ -2,86 +2,135 @@
 # visit http://127.0.0.1:8050/ in your web browser.
 import dash
 from dash import Dash, html, dcc, Input, Output, ctx
+import plotly
 import dash_daq as daq
+import dash_bootstrap_components as dbc
 import braingeneers.utils.s3wrangler as wr
 from maxwellEphys import *
 from k8s_kilosort2 import Kube
 import time
 import pickle
 
-
 # dash setting
-app = Dash(__name__)
-app.title = "MaxWell Electrophysiology Dashboard"
+# app = Dash(__name__)
+
+app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
 server = app.server
 
-def serve_layout():
-    global original_data
-    global subfolder_dropdown_disable
-    global ephys_dash
-    global fig_map, circle_colors
-    global fig_raster
-    global isi_plot
-    global template_plot
-    global already_clicked
-    global raster_lines
-    main_path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/"
-    original_path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/original/data/" \
-                    "Trace_20220518_12_53_35_chip11350.raw.h5"
-    phy_path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/derived/kilosort2/" \
-               "Trace_20220518_12_53_35_chip11350_curated.zip"
-    initial_dropdown_values = wr.list_objects(main_path + 'original/data/')
-    initial_dropdown_derived = wr.list_objects(main_path + 'derived/kilosort2/')
+
+# def serve_layout():
+    # global original_data
+    # global subfolder_dropdown_disable
+    # global ephys_dash
+    # global fig_map, circle_colors
+    # global fig_raster
+    # global isi_plot
+    # global template_plot
+    # global already_clicked
+    # global raster_lines
+
+global ephys_dash
+global fig_map, circle_colors
+global fig_raster
+global isi_plot
+global template_plot
+global already_clicked
+global raster_lines
+
+fig_map = plotly.subplots.make_subplots(rows=1, cols=1)
+isi_plot = plotly.subplots.make_subplots(rows=1, cols=1)
+template_plot = plotly.subplots.make_subplots(rows=1, cols=1)
+fig_raster = plotly.subplots.make_subplots(rows=1, cols=1)
+
+
+main_path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/"
+original_path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/original/data/" \
+                "Trace_20220518_12_53_35_chip11350.raw.h5"
+phy_path = "s3://braingeneers/ephys/2022-05-18-e-connectoid/derived/kilosort2/" \
+           "Trace_20220518_12_53_35_chip11350_curated.zip"
+initial_dropdown_main = wr.list_objects(main_path)
+initial_dropdown_values = wr.list_objects(main_path + 'original/data/')
+initial_dropdown_derived = wr.list_objects(main_path + 'derived/kilosort2/')
+
+    # with open('./initial_dictionary', 'rb') as f:
+    #     (original_data,
+    #      subfolder_dropdown_disable,
+    #      ephys_dash,
+    #      fig_map, circle_colors,
+    #      fig_raster,
+    #      isi_plot,
+    #      template_plot,
+    #      already_clicked,
+    #      raster_lines) = pickle.load(f)
+
+# all figures
+electrode = dbc.Card(dcc.Graph(id='electrode_map',
+                               figure=fig_map,
+                               ))
+template = dbc.Card(dcc.Graph(id='template_plot',
+                              figure=template_plot,
+                              ))
+isi = dbc.Card(dcc.Graph(id='isi_plot',
+                         figure=isi_plot,
+                         ))
+raster = dbc.Card(dcc.Graph(id='raster_plot',
+                            figure=fig_raster,
+                            ))
+
+# electrode map with small figures
+electrode_layout = dbc.Row([
+            dbc.Col(electrode),
+            dbc.Col([
+                dbc.Row([
+                    dbc.Col(template),
+                    dbc.Col(isi)]),
+                # dbc.Row([
+                #     dbc.Col(template),
+                #     dbc.Col(isi)])
+                ])
+           ])
 
 
 
-    # fire_rate = ''
-    callback_clicks = 0
+app.layout = dbc.Container([
+    html.H1("MaxWell Electrophysiology Dashboard"),
+    html.Br(),
+    html.Br(),
+    html.Br(),
+    html.Br(),
+    html.Hr(),
+    # Dropdowns
+    html.H6('Dataset (UUID)'),
+    dbc.Row(dbc.Col(
+        dcc.Dropdown(options=initial_dropdown_main, value=main_path, id="drop_down", disabled=False),
+    )),
+    dbc.Row(dbc.Col(
+        dcc.Dropdown(options=initial_dropdown_values, value=original_path, id="drop_down_subplot", disabled=False),
+    )),
+    dbc.Row(dbc.Col(
+        dcc.Dropdown(options=initial_dropdown_derived, value=phy_path, id="drop_down_curated", disabled=False),
+    )),
+    html.Br(),
+    # Spike sorting button
+    dbc.Row([
+        dbc.Col(
+            dbc.Card(
+                dbc.CardBody([
+                        html.P("This dataset is raw. Run spike sorting?"),
+                        dbc.Button("START", id="spike_sorting_btn", outline=True, color="success", className="me-1"),
+                        html.Span(id="container-button", style={"verticalAlign": "middle"})
+                    ])
+                ), width=4
+            )
+        ]),
+    html.Br(),
+    # figure layout (using dbc.card)
+    dbc.Row(dbc.Card(electrode_layout)),
+    dbc.Row(raster)
 
-    with open('./initial_dictionary', 'rb') as f:
-        (original_data,
-         subfolder_dropdown_disable,
-         ephys_dash,
-         fig_map, circle_colors,
-         fig_raster,
-         isi_plot,
-         template_plot,
-         already_clicked,
-         raster_lines) = pickle.load(f)
+])
 
-    layout = html.Div([
-        html.Div(
-            className="header-title",
-            children=[
-                html.H2(
-                    id="title",
-                    children="MaxWell Electrophysiology dashboard",
-                ), ], ),
-        html.Div(children=[
-            html.Div(children=[
-                html.H6('Dataset (UUID)'),
-                dcc.Dropdown(options=["id_1", "id_2"], value=main_path, id="drop_down"),
-                dcc.Dropdown(options=initial_dropdown_values, value=original_path, id="drop_down_subplot", disabled=False),
-                dcc.Dropdown(options=initial_dropdown_derived, value=phy_path, id="drop_down_curated", disabled=False),
-                html.Div(id='dd-output-container'),
-            ], ),
-            html.Br(),
-
-            html.Div(children=[
-                html.P("This dataset is raw. Run spike sorting?"),
-                html.Button("START", id='spike_sorting_btn', n_clicks=0, disabled=False),
-                html.Div(id='container-button')
-            ], ),
-
-            html.Div(children=[
-                dcc.Graph(id='electrode-map', className="div-card", figure=fig_map),
-                dcc.Graph(id='template_plot', className="div-card", figure=template_plot),
-                dcc.Graph(id='isi_plot', className="div-card", figure=isi_plot),
-                dcc.Graph(id='raster_plot', className="div-card", figure=fig_raster),
-            ], ),
-        ], ),
-    ], )
-    return layout
+    # return layout
 
 
 ###### variables #######
@@ -89,16 +138,16 @@ sttc_delta = 20
 sttc_thr = 0.35
 fr_coef = 10
 
-with open('./initial_dictionary', 'rb') as f:
-    (original_data,
-     subfolder_dropdown_disable,
-     ephys_dash,
-     fig_map, circle_colors,
-     fig_raster,
-     isi_plot,
-     template_plot,
-     already_clicked,
-     raster_lines) = pickle.load(f)
+# with open('./initial_dictionary', 'rb') as f:
+#     (original_data,
+#      subfolder_dropdown_disable,
+#      ephys_dash,
+#      fig_map, circle_colors,
+#      fig_raster,
+#      isi_plot,
+#      template_plot,
+#      already_clicked,
+#      raster_lines) = pickle.load(f)
 
 # print(ephys_dash.raster_df)
 ########## end ##########
@@ -106,7 +155,8 @@ with open('./initial_dictionary', 'rb') as f:
 
 # ------------------------- dash app ---------------------------#
 
-app.layout = serve_layout
+# app.layout = serve_layout
+
 
 @app.callback(
     Output('drop_down', 'options'),
@@ -118,6 +168,7 @@ def drop_down(search_value):
     uuids = wr.list_directories('s3://braingeneers/ephys/')
     return uuids
 
+
 @app.callback(
     Output('drop_down_subplot', 'disabled'),
     Output('drop_down_subplot', 'options'),
@@ -126,7 +177,6 @@ def drop_down(search_value):
     Input('drop_down_subplot', 'value'),
     Input('drop_down_curated', 'value'),
 )
-
 def get_data_path(value, sub_plot_value, curated_value):
     button_id = ctx.triggered_id if not None else 'No clicks yet'
     if value.startswith('s3'):
@@ -158,13 +208,13 @@ def get_data_path(value, sub_plot_value, curated_value):
         return dash.no_update, dash.no_update, dash.no_update
     return sub_plot_value
 
+
 @app.callback(
     Output('container-button', 'children'),
     # Output('spike_sorting_btn', 'disabled'),
     Input('spike_sorting_btn', 'n_clicks'),
     Input('drop_down_subplot', 'value'),
 )
-
 def spike_sorting_buttonn(n_clicks, sub_plot_value):
     file_name = list(sub_plot_value.split('original/data/')[1])
     for i in range(len(file_name)):
@@ -184,7 +234,7 @@ def spike_sorting_buttonn(n_clicks, sub_plot_value):
 
 
 @app.callback(
-    Output('electrode-map', 'figure'),
+    Output('electrode_map', 'figure'),
     Output('raster_plot', 'figure'),
     Output('isi_plot', 'figure'),
     Output('template_plot', 'figure'),
@@ -195,7 +245,7 @@ def spike_sorting_buttonn(n_clicks, sub_plot_value):
     # Output('container-button', 'children'),
     # Output("loading1", "children"),
     # Input('drop_down', 'value'),
-    Input('electrode-map', 'clickData'),
+    Input('electrode_map', 'clickData'),
     Input('raster_plot', 'clickData'),
     # Input('drop_down_subplot', 'value'),
     Input('drop_down_curated', 'value'),
@@ -275,7 +325,7 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
     # second_time = time.time()
     # print('second', second_time)
     # print(second_time - first_time)
-    if electrode_click and (button_id == 'electrode-map'):
+    if electrode_click and (button_id == 'electrode_map'):
         cluster_number = int(electrode_click['points'][0]['pointNumber'])
         raster_number = int(electrode_click['points'][0]['hovertext'])
         if cluster_number in already_clicked:
