@@ -24,8 +24,6 @@ class MaxWellEphys():
         self.rec_length = ephys_data.length
         self.spike_times = ephys_data.train
         self.neuron_data = ephys_data.neuron_data[0]
-        # print("Recording length: {} minutes".format(self.rec_length / 1000 / 60))
-        # print("Number of neurons: ", len(self.spike_times))
 
         chn_pos = np.asarray(list(self.neuron_data.values()), dtype=object)[:, 1]
         chn_pos = np.concatenate(chn_pos).reshape(len(chn_pos), 2)
@@ -66,6 +64,10 @@ class MaxWellEphys():
         for i in range(len(cluster_num)):
             self.raster_x.extend(self.spike_times[i])
             self.raster_y.extend([cluster_num[i]] * len(self.spike_times[i]))
+
+    def print_ephys(self):
+        print("Recording length: {} minutes".format(self.rec_length / 1000 / 60))
+        print("Number of neurons: ", len(self.spike_times))
 
     def plot_raster(self):
         """
