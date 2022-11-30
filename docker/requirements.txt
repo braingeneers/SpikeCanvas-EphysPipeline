@@ -2,9 +2,8 @@ dash
 plotly
 pandas
 gunicorn
-matplotlib
 numpy
-seaborn
 dash_daq
 scipy
 dash_bootstrap_components
+kubernetes
