@@ -8,7 +8,6 @@ import plotly.express as px
 from plotly.subplots import make_subplots
 
 
-
 class MaxWellEphys():
     def __init__(self, phy_path, fr_coef, sttc_delta, sttc_thr, fs=20000):
         """
@@ -119,17 +118,26 @@ class MaxWellEphys():
         """
         circle_colors = ['#000000'] * self.chn_map_df['pos_x'].size
         # circle_colors[-1] = '#a3a7e4'
+        elec_xy = np.asarray([(x, y) for x in np.arange(0, 3850, 17.5)
+                              for y in np.arange(0, 2100, 17.5)])
+        fig1 = px.scatter(x=elec_xy[:, 0], y=elec_xy[:, 1])
+        fig1.update_traces(marker=dict(size=1, color=["blue"] * len(elec_xy)))
+        fig1.update_layout(hovermode=False)
+        fig2 = px.scatter(self.chn_map_df, x="pos_x", y="pos_y", hover_name="cluster_number",
+                          size="fire_rate",
+                          labels={"pos_x": u"\u03BC" + "m", "pos_y": u"\u03BC" + "m"})
+        fig2.update_traces(marker=dict(color=circle_colors))
+        fig_map = go.Figure(data=fig1.data + fig2.data)
 
-        fig_map = px.scatter(self.chn_map_df, x="pos_x", y="pos_y", hover_name="cluster_number",
-                             size="fire_rate",
-                             labels={"pos_x": u"\u03BC" + "m", "pos_y": u"\u03BC" + "m"})
-
-        fig_map.update_traces(marker=dict(color=circle_colors))
-
-        fig_map.update_yaxes(autorange="reversed", showline=True, linewidth=1, linecolor=self.colors['borderline'],
+        fig_map.update_yaxes(range=[0, 2100], tickvals=[0, 2100], autorange="reversed", showline=True, linewidth=1,
+                             linecolor=self.colors['borderline'],
                              mirror=True)
-        fig_map.update_xaxes(showline=True, linewidth=1, linecolor=self.colors['borderline'], mirror=True)
-        fig_map.update_layout(margin=dict(b=55, l=70, r=0, t=0),
+        fig_map.update_xaxes(range=[0, 3850], tickvals=[0, 3850], showline=True, linewidth=1, linecolor=self.colors['borderline'],
+                             mirror=True)
+        fig_map.update_layout(xaxis_title=u"\u03BC" + "m", yaxis_title=u"\u03BC" + "m",
+                              font=dict(size=16),
+                              width=770, height=420, autosize=True,
+                              margin=dict(b=0, l=0, r=0, t=0),
                               plot_bgcolor=self.colors['background'],
                               paper_bgcolor=self.colors['background'])
 
@@ -146,11 +154,10 @@ class MaxWellEphys():
         fig_temp = px.line(x=xx, y=template, labels={'x': "Time (ms)"})
         fig_temp.update_yaxes(visible=False, showticklabels=False)
         fig_temp.update_layout(font=dict(size=16),
-                               margin=dict(b=55, l=70, r=0, t=0),
+                               margin=dict(b=0, l=0, r=0, t=0),
                                plot_bgcolor=self.colors['background'],
                                paper_bgcolor=self.colors['background']
                                )
-        fig_temp.show()
         return fig_temp
 
     def plot_isi(self, n):
@@ -164,11 +171,10 @@ class MaxWellEphys():
         fig_isi.update_layout(xaxis_title="Time (ms)", yaxis_title="Count", font=dict(size=16))
         fig_isi.update_layout(xaxis_range=[0, 100])
         fig_isi.update_layout(showlegend=False,
-                              margin=dict(b=55, l=70, r=0, t=0),
+                              margin=dict(b=0, l=0, r=0, t=0),
                               plot_bgcolor=self.colors['background'],
                               paper_bgcolor=self.colors['background']
                               )
-        fig_isi.show()
         return fig_isi
 
 

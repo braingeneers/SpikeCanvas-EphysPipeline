@@ -112,17 +112,20 @@ app.layout = dbc.Container([
     )),
     html.Br(),
     # Spike sorting button
-    dbc.Row([
-        dbc.Col(
-            dbc.Card(
-                dbc.CardBody([
-                        html.P("This dataset is raw. Run spike sorting?"),
-                        dbc.Button("START", id="spike_sorting_btn", outline=True, color="success", className="me-1"),
-                        html.Span(id="container-button", style={"verticalAlign": "middle"})
-                    ])
-                ), width=4
-            )
-        ]),
+    html.Div(
+             children=[
+                dbc.Row([
+                    dbc.Col(
+                        dbc.Card(
+                            dbc.CardBody([
+                                    html.P("This dataset is raw. Run spike sorting?"),
+                                    dbc.Button("START", id="spike_sorting_btn", outline=True, color="success", className="me-1"),
+                                    html.Span(id="container-button", style={"verticalAlign": "middle"})
+                                ])
+                            ), width=4
+                        )
+                    ]),
+                ], style={'display': 'none'}, id="show_button"),
     html.Br(),
     # figure layout (using dbc.card)
     dbc.Row(dbc.Card(electrode_layout)),
@@ -130,7 +133,6 @@ app.layout = dbc.Container([
 
 ])
 
-    # return layout
 
 
 ###### variables #######
@@ -155,9 +157,6 @@ fr_coef = 10
 
 # ------------------------- dash app ---------------------------#
 
-# app.layout = serve_layout
-
-
 @app.callback(
     Output('drop_down', 'options'),
     Input('drop_down', 'search_value')
@@ -173,6 +172,7 @@ def drop_down(search_value):
     Output('drop_down_subplot', 'disabled'),
     Output('drop_down_subplot', 'options'),
     Output('drop_down_curated', 'options'),
+    Output('show_button', 'style'),
     Input('drop_down', 'value'),
     Input('drop_down_subplot', 'value'),
     Input('drop_down_curated', 'value'),
@@ -187,7 +187,7 @@ def get_data_path(value, sub_plot_value, curated_value):
                 subfolder_dropdown_disable = False
             else:
                 subfolder_dropdown_disable = True
-            return subfolder_dropdown_disable, original_data, dash.no_update
+            return subfolder_dropdown_disable, original_data, dash.no_update, {'display': 'none'}
 
     if button_id == 'drop_down_subplot':
         print("sub_plot_value: ", sub_plot_value)
@@ -201,11 +201,14 @@ def get_data_path(value, sub_plot_value, curated_value):
         print("phy_type: ", phy_type)
         phy_plot_value = [s for s in wr.list_objects(value + "derived/kilosort2/") if phy_type in s]
         print(phy_plot_value)
-        return dash.no_update, dash.no_update, phy_plot_value
+        if len(phy_plot_value) == 0:
+            return dash.no_update, dash.no_update, phy_plot_value, {'display': 'block'}
+        else:
+            return dash.no_update, dash.no_update, phy_plot_value, {'display': 'none'}
 
     if button_id == 'drop_down_curated':
         print("sub_plot_curated:", curated_value)
-        return dash.no_update, dash.no_update, dash.no_update
+        return dash.no_update, dash.no_update, dash.no_update, dash.no_update
     return sub_plot_value
 
 
@@ -225,8 +228,8 @@ def spike_sorting_buttonn(n_clicks, sub_plot_value):
     file_name = "".join(file_name)
     job_name = "mw-dash-kilosort2-" + file_name
     if "spike_sorting_btn" == ctx.triggered_id:
-        # sort_current = Kube(job_name, sub_plot_value)
-        # job_response = sort_current.create_job()
+        sort_current = Kube(job_name, sub_plot_value)
+        job_response = sort_current.create_job()
         print("Button ", n_clicks)
         msg = "Spike sorting started!"  # TODO: add pods name and status
         # disable the button
@@ -264,13 +267,17 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
     global template_plot
     global already_clicked
     global raster_lines
-    first_time = time.time()
+    # first_time = time.time()
     button_id = ctx.triggered_id if not None else 'No clicks yet'
     print("plot_elec(), sub_plot_curated:", sub_plot_curated)
     already_clicked = set()
 
     if button_id == 'drop_down_curated':
         ephys_dash = MaxWellEphys(sub_plot_curated, fr_coef, sttc_delta, sttc_thr)
+        ##### tempory figure style and layout test.
+        # temp_local_path = '/home/kang/disk/Connectoid/chip11350/Trace_20220503_12_25_42v_chip11350_curated.zip'
+        # ephys_dash = MaxWellEphys(temp_local_path, fr_coef, sttc_delta, sttc_thr)
+        #####
         fig_map, circle_colors = ephys_dash.plot_map()
         fig_raster = ephys_dash.plot_raster()
         print("Figures are ready!")
@@ -367,7 +374,7 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
             template_plot = ephys_dash.plot_template(int(cluster_number))
             already_clicked.add(cluster_number)
             return fig_map, fig_raster, isi_plot, template_plot
-    return fig_map, fig_raster, isi_plot, template_plot
+    # return fig_map, fig_raster, isi_plot, template_plot
 
 
 if __name__ == '__main__':
