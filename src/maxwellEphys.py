@@ -61,7 +61,7 @@ class MaxWellEphys():
         self.raster_y = []
 
         for i in range(len(cluster_num)):
-            self.raster_x.extend(self.spike_times[i])
+            self.raster_x.extend(self.spike_times[i] / 1000)
             self.raster_y.extend([cluster_num[i]] * len(self.spike_times[i]))
 
         ##----- Others -----##
@@ -73,7 +73,8 @@ class MaxWellEphys():
 
     def plot_raster(self):
         """
-        :return: The raster plot figure and the df that the raster plot is created by, in order to change color later
+        :return: The raster plot figure and the df that the raster plot is created by,
+        in order to change color later
         """
         fr_bins, firing_rate = moving_fr_rate(self.spike_times)
         # fig_raster = go.Figure()
@@ -89,12 +90,15 @@ class MaxWellEphys():
             mode='markers',
             marker=dict(size=4, color='black', symbol='line-ns'),
             # labels={'y': "Unit"}
+            yaxis="y1"
         ), row=1, col=1)
 
         fig_raster.add_trace(go.Scattergl(
-            x=fr_bins[:-1], y=firing_rate,
+            x=fr_bins[:-1] / 1000, y=firing_rate / len(self.spike_times),
             mode='lines',
-            # labels={'x': "Time (ms)", 'y': "Rate (Hz)"}
+            # labels={'x': "Time (s)", 'y': "Rate (Hz)"}
+            xaxis="x2",
+            yaxis="y2"
         ), row=2, col=1)
 
         fig_raster.update_xaxes(showticklabels=False)
@@ -107,12 +111,15 @@ class MaxWellEphys():
                                  margin=dict(b=55, l=70, r=0, t=0),
                                  plot_bgcolor=self.colors['background'],
                                  paper_bgcolor=self.colors['background'])
+        fig_raster.update_layout(yaxis=dict(title="Unit"), yaxis2=dict(title="Rate (Hz)"),
+                                 xaxis2=dict(title="Time (s)"))
 
         return fig_raster
 
     def plot_map(self):
         """
-        # TODO: allow option of showing functional network
+        TODO: allow option of showing functional network
+        TODO: add configuration
         plot electrode map
         :return: a figure of the map
         """
@@ -159,6 +166,12 @@ class MaxWellEphys():
                                paper_bgcolor=self.colors['background']
                                )
         return fig_temp
+
+    # def plot_footprint(self):
+    #     """
+    #     plot the footprint for each selected units
+    #     :return:
+    #     """
 
     def plot_isi(self, n):
         """
