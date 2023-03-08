@@ -218,15 +218,25 @@ def get_data_path(value, sub_plot_value, curated_value):
     Input('spike_sorting_btn', 'n_clicks'),
     Input('drop_down_subplot', 'value'),
 )
-def spike_sorting_buttonn(n_clicks, sub_plot_value):
-    file_name = list(sub_plot_value.split('original/data/')[1])
+def spike_sorting_button(n_clicks, sub_plot_value):
+    prefix = "dash-ss-"
+    file_name = sub_plot_value.split('original/data/')[1]
+    if ".raw.h5" in file_name:
+        file_name = list(file_name.split(".raw.h5")[0])
+    elif ".h5" in file_name:
+        file_name = list(file_name.split(".h5")[0])
+
     for i in range(len(file_name)):
         if file_name[i] == "_" or file_name[i] == ".":
             file_name[i] = "-"
         elif file_name[i].isupper():
             file_name[i] = file_name[i].lower()
+    if len(file_name) >= (63 - len(prefix)):
+        file_name = file_name[-(63 - len(prefix))+1:]
+        if file_name[0] == '-':
+            file_name[0] = "x"
     file_name = "".join(file_name)
-    job_name = "mw-dash-kilosort2-" + file_name
+    job_name = prefix + file_name
     if "spike_sorting_btn" == ctx.triggered_id:
         sort_current = Kube(job_name, sub_plot_value)
         job_response = sort_current.create_job()
