@@ -7,6 +7,7 @@ import dash_daq as daq
 import dash_bootstrap_components as dbc
 import braingeneers.utils.s3wrangler as wr
 from maxwellEphys import *
+from make_plots import PlotEphys
 from k8s_kilosort2 import Kube
 import time
 import pickle
@@ -156,7 +157,6 @@ fr_coef = 10
 
 
 # ------------------------- dash app ---------------------------#
-
 @app.callback(
     Output('drop_down', 'options'),
     Input('drop_down', 'search_value')
@@ -251,6 +251,7 @@ def spike_sorting_button(n_clicks, sub_plot_value):
     Output('raster_plot', 'figure'),
     Output('isi_plot', 'figure'),
     Output('template_plot', 'figure'),
+    # Output('footprint_plot', 'figure'),
     # Output('drop_down_subplot', 'disabled'),
     # # Output('fire_rate', 'children'),
     # Output('drop_down_subplot', 'options'),
@@ -283,7 +284,8 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
     already_clicked = set()
 
     if button_id == 'drop_down_curated':
-        ephys_dash = MaxWellEphys(sub_plot_curated, fr_coef, sttc_delta, sttc_thr)
+        # ephys_dash = MaxWellEphys(sub_plot_curated, fr_coef, sttc_delta, sttc_thr)
+        ephys_dash = PlotEphys(sub_plot_curated, fr_coef, sttc_delta, sttc_thr)
         ##### tempory figure style and layout test.
         # temp_local_path = '/home/kang/disk/Connectoid/chip11350/Trace_20220503_12_25_42v_chip11350_curated.zip'
         # ephys_dash = MaxWellEphys(temp_local_path, fr_coef, sttc_delta, sttc_thr)
@@ -295,7 +297,7 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
 
     if raster_click and button_id == 'raster_plot':
         raster_number = raster_click['points'][0]['y']
-        cluster_number = list(ephys_dash.chn_map_df['cluster_number']).index(int(raster_number))
+        cluster_number = list(np.arange(1, ephys_dash.ephys_data.N+1, 1)).index(int(raster_number))
         if cluster_number in already_clicked:
             circle_colors[cluster_number] = '#000000'
             fig_map.update_traces(
@@ -306,7 +308,7 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
             temp_shape = dict(type='line',
                               x0=0,
                               y0=int(raster_number),
-                              x1=max(ephys_dash.spike_times[int(cluster_number)]),
+                              x1=max(ephys_dash.spike_times[int(cluster_number)])/1000,
                               y1=int(raster_number),
                               xref='x',
                               yref='y')
@@ -319,7 +321,7 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
             temp_shape = dict(type='line',
                               x0=0,
                               y0=int(raster_number),
-                              x1=max(ephys_dash.spike_times[int(cluster_number)]),
+                              x1=max(ephys_dash.spike_times[int(cluster_number)])/1000,
                               y1=int(raster_number),
                               line=dict(color='rgba(0, 255, 0, 0.4)'
                                         , width=6),
@@ -336,7 +338,8 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
                 )
             )
             isi_plot = ephys_dash.plot_isi(int(cluster_number))
-            template_plot = ephys_dash.plot_template(int(cluster_number))
+            # template_plot = ephys_dash.plot_template(int(cluster_number))
+            template_plot = ephys_dash.plot_footprint(int(cluster_number))
             already_clicked.add(cluster_number)
             return fig_map, fig_raster, isi_plot, template_plot
     # second_time = time.time()
@@ -355,7 +358,7 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
             temp_shape = dict(type='line',
                               x0=0,
                               y0=int(raster_number),
-                              x1=max(ephys_dash.spike_times[int(cluster_number)]),
+                              x1=max(ephys_dash.spike_times[int(cluster_number)])/1000,
                               y1=int(raster_number),
                               xref='x',
                               yref='y'
@@ -373,7 +376,7 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
             fig_raster.add_shape(type='line',
                                  x0=0,
                                  y0=int(raster_number),
-                                 x1=max(ephys_dash.spike_times[int(cluster_number)]),
+                                 x1=max(ephys_dash.spike_times[int(cluster_number)])/1000,
                                  y1=int(raster_number),
                                  line=dict(color='rgba(222, 13, 13, 0.4)'
                                            , width=6),
@@ -381,7 +384,8 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
                                  yref='y'
                                  )
             isi_plot = ephys_dash.plot_isi(int(cluster_number))
-            template_plot = ephys_dash.plot_template(int(cluster_number))
+            # template_plot = ephys_dash.plot_template(int(cluster_number))
+            template_plot = ephys_dash.plot_footprint(int(cluster_number))
             already_clicked.add(cluster_number)
             return fig_map, fig_raster, isi_plot, template_plot
     # return fig_map, fig_raster, isi_plot, template_plot

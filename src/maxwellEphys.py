@@ -2,14 +2,10 @@
 from braingeneers import analysis
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.validators.scatter.marker import SymbolValidator
-import plotly.express as px
-from plotly.subplots import make_subplots
 
 
-class MaxWellEphys():
-    def __init__(self, phy_path, fr_coef, sttc_delta, sttc_thr, fs=20000):
+class MaxWellEphys:
+    def __init__(self, phy_path, fr_coef, sttc_delta, sttc_thr, fs):
         """
         load spike sorted data from s3 using analysis.read_phy_files()
         :param phy_path: a s3 path
@@ -18,190 +14,95 @@ class MaxWellEphys():
         [channel_id, (chan_pos_x, chan_pos_y), [chan_template], {channel_id:cluster_templates}]}
         Generate dataframe for plotting functions
         """
-        ephys_data = analysis.read_phy_files(phy_path)
-        # TODO: Show these as metadata on the dashboard
-        self.rec_length = ephys_data.length
-        self.spike_times = ephys_data.train
-        self.neuron_data = ephys_data.neuron_data[0]
-
-        chn_pos = np.asarray(list(self.neuron_data.values()), dtype=object)[:, 1]
-        chn_pos = np.concatenate(chn_pos).reshape(len(chn_pos), 2)
-
+        self.ephys_data = analysis.read_phy_files(phy_path)
+        self.spike_times = self.ephys_data.train
+        self.neuron_dict = self.ephys_data.neuron_data[0]
+        self.metadata = self.ephys_data.metadata[0]
         self.fs = fs
-        ##----- Create channel map -----##
-        cluster_num = np.arange(1, len(self.spike_times) + 1)
-        fire_rate = ephys_data.rates(unit='Hz') * fr_coef
-        chn_map = {"cluster_number": cluster_num,
-                   "pos_x": chn_pos[:, 0],
-                   "pos_y": chn_pos[:, 1],
-                   "fire_rate": fire_rate}
-        self.chn_map_df = pd.DataFrame(data=chn_map)
-        self.sttc = ephys_data.spike_time_tilings(delt=sttc_delta)
+        self.fr_coef = fr_coef
+        self.sttc_delta = sttc_delta
+        self.sttc_thr = sttc_thr
 
-        ##----- Create functional pairs -----##
+    def get_data_dict(self, key):
+        ch = self.neuron_dict[key]['channel']
+        pos = self.neuron_dict[key]['position']
+        temp_chs = self.neuron_dict[key]['neighbor_channels']
+        temp_pos = self.neuron_dict[key]['neighbor_positions']
+        templates = self.neuron_dict[key]['neighbor_templates']
+        return ch, pos, temp_chs, temp_pos, templates
+
+    def channel_map(self):
+        """
+        Create data for channel map
+        :return:
+        """
+        config = np.asarray(list(self.metadata.values()))
+        cluster_num = np.asarray(list(self.neuron_dict.keys())) + 1  # start from 1 instead of 0
+        fire_rate = self.ephys_data.rates(unit='Hz')
+        self.chn_pos = np.asarray([self.neuron_dict[k]['position']
+                                   for k in self.neuron_dict.keys()])
+        chn_map = {"cluster_number": cluster_num,
+                   "pos_x": self.chn_pos[:, 0],
+                   "pos_y": self.chn_pos[:, 1],
+                   "fire_rate": fire_rate}
+        chn_map_df = pd.DataFrame(data=chn_map)
+        self.sttc = self.ephys_data.spike_time_tilings(delt=self.sttc_delta)
+        return config, chn_map_df, self.sttc
+
+    def functional_pairs(self):
+        """
+        Create functional pairs
+        :return:
+        """
         paired_direction = {"start_cls": [], "end_cls": [],
                             "start_pos": [], "end_pos": [],
                             "sttc": [], "latency": []}
         for i in range(len(self.spike_times) - 1):  # i, j are the indices to spike_times
             for j in range(i + 1, len(self.spike_times)):
-                if self.sttc[i][j] >= sttc_thr:
-                    lat = latency(self.spike_times[i], self.spike_times[j], threshold=sttc_delta)
+                if self.sttc[i][j] >= self.sttc_thr:
+                    lat = latency(self.spike_times[i], self.spike_times[j], threshold=self.sttc_delta)
                     pos_count = len(list(filter(lambda x: (x >= 0), lat)))
                     if abs(pos_count - (len(lat) - pos_count)) > 0.8 * len(lat):
                         if np.mean(lat) > 0:
-                            pair = [i, j, chn_pos[i], chn_pos[j], self.sttc[i][j], np.mean(lat)]
+                            pair = [i, j, self.chn_pos[i], self.chn_pos[j], self.sttc[i][j], np.mean(lat)]
                         else:
-                            pair = [j, i, chn_pos[j], chn_pos[i], self.sttc[i][j], abs(np.mean(lat))]
+                            pair = [j, i, self.chn_pos[j], self.chn_pos[i], self.sttc[i][j], abs(np.mean(lat))]
                         for ind, k in enumerate(paired_direction.keys()):
                             paired_direction[k].append(pair[ind])
-        self.paired_dir_df = pd.DataFrame(data=paired_direction)
+        paired_dir_df = pd.DataFrame(data=paired_direction)
+        return paired_dir_df
 
-        ##----- Create raster data -----##
-        self.raster_x = []
-        self.raster_y = []
+    def raster(self):
+        """
+        Create raster data with aggregated firing rate
+        :return:
+        """
+        raster_x, raster_y = [], []
+        for i in range(self.ephys_data.N):
+            raster_x.extend(self.spike_times[i] / 1000)
+            raster_y.extend([i + 1] * len(self.spike_times[i]))
 
-        for i in range(len(cluster_num)):
-            self.raster_x.extend(self.spike_times[i] / 1000)
-            self.raster_y.extend([cluster_num[i]] * len(self.spike_times[i]))
+        fr_bins, firing_rate = moving_fr_rate(self.spike_times)
+        return raster_x, raster_y, fr_bins, firing_rate
 
-        ##----- Others -----##
-        self.colors = {'background': 'white', 'borderline': 'black'}
-
+    # TODO: move to make_texts class for showing metadata
     def print_ephys(self):
-        print("Recording length: {} minutes".format(self.rec_length / 1000 / 60))
+        print("Recording length: {} minutes".format(self.ephys_data.length / 1000 / 60))
         print("Number of neurons: ", len(self.spike_times))
 
-    def plot_raster(self):
-        """
-        :return: The raster plot figure and the df that the raster plot is created by,
-        in order to change color later
-        """
-        fr_bins, firing_rate = moving_fr_rate(self.spike_times)
-        # fig_raster = go.Figure()
-        raw_symbols = SymbolValidator().values
-        fig_raster = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02,
-                                   row_width=[0.2, 0.7])
+    def select_neighbor_channels(self, key, pitch=17.5, nelec=2):
+        ch, position, neighbor_channels, neighbor_positions, _ = self.get_data_dict(key)
+        selected_channels = []
+        selected_positions = []
+        for i in range(len(neighbor_channels)):
+            chn_pos = neighbor_positions[i]
+            if position[0] - nelec * pitch <= chn_pos[0] <= position[0] + nelec * pitch \
+                    and position[1] - nelec * pitch <= chn_pos[1] <= position[1] + nelec * pitch:
+                selected_channels.append(neighbor_channels[i])
+                selected_positions.append(chn_pos)
+        return selected_channels, selected_positions
 
-        fig_raster.add_trace(go.Scattergl(
-            # x=self.raster_df['spike_times'],
-            # y=self.raster_df['cluster_number'],
-            x=self.raster_x,
-            y=self.raster_y,
-            mode='markers',
-            marker=dict(size=4, color='black', symbol='line-ns'),
-            # labels={'y': "Unit"}
-            yaxis="y1"
-        ), row=1, col=1)
-
-        fig_raster.add_trace(go.Scattergl(
-            x=fr_bins[:-1] / 1000, y=firing_rate / len(self.spike_times),
-            mode='lines',
-            # labels={'x': "Time (s)", 'y': "Rate (Hz)"}
-            xaxis="x2",
-            yaxis="y2"
-        ), row=2, col=1)
-
-        fig_raster.update_xaxes(showticklabels=False)
-        fig_raster.update_xaxes(showticklabels=True, row=2, col=1)
-
-        fig_raster.update_xaxes(showline=True, linewidth=1, linecolor=self.colors['borderline'], mirror=True)
-        fig_raster.update_yaxes(showline=True, linewidth=1, linecolor=self.colors['borderline'], mirror=True)
-        fig_raster.update_layout(showlegend=False,
-                                 font=dict(size=16),
-                                 margin=dict(b=55, l=70, r=0, t=0),
-                                 plot_bgcolor=self.colors['background'],
-                                 paper_bgcolor=self.colors['background'])
-        fig_raster.update_layout(yaxis=dict(title="Unit"), yaxis2=dict(title="Rate (Hz)"),
-                                 xaxis2=dict(title="Time (s)"))
-
-        return fig_raster
-
-    def plot_map(self):
-        """
-        TODO: allow option of showing functional network
-        TODO: add configuration
-        plot electrode map
-        :return: a figure of the map
-        """
-        circle_colors = ['#000000'] * self.chn_map_df['pos_x'].size
-        # circle_colors[-1] = '#a3a7e4'
-        elec_xy = np.asarray([(x, y) for x in np.arange(0, 3850, 17.5)
-                              for y in np.arange(0, 2100, 17.5)])
-        fig1 = px.scatter(x=elec_xy[:, 0], y=elec_xy[:, 1])
-        fig1.update_traces(marker=dict(size=1, color=["blue"] * len(elec_xy)))
-        fig1.update_layout(hovermode=False)
-        fig2 = px.scatter(self.chn_map_df, x="pos_x", y="pos_y", hover_name="cluster_number",
-                          size="fire_rate",
-                          labels={"pos_x": u"\u03BC" + "m", "pos_y": u"\u03BC" + "m"})
-        fig2.update_traces(marker=dict(color=circle_colors))
-        fig_map = go.Figure(data=fig1.data + fig2.data)
-
-        fig_map.update_yaxes(range=[0, 2100], tickvals=[0, 2100], autorange="reversed", showline=True, linewidth=1,
-                             linecolor=self.colors['borderline'],
-                             mirror=True)
-        fig_map.update_xaxes(range=[0, 3850], tickvals=[0, 3850], showline=True, linewidth=1, linecolor=self.colors['borderline'],
-                             mirror=True)
-        fig_map.update_layout(xaxis_title=u"\u03BC" + "m", yaxis_title=u"\u03BC" + "m",
-                              font=dict(size=16),
-                              width=770, height=420, autosize=True,
-                              margin=dict(b=0, l=0, r=0, t=0),
-                              plot_bgcolor=self.colors['background'],
-                              paper_bgcolor=self.colors['background'])
-
-        return fig_map, circle_colors
-
-    def plot_template(self, n):
-        """
-        Plot a spike template and its neighbors for a chosen unit from the electrode map.
-        :param n: index to the neurons, range [0, cluster_number]
-        :return: a template figure object
-        """
-        template = self.neuron_data[n][2]
-        xx = np.arange(0, len(template) / self.fs, 1 / self.fs) * 1000  # unit is ms
-        fig_temp = px.line(x=xx, y=template, labels={'x': "Time (ms)"})
-        fig_temp.update_yaxes(visible=False, showticklabels=False)
-        fig_temp.update_layout(font=dict(size=16),
-                               margin=dict(b=0, l=0, r=0, t=0),
-                               plot_bgcolor=self.colors['background'],
-                               paper_bgcolor=self.colors['background']
-                               )
-        return fig_temp
-
-    # def plot_footprint(self):
-    #     """
-    #     plot the footprint for each selected units
-    #     :return:
-    #     """
-
-    def plot_isi(self, n):
-        """
-        Plot interspike interval distribution for a chosen unit from the electrode map.
-        :param n: index to the neurons, range [0, cluster_number]
-        :return: a template figure object
-        """
-        isi = np.diff(self.spike_times[n])
-        fig_isi = px.histogram(isi, nbins=round(max(isi)))
-        fig_isi.update_layout(xaxis_title="Time (ms)", yaxis_title="Count", font=dict(size=16))
-        fig_isi.update_layout(xaxis_range=[0, 100])
-        fig_isi.update_layout(showlegend=False,
-                              margin=dict(b=0, l=0, r=0, t=0),
-                              plot_bgcolor=self.colors['background'],
-                              paper_bgcolor=self.colors['background']
-                              )
-        return fig_isi
-
-
-def moving_fr_rate(spike_times: list, rec_length=None, bin_size=100):
-    spike_times_all = np.sort(np.hstack(spike_times))
-    if rec_length is None:
-        rec_length = spike_times_all[-1]
-    bin_num = int(rec_length // bin_size) + 1
-    bins = np.linspace(0, rec_length, bin_num)
-    moving = [np.histogram(spike_times_all, bins + i)[0] for i in range(bin_size)]
-    moving_fr = np.mean(moving, axis=0) / bin_size * 1000  # hz
-    return bins, moving_fr
-
-
+# TODO: move to utils?
 def latency(train_1, train_2, threshold=20):
     """
     Find latency of train_2 to train_1 by labeling the two spike trains.
@@ -232,3 +133,14 @@ def latency(train_1, train_2, threshold=20):
         else:
             i += 1
     return lat
+
+
+def moving_fr_rate(spike_times: list, rec_length=None, bin_size=100):
+    spike_times_all = np.sort(np.hstack(spike_times))
+    if rec_length is None:
+        rec_length = spike_times_all[-1]
+    bin_num = int(rec_length // bin_size) + 1
+    bins = np.linspace(0, rec_length, bin_num)
+    moving = [np.histogram(spike_times_all, bins + i)[0] for i in range(bin_size)]
+    moving_fr = np.mean(moving, axis=0) / bin_size * 1000  # hz
+    return bins, moving_fr

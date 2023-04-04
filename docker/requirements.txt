@@ -7,3 +7,4 @@ dash_daq
 scipy
 dash_bootstrap_components
 kubernetes
+deprecated

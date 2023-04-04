@@ -8,7 +8,7 @@ RUN set -ex && \
     pip install -r ./src/requirements.txt
 
 #COPY src/initial_dictionary /src/initial_dictionary
-COPY docker/top_level.txt /usr/local/lib/python3.10/site-packages/scipy-1.9.3.dist-info/top_level.txt
+COPY docker/top_level.txt /usr/local/lib/python3.10/site-packages/scipy-1.10.1.dist-info/top_level.txt
 
 # PRP setup
 ENV ENDPOINT_URL="https://s3-west.nrp-nautilus.io"
