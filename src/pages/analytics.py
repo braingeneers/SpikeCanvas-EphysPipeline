@@ -1,7 +1,6 @@
-# Run this app with `python app.py` and
-# visit http://127.0.0.1:8050/ in your web browser.
 import dash
 from dash import Dash, html, dcc, Input, Output, ctx
+from dash import callback
 import plotly
 import dash_daq as daq
 import dash_bootstrap_components as dbc
@@ -15,8 +14,6 @@ import pickle
 # dash setting
 # app = Dash(__name__)
 
-app = Dash(external_stylesheets=[dbc.themes.BOOTSTRAP])
-server = app.server
 
 global ephys_dash
 global fig_map, circle_colors
@@ -70,7 +67,7 @@ electrode_layout = dbc.Row([
 
 
 
-app.layout = dbc.Container([
+layout = dbc.Container([
     html.H1("MaxWell Electrophysiology Dashboard"),
     html.Br(),
     html.Br(),
@@ -121,7 +118,7 @@ fr_coef = 10
 
 
 # ------------------------- dash app ---------------------------#
-@app.callback(
+@callback(
     Output('drop_down', 'options'),
     Input('drop_down', 'search_value')
 )
@@ -132,7 +129,7 @@ def drop_down(search_value):
     return uuids
 
 
-@app.callback(
+@callback(
     Output('drop_down_subplot', 'disabled'),
     Output('drop_down_subplot', 'options'),
     Output('drop_down_curated', 'options'),
@@ -176,7 +173,7 @@ def get_data_path(value, sub_plot_value, curated_value):
     return sub_plot_value
 
 
-@app.callback(
+@callback(
     Output('container-button', 'children'),
     # Output('spike_sorting_btn', 'disabled'),
     Input('spike_sorting_btn', 'n_clicks'),
@@ -210,7 +207,7 @@ def spike_sorting_button(n_clicks, sub_plot_value):
         return html.Div(msg)
 
 
-@app.callback(
+@callback(
     Output('electrode_map', 'figure'),
     Output('raster_plot', 'figure'),
     Output('isi_plot', 'figure'),
@@ -355,5 +352,4 @@ def plot_elec(electrode_click, raster_click, sub_plot_curated):
     # return fig_map, fig_raster, isi_plot, template_plot
 
 
-# if __name__ == '__main__':
-#     app.run_server(debug=True, port=8050, host='0.0.0.0')  # include hot-reloading by default
+
