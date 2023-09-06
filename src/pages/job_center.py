@@ -6,11 +6,14 @@ import braingeneers.utils.s3wrangler as wr
 import dash_bootstrap_components as dbc
 import os
 import csv
+from datetime import datetime
+import utils
 
 # TODO: How to deal with inconsistent index when user remove rows?
 # TODO: show total number of recordings in a uuid
 # TODO: create datatable for chained jobs
 # TODO: functions to check job status in real time
+# TODO: Progress bar for process that needs time
 
 dash.register_page(__name__)
 
@@ -20,6 +23,7 @@ dash.register_page(__name__)
 
 ####---- default parameters ----####
 LOCAL_CSV = "jobs.csv"
+SERVICE_BUCKET = "s3://braingeneers/services/mqtt_job_listener/csvs"
 
 TABLE_HEADERS = ["index", "status", "uuid", "experiment",
                  "image", "args", "cpu_request",
@@ -153,8 +157,8 @@ def drop_down(search_value=None):
      Input('trigger', 'children')]
 )
 def disable_job_button(n_clicks, trigger):
-    context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-    context_value = dash.callback_context.triggered[0]['value']
+    # context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    # context_value = dash.callback_context.triggered[0]['value']
 
     # if the button triggered the function
     if "job_start_btn" == ctx.triggered_id:
@@ -173,6 +177,7 @@ def disable_job_button(n_clicks, trigger):
 
 @callback(
     Output("job_btn_return", "children"),
+    Output("job_start_btn", "disabled"),
     Input("job_start_btn", 'n_clicks'),
     State("job_table", "data"),
 )
@@ -186,9 +191,21 @@ def save_and_start_jobs(n_clicks, data):
         new_f.close()
         # TODO:
         # 1. disable button and upload csv to s3
+        if os.path.isfile(LOCAL_CSV):
+            now = datetime.now()
+            curr_dt_csv = now.strftime("%Y%m%d%H%M%S") + '.csv'
+            s3_path = os.path.join(SERVICE_BUCKET, curr_dt_csv)
+            utils.upload_to_s3(curr_dt_csv, s3_path)
+        else:
+            msg = "Saving job table failed, please press this button again"
+            return html.Div(msg), False
         # 2. when file is on s3, send a start message to the listener
-        # 3. if uploading failed, retry 4 times
+        if curr_dt_csv in wr.list_objects(SERVICE_BUCKET):
+            send_massage_to_start_job()
+        # 3. if uploading failed after 5 times retry, return "network error" info
+        else:
+            msg = "Network Error. Please try later"
         # 4. if all failed, return network failure message
         # 3. otherwise return job start message
         msg = "jobs.csv saved"
-        return html.Div(msg)
+        return html.Div(msg), True
