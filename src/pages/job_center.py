@@ -91,9 +91,11 @@ layout = dbc.Container([
         dbc.CardBody([
             dbc.Button("Export and Start Jobs",
                        id="job_start_btn",
+                       disabled=False,
                        outline=True,
                        color="success",
                        className="me-1"),
+            html.Div(id="trigger", children=0, style=dict(display='none')),
             html.Span(id="job_btn_return", style={"verticalAlign": "middle"})
         ]))),
     html.Br(),
@@ -143,6 +145,30 @@ def drop_down(search_value=None):
     else:
         print(f"number of total uuids {len(uuids)}")
         return uuids
+
+
+@callback(
+    Output('job_start_btn', 'disabled'),
+    [Input('job_start_btn', 'n_clicks'),
+     Input('trigger', 'children')]
+)
+def disable_job_button(n_clicks, trigger):
+    context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
+    context_value = dash.callback_context.triggered[0]['value']
+
+    # if the button triggered the function
+    if "job_start_btn" == ctx.triggered_id:
+        # if the function is triggered at app load, this will not disable the button
+        # but if the function is triggered by clicking the button, this disables the button as expected
+        if n_clicks > 0:
+            return True
+        else:
+            return False
+    # if the element function completed and triggered the function
+    else:
+        # if the function is triggered at app load, this will not disable the button
+        # but if the function is triggered by the function finishing, this enables the button as expected
+        return False
 
 
 @callback(
