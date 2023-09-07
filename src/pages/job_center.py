@@ -1,47 +1,23 @@
 import dash
 from dash import html, dcc, callback, Input, Output, State, ctx
 from dash import dash_table
-import pandas as pd
 import braingeneers.utils.s3wrangler as wr
 import dash_bootstrap_components as dbc
 import os
-import csv
 from datetime import datetime
-import utils
+import sys
+import time
 
 # TODO: How to deal with inconsistent index when user remove rows?
-# TODO: show total number of recordings in a uuid
+# TODO: show total number of recordings in a uuid (read metadata)
 # TODO: create datatable for chained jobs
-# TODO: functions to check job status in real time
+# TODO: functions to check job status in real time (a new page?)
 # TODO: Progress bar for process that needs time
 
 dash.register_page(__name__)
-
-# MAIN_PATH = "s3://braingeneers/ephys/2023-07-11-e-umass-Pak_ASD_Pl10-16/"
-# UUID_DROPDOWN = wr.list_objects(MAIN_PATH)
-# print(f"UUID_DROPDOWN: {UUID_DROPDOWN}")
-
-####---- default parameters ----####
-LOCAL_CSV = "jobs.csv"
-SERVICE_BUCKET = "s3://braingeneers/services/mqtt_job_listener/csvs"
-
-TABLE_HEADERS = ["index", "status", "uuid", "experiment",
-                 "image", "args", "cpu_request",
-                 "memory_request", "disk_request",
-                 "GPU", "next_job"]
-
-DEFAULT_JOBS = {"batch":
-                    {"image": "surygeng/kilosort_docker:latest",
-                     "args": "./run.sh",
-                     "cpu_request": 12,
-                     "memory_request": 32,
-                     "disk_request": 400,
-                     "GPU": 1,
-                     "next_job": "None"
-                     },
-                "chained": {}
-                }
-####---- end default parameters ----####
+sys.path.append('..')
+import utils
+from values import *
 
 ####----------------------- make page -----------------------####
 # table layout
@@ -83,10 +59,10 @@ layout = dbc.Container([
         html.Div(["Select a job: ",
                   dcc.RadioItems(
                       options=['Select All', 'Reset'],
-                      id='analytics-input'
+                      id='select_job_input'
                   )
                   ]),
-        html.Div(id='analytics-output'),
+        html.Div(id='select_job_output'),
     ])),
     html.Br(),
     html.Hr(),
@@ -99,8 +75,9 @@ layout = dbc.Container([
                        outline=True,
                        color="success",
                        className="me-1"),
-            html.Div(id="trigger", children=0, style=dict(display='none')),
-            html.Span(id="job_btn_return", style={"verticalAlign": "middle"})
+            # html.Div(id="trigger", children=0, style=dict(display='none')),
+            html.Span(id="job_btn_return",
+                      style={"verticalAlign": "middle"})
         ]))),
     html.Br(),
     dbc.Row(dbc.Card(table_layout)),
@@ -110,14 +87,17 @@ layout = dbc.Container([
 ####---- callback functions ----####
 @callback(
     Output('job_table', 'data'),
-    Input('analytics-input', 'value'),
+    Input('select_job_input', 'value'),
     State("job_table", "data"),
-    # State("job_table", "columns"),
-    State("dropdown", "value")
+    State("dropdown", "value"),
+    prevent_initial_call=True
 )
-def update_city_selected(input_value, rows, uuid):
+def update_job_table(input_value, rows, uuid):
     # TODO: add job info to the table
-    if input_value == "Select All":
+    if input_value == "Reset":
+        print("clear data")
+        return []
+    elif input_value == "Select All":
         print(f"getting recs for {uuid}")
         recs = wr.list_objects(os.path.join(uuid, "original/data"))
         for i, rec in enumerate(recs):
@@ -135,12 +115,22 @@ def update_city_selected(input_value, rows, uuid):
 
 
 @callback(
+    Output('job_start_btn', 'disabled', allow_duplicate=True),
+    Output('select_job_input', 'value', allow_duplicate=True),
+    Input('dropdown', 'value'),
+    prevent_initial_call=True
+)
+def remove_selected_radioitem(value):
+    if "dropdown" == ctx.triggered_id:
+        return False, None
+
+
+@callback(
     Output('dropdown', 'options'),
-    Input('textarea_filter_uuid', 'value')
+    Input('textarea_filter_uuid', 'value'),
 )
 def drop_down(search_value=None):
     print("search_value:", search_value)
-    # print(type(search_value))
     uuids = wr.list_directories('s3://braingeneers/ephys/')
     if search_value is not None:
         filtered = [id for id in uuids if search_value in id]
@@ -153,59 +143,45 @@ def drop_down(search_value=None):
 
 @callback(
     Output('job_start_btn', 'disabled'),
-    [Input('job_start_btn', 'n_clicks'),
-     Input('trigger', 'children')]
+    Input('job_start_btn', 'n_clicks'),
+    State('job_table', 'data'),
+    # State('select_job_input', 'value'),
+    prevent_initial_call=True
 )
-def disable_job_button(n_clicks, trigger):
-    # context = dash.callback_context.triggered[0]['prop_id'].split('.')[0]
-    # context_value = dash.callback_context.triggered[0]['value']
-
-    # if the button triggered the function
+def disable_job_button(n_clicks, data):
     if "job_start_btn" == ctx.triggered_id:
-        # if the function is triggered at app load, this will not disable the button
-        # but if the function is triggered by clicking the button, this disables the button as expected
-        if n_clicks > 0:
+        print(n_clicks)
+        if len(data) > 0:
             return True
-        else:
+        elif len(data) == 0:
             return False
-    # if the element function completed and triggered the function
-    else:
-        # if the function is triggered at app load, this will not disable the button
-        # but if the function is triggered by the function finishing, this enables the button as expected
-        return False
 
 
 @callback(
     Output("job_btn_return", "children"),
-    Output("job_start_btn", "disabled"),
+    Output('select_job_input', 'value'),
     Input("job_start_btn", 'n_clicks'),
     State("job_table", "data"),
+    prevent_initial_call=True
 )
 def save_and_start_jobs(n_clicks, data):
-    if "job_start_btn" == ctx.triggered_id:
-        new_f = open(LOCAL_CSV, 'w', newline='')
-        writer = csv.DictWriter(new_f, fieldnames=TABLE_HEADERS)
-        writer.writeheader()
-        for row in data:
-            writer.writerow(row)
-        new_f.close()
-        # TODO:
-        # 1. disable button and upload csv to s3
-        if os.path.isfile(LOCAL_CSV):
-            now = datetime.now()
-            curr_dt_csv = now.strftime("%Y%m%d%H%M%S") + '.csv'
-            s3_path = os.path.join(SERVICE_BUCKET, curr_dt_csv)
-            utils.upload_to_s3(curr_dt_csv, s3_path)
+    if len(data) == 0:
+        msg = "Add job to start"
+        return html.Div(msg), None
+    if "job_start_btn" == ctx.triggered_id and len(data) > 0:
+        now = datetime.now()
+        curr_dt_csv = now.strftime("%Y%m%d%H%M%S") + '.csv'
+        s3_path = os.path.join(SERVICE_BUCKET, curr_dt_csv)
+        msg = utils.upload_to_s3(data, s3_path)
+        # time.sleep(10) # simulate network lag
+        if msg is not None:
+            return html.Div(msg), None
         else:
-            msg = "Saving job table failed, please press this button again"
-            return html.Div(msg), False
-        # 2. when file is on s3, send a start message to the listener
-        if curr_dt_csv in wr.list_objects(SERVICE_BUCKET):
-            send_massage_to_start_job()
-        # 3. if uploading failed after 5 times retry, return "network error" info
-        else:
-            msg = "Network Error. Please try later"
-        # 4. if all failed, return network failure message
-        # 3. otherwise return job start message
-        msg = "jobs.csv saved"
-        return html.Div(msg), True
+            job_index = [int(d['index']) for d in data if d['next_job'] == "None"]
+            msg = utils.mqtt_start_job(s3_path, job_index)
+            if msg is not None:
+                return html.Div(msg), None
+            else:
+                msg = "Finished Uploading, jobs started"
+                return html.Div(msg), "Reset"
+
