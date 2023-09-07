@@ -5,6 +5,9 @@ import braingeneers.utils.s3wrangler as wr
 import dash_bootstrap_components as dbc
 import os
 from datetime import datetime
+import braingeneers.data.datasets_electrophysiology as de
+import braingeneers.utils.smart_open_braingeneers as smart_open
+import json
 import sys
 import time
 
@@ -54,6 +57,16 @@ layout = dbc.Container([
     ]),
     ),
     html.Br(),
+    dbc.Row(html.Div([
+        html.Div([dcc.Textarea(
+            id='textarea_metadata',
+            value='',
+            contentEditable=False,
+            readOnly=True,
+            style={'width': '50%', 'height': 80}, )
+        ]),
+    ])
+    ),
     html.Hr(),
     dbc.Row(html.Div([
         html.Div(["Select a job: ",
@@ -86,6 +99,22 @@ layout = dbc.Container([
 
 ####---- callback functions ----####
 @callback(
+    Output('dropdown', 'options'),
+    Input('textarea_filter_uuid', 'value'),
+)
+def drop_down(search_value=None):
+    print("search_value:", search_value)
+    uuids = wr.list_directories(DEFAULT_BUCKET)
+    if search_value is not None:
+        filtered = [id for id in uuids if search_value in id]
+        print(f"number of filtered uuids {len(filtered)}")
+        return filtered
+    else:
+        print(f"number of total uuids {len(uuids)}")
+        return uuids
+
+
+@callback(
     Output('job_table', 'data'),
     Input('select_job_input', 'value'),
     State("job_table", "data"),
@@ -115,6 +144,41 @@ def update_job_table(input_value, rows, uuid):
 
 
 @callback(
+    Output("textarea_metadata", "value"),
+    Input("dropdown", "value"),
+    prevent_initial_call=True
+)
+def show_uuid_metadata(uuid):
+    def convert_length(frames, fs):
+        if isinstance(frames, str):
+            frames = int(frames)
+        if isinstance(fs, str):
+            fs = float(fs)
+        return time.strftime('%Hhr %Mmin %Ss', time.gmtime(frames/fs))
+
+    metadata_path = os.path.join(uuid, "metadata.json")
+    with smart_open.open(metadata_path, 'r') as md:
+        metadata = json.load(md)
+    if metadata is not None:
+        summary = {"Number of Recordings":
+                       len(metadata["ephys_experiments"]),
+                   "recordings": {}}
+        for name, exp in metadata["ephys_experiments"].items():
+            summary["recordings"][name] = \
+                {"Hardware": exp["hardware"],
+                 "Sample Rate": exp["sample_rate"],
+                 "Length":
+                     convert_length(exp["blocks"][0]["num_frames"],
+                                    exp["sample_rate"]),
+                 "Time": exp["timestamp"],
+                 "Number of Channels": exp["num_channels"]
+                 }
+        return utils.format_dict_textarea(summary)
+    else:
+        return "Metadata not available"
+
+
+@callback(
     Output('job_start_btn', 'disabled', allow_duplicate=True),
     Output('select_job_input', 'value', allow_duplicate=True),
     Input('dropdown', 'value'),
@@ -123,22 +187,6 @@ def update_job_table(input_value, rows, uuid):
 def remove_selected_radioitem(value):
     if "dropdown" == ctx.triggered_id:
         return False, None
-
-
-@callback(
-    Output('dropdown', 'options'),
-    Input('textarea_filter_uuid', 'value'),
-)
-def drop_down(search_value=None):
-    print("search_value:", search_value)
-    uuids = wr.list_directories('s3://braingeneers/ephys/')
-    if search_value is not None:
-        filtered = [id for id in uuids if search_value in id]
-        print(f"number of filtered uuids {len(filtered)}")
-        return filtered
-    else:
-        print(f"number of total uuids {len(uuids)}")
-        return uuids
 
 
 @callback(
@@ -184,4 +232,3 @@ def save_and_start_jobs(n_clicks, data):
             else:
                 msg = "Finished Uploading, jobs started"
                 return html.Div(msg), "Reset"
-

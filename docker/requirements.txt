@@ -11,3 +11,4 @@ deprecated
 uuid
 tenacity
 csv
+json

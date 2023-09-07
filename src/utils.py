@@ -8,6 +8,7 @@ import csv
 from values import *
 import time
 
+
 @retry(stop=stop_after_attempt(5))
 def upload_to_s3(file, s3_path):
     """
@@ -26,6 +27,7 @@ def upload_to_s3(file, s3_path):
         print(err)
         return "Uploading file to s3 failed, please try later"
 
+
 def mqtt_start_job(csv_path, job_index):
     mb = messaging.MessageBroker(str(uuidgen.uuid4()))
     topic = "services/csv_job"
@@ -40,8 +42,10 @@ def mqtt_start_job(csv_path, job_index):
     except Exception as err:
         return str(err)
 
-
-
-
-
-
+def format_dict_textarea(input_dict):
+    """
+    format dictionary to string with indent for textarea
+    :param input_dict:
+    :return:
+    """
+    return str(input_dict)

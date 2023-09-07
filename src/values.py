@@ -10,6 +10,8 @@ LOCAL_CSV = "jobs.csv"
 
 SERVICE_BUCKET = "s3://braingeneers/services/mqtt_job_listener/csvs"
 
+DEFAULT_BUCKET = "s3://braingeneers/ephys/"
+
 DEFAULT_JOBS = {"batch":
                     {"image": "surygeng/kilosort_docker:latest",
                      "args": "./run.sh",
