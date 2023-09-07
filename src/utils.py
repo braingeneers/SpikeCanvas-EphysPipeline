@@ -42,10 +42,94 @@ def mqtt_start_job(csv_path, job_index):
     except Exception as err:
         return str(err)
 
+
+def parse_dict(metadata):
+    """
+    Note: rec length may not be correct because the frame number
+    in metadata.json is incorrect.
+    :param metadata:
+    :return:
+    """
+    def convert_length(frames, fs):
+        if isinstance(frames, str):
+            frames = int(frames)
+        if isinstance(fs, str):
+            fs = float(fs)
+        return time.strftime('%Hhr %Mmin %Ss', time.gmtime(frames / fs))
+
+    def convert_fs(fs):
+        if isinstance(fs, str):
+            fs = float(fs)
+        if fs >= 1000:
+            return str(fs / 1000) + " kHz"
+        else:
+            return str(fs) + " Hz"
+
+    if isinstance(metadata, dict):
+        if "maxwell_chip_id" in metadata:
+            summary = {"Number of Recordings":
+                           len(metadata["ephys_experiments"]),
+                       "Chip ID": metadata["maxwell_chip_id"],
+                       "Notes": metadata["notes"],
+                       "Recordings": {}}
+        else:
+            summary = {"Number of Recordings":
+                           len(metadata["ephys_experiments"]),
+                       "Notes": metadata["notes"],
+                       "Recordings": {}}
+        if isinstance(metadata["ephys_experiments"], list):
+            for i, exp in enumerate(metadata["ephys_experiments"]):
+                name = exp["blocks"][0]["path"].split("/")[1]
+                summary["Recordings"][name] = \
+                    {"Hardware": exp["hardware"],
+                     "Sample Rate": convert_fs(exp["sample_rate"]),
+                     "Length":
+                         convert_length(exp["blocks"][0]["num_frames"],
+                                        exp["sample_rate"]),
+                     "Time": exp["timestamp"],
+                     "Number of Channels": exp["num_channels"]
+                     }
+        elif isinstance(metadata["ephys_experiments"], dict):
+            if "metadata_version" in metadata:
+                fs = "sampling_rate"
+                diff_key = ("HPF", "high_pass_filter")
+            else:
+                fs = "sample_rate"
+                diff_key = ("Time", "timestamp")
+            for name, exp in metadata["ephys_experiments"].items():
+                summary["Recordings"][name] = \
+                    {"Hardware": exp["hardware"],
+                     "Sample Rate": convert_fs(exp[fs]),
+                     "Length":
+                         convert_length(exp["blocks"][0]["num_frames"],
+                                        exp["sample_rate"]),
+                     diff_key[0]: exp[diff_key[1]],
+                     "Number of Channels": exp["num_channels"]
+                     }
+        return summary
+    else:
+        return {"Note": "Metadata not available"}
+
+
 def format_dict_textarea(input_dict):
     """
     format dictionary to string with indent for textarea
     :param input_dict:
     :return:
     """
-    return str(input_dict)
+    global out_str
+    out_str = ""
+
+    def walk_dict(d, depth=0):
+        global out_str
+        if isinstance(d, dict):
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    out_str += "".join(["\t" * depth, str(k), ": ", "\n"])
+                    walk_dict(v, depth + 1)
+                else:
+                    out_str += "".join(["\t" * depth, str(k), ": ", str(v), "\n"])
+                    walk_dict(v, depth)
+
+    walk_dict(input_dict)
+    return out_str

@@ -12,7 +12,7 @@ import sys
 import time
 
 # TODO: How to deal with inconsistent index when user remove rows?
-# TODO: show total number of recordings in a uuid (read metadata)
+# TODO: show total number of recordings in a uuid (read metadata) -- Done
 # TODO: create datatable for chained jobs
 # TODO: functions to check job status in real time (a new page?)
 # TODO: Progress bar for process that needs time
@@ -63,7 +63,7 @@ layout = dbc.Container([
             value='',
             contentEditable=False,
             readOnly=True,
-            style={'width': '50%', 'height': 80}, )
+            style={'width': '50%', 'height': 150}, )
         ]),
     ])
     ),
@@ -149,31 +149,13 @@ def update_job_table(input_value, rows, uuid):
     prevent_initial_call=True
 )
 def show_uuid_metadata(uuid):
-    def convert_length(frames, fs):
-        if isinstance(frames, str):
-            frames = int(frames)
-        if isinstance(fs, str):
-            fs = float(fs)
-        return time.strftime('%Hhr %Mmin %Ss', time.gmtime(frames/fs))
-
     metadata_path = os.path.join(uuid, "metadata.json")
-    with smart_open.open(metadata_path, 'r') as md:
-        metadata = json.load(md)
-    if metadata is not None:
-        summary = {"Number of Recordings":
-                       len(metadata["ephys_experiments"]),
-                   "recordings": {}}
-        for name, exp in metadata["ephys_experiments"].items():
-            summary["recordings"][name] = \
-                {"Hardware": exp["hardware"],
-                 "Sample Rate": exp["sample_rate"],
-                 "Length":
-                     convert_length(exp["blocks"][0]["num_frames"],
-                                    exp["sample_rate"]),
-                 "Time": exp["timestamp"],
-                 "Number of Channels": exp["num_channels"]
-                 }
-        return utils.format_dict_textarea(summary)
+    if metadata_path in wr.list_objects(uuid):
+        with smart_open.open(metadata_path, 'r') as md:
+            metadata = json.load(md)
+        if metadata is not None:
+            summary = utils.parse_dict(metadata)
+            return utils.format_dict_textarea(summary)
     else:
         return "Metadata not available"
 
