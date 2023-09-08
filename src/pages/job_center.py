@@ -52,7 +52,7 @@ layout = dbc.Container([
                       id='textarea_filter_uuid',
                       placeholder="enter you keyword here",
                       value='',
-                      style={'width': '30%', 'height': 20}, )
+                      style={'width': '30%', 'height': 30}, )
                   ]),
     ]),
     ),
@@ -68,21 +68,56 @@ layout = dbc.Container([
     ])
     ),
     html.Hr(),
-    dbc.Row(html.Div([
-        html.Div(["Select a job: ",
-                  dcc.RadioItems(
-                      options=['Select All', 'Reset'],
-                      id='select_job_input'
-                  )
-                  ]),
-        html.Div(id='select_job_output'),
-    ])),
+    dbc.Row([dbc.Col([dcc.RadioItems(id="batch_job",
+                                     options=[{"label": "Batch Process with Standard Pipeline",
+                                               "value": "Batch"},
+                                              {"label": "Clear All Selected", "value": "Reset"}],
+                                     value="",)
+                      ]),
+             ]),
+    html.Br(),
+    dbc.Row([dbc.Col(dbc.Card(["Recording: ",
+                               dcc.RadioItems(
+                                   id='select_recording',
+                                   options=[{'label': 'Select All', 'value': 'Batch'},
+                                            {'label': 'Reset', 'value': 'Reset'}],
+                                   value="",
+                                   labelStyle={'display': 'inline'},
+                               ),
+                               html.P(""),
+                               dcc.Checklist(
+                                   id="checklist_recs",
+                                   options=[],
+                                   value=[],
+                               )
+                               ], style={"width": "18rem"}), width="auto"),
+             html.Br(),
+             dbc.Col(dbc.Card(["Select job: ",
+                               dcc.Checklist(
+                                   id='select_jobs',
+                                   options=[{'label': 'Standard Pipeline (Spike Sorting -> Curation -> Figures)',
+                                             'value': 0},
+                                            {'label': 'Spike Sorting (Kilosort2)', 'value': 1},
+                                            {'label': 'Curation (Quality Metrics)', 'value': 2},
+                                            {'label': 'Figures (Raster/Electrode Map)', 'value': 3},
+                                            {'label': 'Another Analysis Algorithms (To be added...)', 'value': 4}],
+                                   value=[],
+                                   labelStyle={'display': 'block'},
+                               ),
+                               html.Br(style={"line-height": "1"}),
+                               dbc.Button("Add to Job Table",
+                                          id='add_to_table_button',
+                                          disabled=False,
+                                          outline=True,),
+                               html.Div(id="job_message_output")
+                               ],), width="auto"),
+             ]),
     html.Br(),
     html.Hr(),
     html.Br(),
     dbc.Row(dbc.Card(
         dbc.CardBody([
-            dbc.Button("Export and Start Jobs",
+            dbc.Button("Export and Start Job",
                        id="job_start_btn",
                        disabled=False,
                        outline=True,
@@ -94,10 +129,19 @@ layout = dbc.Container([
         ]))),
     html.Br(),
     dbc.Row(dbc.Card(table_layout)),
+    html.Br(),
+    html.Br(),
+    html.Br(),
+    html.Hr(),
+    html.Div([html.P("Braingeneers@UCSC, 2023"),
+              html.P("All Rights Reserved")])
 ])
 
 
-####---- callback functions ----####
+####---- end of layout ----####
+
+
+#######################--------------- callback functions ---------------#######################
 @callback(
     Output('dropdown', 'options'),
     Input('textarea_filter_uuid', 'value'),
@@ -115,18 +159,18 @@ def drop_down(search_value=None):
 
 
 @callback(
-    Output('job_table', 'data'),
-    Input('select_job_input', 'value'),
+    Output('job_table', 'data', allow_duplicate=True),
+    Input('batch_job', 'value'),
     State("job_table", "data"),
     State("dropdown", "value"),
     prevent_initial_call=True
 )
 def update_job_table(input_value, rows, uuid):
-    # TODO: add job info to the table
+    print(f"job input {input_value}")
     if input_value == "Reset":
         print("clear data")
         return []
-    elif input_value == "Select All":
+    elif input_value == "Batch":
         print(f"getting recs for {uuid}")
         recs = wr.list_objects(os.path.join(uuid, "original/data"))
         for i, rec in enumerate(recs):
@@ -141,6 +185,72 @@ def update_job_table(input_value, rows, uuid):
             rows.append(job_info)
         print(f"{rows}")
     return rows
+
+
+@callback(
+    Output('job_table', 'data', allow_duplicate=True),
+    Output('job_message_output', 'children'),
+    Input('add_to_table_button', 'n_clicks'),
+    State('checklist_recs', 'value'),
+    State("select_jobs", 'value'),
+    State("dropdown", "value"),
+    State("job_table", "data"),
+    prevent_initial_call=True
+)
+def update_job_table_recs(n_clicks, recs, jobs, uuid, rows):
+    if "add_to_table_button" == ctx.triggered_id:
+        # also need to disable this button after clicking
+        if len(jobs) == 0:
+            return rows, "Please choose a job"
+        if len(recs) == 0:
+            return rows, "Please choose a recording"
+        jobs = sorted(jobs)
+        print(f"Selected jobs {jobs}")
+        for rec in recs:
+            for j in jobs:
+                j_ind = jobs.index(j)
+                j = int(j)
+                job_info = dict.fromkeys(TABLE_HEADERS)
+                job_info["index"] = int(len(rows) + 1)
+                job_info["status"] = "ready"
+                job_info["uuid"] = uuid
+                job_info["experiment"] = rec
+                for h, value in DEFAULT_JOBS["chained"][j].items():
+                    job_info[h] = value
+                    if j_ind < len(jobs)-1:
+                        job_info["next_job"] = int(job_info["index"]+1)
+                rows.append(job_info)
+        return rows, None
+
+
+
+@callback(
+    Output("checklist_recs", "options"),
+    Input("dropdown", "value"),
+    prevent_initial_call=True
+)
+def display_recordings(uuid):
+    rec_path = os.path.join(uuid, "original/data")
+    recs_list = wr.list_objects(rec_path)
+    if len(recs_list) > 0:
+        options = [rec.split("data/")[1] for rec in recs_list]
+        return options
+    else:
+        return []
+
+
+@callback(
+    Output("checklist_recs", "value"),
+    Input("select_recording", "value"),
+    State("checklist_recs", "options"),
+    prevent_initial_call=True
+)
+def select_recs(value, recs):
+    print(recs)
+    if value == "Batch":
+        return recs.copy()
+    elif value == "Reset":
+        return []
 
 
 @callback(
@@ -162,7 +272,7 @@ def show_uuid_metadata(uuid):
 
 @callback(
     Output('job_start_btn', 'disabled', allow_duplicate=True),
-    Output('select_job_input', 'value', allow_duplicate=True),
+    Output('batch_job', 'value', allow_duplicate=True),
     Input('dropdown', 'value'),
     prevent_initial_call=True
 )
@@ -175,7 +285,7 @@ def remove_selected_radioitem(value):
     Output('job_start_btn', 'disabled'),
     Input('job_start_btn', 'n_clicks'),
     State('job_table', 'data'),
-    # State('select_job_input', 'value'),
+    # State('batch_job', 'value'),
     prevent_initial_call=True
 )
 def disable_job_button(n_clicks, data):
@@ -189,7 +299,7 @@ def disable_job_button(n_clicks, data):
 
 @callback(
     Output("job_btn_return", "children"),
-    Output('select_job_input', 'value'),
+    Output('batch_job', 'value'),
     Input("job_start_btn", 'n_clicks'),
     State("job_table", "data"),
     prevent_initial_call=True
