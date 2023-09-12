@@ -1,0 +1,7 @@
+**/tests/**
+**/test/**
+**.zip
+**/.idea/**
+asd_2d_culture/data/
+asd_2d_culture/data/**
+asd_2d_culture/figures/**
