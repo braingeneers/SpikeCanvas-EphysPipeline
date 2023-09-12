@@ -1,0 +1,19 @@
+FROM python:3.10
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y time
+
+RUN python -m pip install --force-reinstall 'git+https://github.com/SpikeInterface/spikeinterface.git'
+RUN python -m pip install --force-reinstall 'git+https://github.com/braingeneers/braingeneerspy.git#egg=braingeneerspy[iot, data]'
+
+COPY docker/requirements.txt ./src/requirements.txt
+RUN set -ex && \
+    pip install -r ./src/requirements.txt
+
+# PRP setup
+ENV ENDPOINT_URL="https://s3-west.nrp-nautilus.io"
+
+COPY src/ /src
+WORKDIR /src
+
+# qm_curation:latest

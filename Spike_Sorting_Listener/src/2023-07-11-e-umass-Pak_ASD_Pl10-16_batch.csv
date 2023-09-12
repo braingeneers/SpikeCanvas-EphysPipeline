@@ -1,0 +1,8 @@
+uuid,batch,image,cpu_request,cpu_limit,memory_request,memory_limit,gpu,disk_request,disk_limit,experiment,Status
+2023-07-11-e-umass-Pak_ASD_Pl10-16_batch,Y,localhost:30081/surygeng/kilosort_docker:latest,12,16,32Gi,32Gi,1,300Gi,400Gi,13483_4927_Tri_d28.h5,Ready
+2023-07-11-e-umass-Pak_ASD_Pl10-16_batch,Y,localhost:30081/surygeng/kilosort_docker:latest,12,16,32Gi,32Gi,1,300Gi,400Gi,13483_4927_d21_Tri.h5,Ready
+2023-07-11-e-umass-Pak_ASD_Pl10-16_batch,Y,localhost:30081/surygeng/kilosort_docker:latest,12,16,32Gi,32Gi,1,300Gi,400Gi,14120_4927_Ngn_d28.h5,Ready
+2023-07-11-e-umass-Pak_ASD_Pl10-16_batch,Y,localhost:30081/surygeng/kilosort_docker:latest,12,16,32Gi,32Gi,1,300Gi,400Gi,14120_4927_d21_Ngn.h5,Ready
+2023-07-11-e-umass-Pak_ASD_Pl10-16_batch,Y,localhost:30081/surygeng/kilosort_docker:latest,12,16,32Gi,32Gi,1,300Gi,400Gi,14278_C2320b_Ngn_d28.h5,Ready
+2023-07-11-e-umass-Pak_ASD_Pl10-16_batch,Y,localhost:30081/surygeng/kilosort_docker:latest,12,16,32Gi,32Gi,1,300Gi,400Gi,14278_C2320b_d21_Ngn.h5,Ready
+2023-07-11-e-umass-Pak_ASD_Pl10-16_batch,Y,localhost:30081/surygeng/kilosort_docker:latest,12,16,32Gi,32Gi,1,300Gi,400Gi,14880_C2320b_d21_Tri.h5,Ready
