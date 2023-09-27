@@ -251,28 +251,35 @@ def remove_units(spike_train, neuron_dict, removed_ids):
     return update_trains, update_dict
 
 
-def upload_file(uuid, local_file, upload_file):
-    upload_path = posixpath.join(BUCKET, uuid, "derived/kilosort2/", upload_file)
+def upload_file(phy_path, local_file):
+    upload_path = phy_path.replace("_phy.zip", "_qm.zip")
     logging.info(f"Uploading data from {local_file} to {upload_path} ...")
     wr.upload(local_file=local_file, path=upload_path)
     logging.info("Done!")
 
 
+def parse_uuid(data_path):
+    experiment = data_path.split("/")[-1]
+    base_path = data_path.split(experiment)[0]
+    phy_base_path = base_path.replace("original/data", "derived/kilosort2")
+    if experiment.endswith(".raw.h5"):
+        experiment = experiment.split(".raw.h5")[0]
+
+    elif experiment.endswith(".h5"):
+        experiment = experiment.split(".h5")[0]
+    else:
+        logging.error("File format not support")
+    phy_path = posixpath.join(phy_base_path, experiment + "_phy.zip")
+    return base_path, phy_path
+
 if __name__ == "__main__":
     # test data: s3://braingeneers/ephys/2023-03-13-e-umass-Pak_ASD_Pair_1/original/data/14170_C3141a_d56_Tri.h5
 
     data_path = sys.argv[1]
-    phy_path = ""
-    print("s3 path: ", data_path)  # original recording s3 full path
-    uuid = data_path.split(BUCKET)[1].split("/original")[0]
-    experiment = data_path.split("/data/")[1]
-    if data_path[-7:] == ".raw.h5":
-        experiment = experiment.split(".raw.h5")[0]
-        phy_path = posixpath.join(BUCKET, uuid, "derived/kilosort2/", experiment + "_phy.zip")
-    elif data_path[-3:] == ".h5":
-        phy_path = posixpath.join(BUCKET, uuid, "derived/kilosort2/", experiment + "_phy.zip")
-    else:
-        logging.error("File format not support")
+    s3_base_path, phy_path = parse_uuid(data_path=data_path)
+    print(f"s3 path: {data_path}")  # original recording s3 full path
+    print(f"s3 base: {s3_base_path}")
+    print(f"phy path: {phy_path}")
 
     # download file from s3
     current_folder = os.getcwd()
@@ -299,13 +306,14 @@ if __name__ == "__main__":
     shutil.unpack_archive(kilosort_local_path, extract_dir, "zip")
 
     logging.info("Start downloading raw data ...")
+    experiment = "rec.raw.h5"
     wr.download(data_path, posixpath.join(base_folder, experiment))
     logging.info("Done")
 
     curation = QualityMetrics(base_folder=base_folder, rec_name=experiment, phy_folder=extract_dir)
     qm_file, wf_file = curation.package_cleaned()
 
-    curated_file = experiment + "_qm.zip"
-    waveform_file = experiment + "_wf.zip"
-    upload_file(uuid, qm_file, curated_file)
+    # curated_file = experiment + "_qm.zip"
+    # waveform_file = experiment + "_wf.zip"
+    upload_file(phy_path, qm_file)
     # upload_file(uuid, wf_file, waveform_file)
