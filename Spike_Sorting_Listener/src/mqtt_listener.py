@@ -12,11 +12,7 @@ import posixpath
 import zipfile
 import json
 
-# some parameters
-## use my personal bucket for testing
-# TEMP_S3_BUCKET = "s3://braingeneers/personal/suryjg/"
-LOCAL_CSV = "csv/"  # "jobs.csv"
-# TEMP_CSV = "temp.csv"
+LOCAL_CSV = "csv/"
 JOB_PREFIX = "edp-"
 TOPIC = ["services/csv_job", "experiment/upload", "telemetry/+/log/experiments/upload"]
 LOG_FILE_NAME = "listener.log"
@@ -32,17 +28,14 @@ logging.basicConfig(level=logging.INFO,
 
 
 ########################## Listener ##########################
-class MQTT_Job:
+class JobMessage:
     def __init__(self, topic, message):
         self.topic = topic
         self.message = message
-        # # execute according to topic
-        # self.parse_topic()
 
     def parse_topic(self):
         """
         Execute message according to topic
-        :return:
         """
         if self.topic.endswith("upload"):
             self.run_sorting()
@@ -66,7 +59,6 @@ class MQTT_Job:
                     path = exp_data.get('blocks')[0].get('path')
                     logging.info(f"Experiment: {exp}")
                     logging.info(f"Data path: {path}")
-
                     file_path = posixpath.join(s3_base, uuid, path)
                     if path.startswith("ephys"):
                         chip_id = re.search(r'/[0-9]*/', path).group(0)
@@ -80,50 +72,61 @@ class MQTT_Job:
                         create_sort(exp, file_path)
                     else:
                         logging.info(f"Sorting result exists. Moving on to next experiment... ")
-                logging.info(f"Done looping experiments. ")
-                write_log(LOG_FILE_NAME, LOG_PATH)
+                do_logging(f"Done looping experiments. ", "info")
             except Exception as err:
-                logging.error(f"Error with experiments, {err}")
-                write_log(LOG_FILE_NAME, LOG_PATH)
-                time.sleep(0.1)
+                do_logging(f"Error with experiments, {err}", "error")
         else:
             # TODO: use Ash's stitch image for all experiments in this metadata
-            logging.info(f"stitch is {stitch}, function to be implemented!")
-            write_log(LOG_FILE_NAME, LOG_PATH)
-            time.sleep(0.1)
+            do_logging(f"stitch is {stitch}, function to be implemented!", "info")
 
     def run_csv_job(self):
         logging.info(f"csv job message: {self.message}")
         csv_path = self.message.get("csv")
-        update = self.message.get("update")
-        update_info = None
-        job_index = None
-        if bool(update):
-            for k, v in update.items():
-                update_info = str(k)
-                job_index = v
-            run_job_from_csv(csv_path, update_info, job_index)
-        refresh = self.message.get("refresh")
-        if refresh or refresh in ["True", "true"]:
-            upload_csv(csv_path)  # TODO: try except for network error?
+        if "update" in self.message:
+            update = self.message.get("update")
+            if bool(update):
+                for k, v in update.items():
+                    run_job_from_csv(csv_path=csv_path, update_info=k, job_index=v)
+            logging.info(f"Found 'update' in message, done processing {csv_path}")
+
+        if "refresh" in self.message:
+            refresh = self.message.get("refresh")
+            if refresh or refresh in ["True", "true"]:
+                upload_csv(csv_path)
+                logging.info(f"Found 'refresh' in message, uploaded local file to {csv_path}")
+
+        if "clean" in self.message:
+            clean = self.message.get("clean")
+            if clean or clean in ["True", "true"]:
+                remove_csv(csv_path)
+                logging.info(f"Found 'clean' in message, removed local file of {csv_path}")
+
+
+def get_csv_name(csv_path):
+    return csv_path.split("csvs/")[-1]
 
 
 def download_csv(csv_path):
-    csv_file = csv_path.split("csvs/")[-1]
+    csv_file = get_csv_name(csv_path)
     wr.download(csv_path, os.path.join(LOCAL_CSV, csv_file))
     return csv_file
 
 
 def upload_csv(csv_path):
-    # assert os.path.isfile(TEMP_CSV) is True, f"{TEMP_CSV} not exist"
-    csv_file = csv_path.split("csvs/")[-1]
+    csv_file = get_csv_name(csv_path)
     local_path = os.path.join(LOCAL_CSV, csv_file)
     wr.upload(local_path, csv_path)
 
 
+def remove_csv(csv_path):
+    csv_file = get_csv_name(csv_path)
+    local_path = os.path.join(LOCAL_CSV, csv_file)
+    if os.path.isfile(local_path):
+        os.remove(local_path)
+
 
 def csv_exists(csv_path):
-    csv_file = csv_path.split("csvs/")[-1]
+    csv_file = get_csv_name(csv_path)
     local_path = os.path.join(LOCAL_CSV, csv_file)
     if os.path.isfile(local_path):
         return True
@@ -135,16 +138,17 @@ def run_job_from_csv(csv_path, update_info, job_index):
     """
     # run jobs that are ready
     # run the next job when next is not None
-    # run next job after update job status (wait until the csv file is uploaded)
+    # run next job after update job status
     :param
     csv_file: name of the csv, not s3 path or a local path
     :return:
     """
-    # TODO: keep a copy locally, upload it using a thread after a while, or when request status
     if not csv_exists(csv_path):
+        logging.info(f"Download csv from {csv_path}")
         csv_file = download_csv(csv_path)
     else:
-        csv_file = csv_path.split("csvs/")[-1]
+        logging.info(f"Found a local csv.")
+        csv_file = get_csv_name(csv_path)
 
     new_rows_list = []
     with open(f"{LOCAL_CSV}{csv_file}", 'r') as file1:
@@ -178,7 +182,7 @@ def launch_job_csv(csv_file, csv_row):
     job_info = dict(csv_row).copy()
     job_ind = job_info["index"]
     job_name = format_job_name(csv_file, job_ind)
-    logging.info(f"creating job: {job_name}")
+    logging.info(f"creating job for job name: {job_name}")
     resp = create_kube_job(job_name, job_info)
     # TODO: resp should have many info inside. Parse it by a better way
     if resp == -1:
@@ -248,6 +252,15 @@ def write_log(local_file, s3_file):
     return None
 
 
+def do_logging(log_msg, info_type):
+    if info_type == "error":
+        logging.error(log_msg)
+    elif info_type == "info":
+        logging.info(log_msg)
+    write_log(LOG_FILE_NAME, LOG_PATH)
+    time.sleep(0.1)
+
+
 def check_exist(path):
     if wr.does_object_exist(path):
         with smart_open.open(path, 'rb') as f:
@@ -281,12 +294,10 @@ def start_listening():
         while True:
             topic, message = q.get()
             logging.info(f"Received message from topic: {topic}")
-            MJ = MQTT_Job(topic=topic, message=message)
-            MJ.parse_topic()
+            job_message = JobMessage(topic=topic, message=message)
+            job_message.parse_topic()
     except Exception as err:
-        logging.error(f"RED ALARM! Service Down. Error message: {err}")
-        write_log(LOG_FILE_NAME, LOG_PATH)
-        time.sleep(0.1)
+        do_logging(f"RED ALARM! Service Down. Error message: {err}", "error")
 
 
 if __name__ == "__main__":

@@ -147,6 +147,6 @@ class MQTTJobListener:
 
 
 if __name__ == "__main__":
-    job_listener = MQTTJobListener("../jobs.csv")
+    job_listener = MQTTJobListener("jobs.csv")
     job_listener.start_mqtt_listeners()
     Event().wait()

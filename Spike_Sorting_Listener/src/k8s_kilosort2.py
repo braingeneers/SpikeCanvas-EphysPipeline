@@ -16,10 +16,15 @@ class Kube:
         if "file_path" in job_info:
             s3_path = job_info["file_path"]
         else:
-            s3_path = os.path.join(DEFAULT_S3_BUCKET,
-                                   job_info["uuid"],
-                                   "original/data",
-                                   job_info["experiment"])
+            if job_info["uuid"].startswith("s3"):
+                s3_path = os.path.join(job_info["uuid"],
+                                       "original/data",
+                                       job_info["experiment"])
+            else:
+                s3_path = os.path.join(DEFAULT_S3_BUCKET,
+                                       job_info["uuid"],
+                                       "original/data",
+                                       job_info["experiment"])
 
         logging.info(f"create job for {s3_path}")
         self.args = f"{job_info['args']} {s3_path}"
@@ -99,4 +104,3 @@ class Kube:
             body=client.V1DeleteOptions(
                 propagation_policy='Foreground',
                 grace_period_seconds=0))
-
