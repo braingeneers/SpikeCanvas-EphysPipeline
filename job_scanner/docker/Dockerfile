@@ -9,7 +9,7 @@ RUN pip install kubernetes \
     deprecated
 
 # PRP setup
-ENV ENDPOINT_URL="https://s3-west.nrp-nautilus.io"
+ENV ENDPOINT_URL="https://s3.braingeneers.gi.ucsc.edu"
 
 COPY src/ /app
 WORKDIR /app
@@ -17,4 +17,4 @@ WORKDIR /app
 # run
 CMD ["python", "job_scanner.py"]
 
-## job_scanner:0.1
+## job_scanner:v0.1

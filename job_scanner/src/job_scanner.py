@@ -4,53 +4,95 @@ import os
 import time
 import uuid as uuidgen
 from kubernetes.client.rest import ApiException
-from pprint import pprint
+import logging
 
 CSV_UUID = "s3://braingeneers/services/mqtt_job_listener/csvs/"
-JOB_PREFIX = "edp-"
+JOB_PREFIX = "edp-"  # electrophysiology
 TOPIC = "services/csv_job"
 NAMESPACE = 'braingeneers'
+TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/iot-experiments"
+LOG_FILE_NAME = "scanner.log"
+FINISH_FLAGS = ["Succeeded", "Failed", "Unknown"]
+
+# setup logging
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s %(message)s',
+                    handlers=[logging.FileHandler(LOG_FILE_NAME, mode="a"),
+                              stream_handler])
 
 
-def scan_pods(namespace):
-    """
-    scan prp pods every 30 seconds and update status to mqtt_job_listener
-    "pod.status.phase" values (dtype: str):
-    Pending    Running    Succeeded    Failed    Unknown
-    :param namespace:
-    :return:
-    """
-    config.load_kube_config()
-    core_v1 = client.CoreV1Api()
-    # TODO: clear dict after sometime because
-    #       size of dict may grow large if pods are
-    #       removed by other means
-    # TODO: Scan "mqtt-ss-" pods and send Slack message when pod is done (completed/failed)
-    status_table = dict()
-    while True:
-        pod_list = core_v1.list_namespaced_pod(namespace=namespace)
-        for pod in pod_list.items:
-            pname = pod.metadata.name
-            if pname[:4] == JOB_PREFIX:
-                status = pod.status.phase
-                if pname in status_table and status != status_table[pname]:
-                    update_pod_status(pname, status)  # send a message to update pod status
-                    if status in ["Succeeded", "Failed", "Unknown"]:
-                        del status_table[pname]
-                        # also delete pod otherwise pname will be put into table again
-                        try:
-                            api_response = core_v1.delete_namespaced_pod(pname, namespace=namespace)
-                            # pprint(api_response)
-                            time.sleep(0.1)
-                        except ApiException as e:
-                            print("Exception when calling CoreV1Api->delete_namespaced_pod: %s\n" % e)
-                    else:
-                        status_table[pname] = status
-                elif pname not in status_table:
-                    update_pod_status(pname, status)  # send a message to update pod status
-                    status_table[pname] = status
-        time.sleep(30)
-        print(f"current pods: {status_table}")  # for debug
+class Scanner:
+    def __init__(self, namespace, job_prefix):
+        self.namespace = namespace
+        self.job_prefix = job_prefix
+        self.status_table = dict()  # {"pname": {"status": None, "slack": True}}
+
+    def scan_pod(self):
+        """
+        scan prp pods every 30 seconds and update status to mqtt_job_listener
+        "pod.status.phase" values (dtype: str):
+        Pending    Running    Succeeded    Failed    Unknown
+        self.status_table = {"pname": {"status": None/Status, "slack": True/False}}
+        :param namespace:
+        :return:
+        """
+        config.load_kube_config()
+        core_v1 = client.CoreV1Api()
+        logging.info(f"Start scanning {JOB_PREFIX} jobs for namespace {self.namespace}")
+        while True:
+            try:
+                pod_list = core_v1.list_namespaced_pod(namespace=self.namespace)
+            except:
+                logging.info("Refresh token")
+                config.load_kube_config()
+                core_v1 = client.CoreV1Api()
+                pod_list = core_v1.list_namespaced_pod(namespace=self.namespace)
+
+            for pod in pod_list.items:
+                pname = pod.metadata.name
+                if pname.startswith(self.job_prefix):
+                    sts = pod.status.phase
+                    if pname not in self.status_table and sts not in FINISH_FLAGS:
+                        data_path = parse_data_path(pod)
+                        if "-efi-" in data_path:
+                            self.status_table[pname] = {"status": sts, "slack": True}
+                        else:
+                            self.status_table[pname] = {"status": sts, "slack": False}
+                    elif pname in self.status_table:
+                        if sts != self.status_table[pname]["status"]:
+                            if sts in FINISH_FLAGS:
+                                if self.status_table[pname]["slack"]:
+                                    update_status_to_slack(pod, sts)  # send a message to slack iot channel
+                                else:
+                                    update_pod_status(pname, sts)  # send a message to update csv job status
+                                del self.status_table[pname]
+                                # also delete pod
+                                try:
+                                    api_response = \
+                                        core_v1.delete_namespaced_pod(pname,
+                                                                      namespace=self.namespace,
+                                                                      body=client.V1DeleteOptions(
+                                                                          propagation_policy='Foreground',
+                                                                          grace_period_seconds=0)
+                                                                      )
+                                    logging.info(f"Delete {sts} pod {api_response.metadata.name}")
+                                    time.sleep(0.1)
+                                except ApiException as e:
+                                    logging.error(f"Exception when calling CoreV1Api->delete_namespaced_pod: {e}")
+                            else:
+                                if not self.status_table[pname]["slack"]:
+                                    update_pod_status(pname, sts)
+                                self.status_table[pname]["status"] = sts
+            time.sleep(30)  # scan namespace every 30 seconds
+            logging.info(f"Status table: {self.status_table}")
+
+
+def parse_data_path(pod):
+    args = pod.spec.containers[0].args[0]
+    data_path = args.split()[-1]
+    return data_path
 
 
 def update_pod_status(pod_name, status):
@@ -63,22 +105,31 @@ def update_pod_status(pod_name, status):
     :return:
     """
     name_comp = pod_name.split('-')
-    csv_file = f"{name_comp[1]}.csv"
+    csv_file = f"{name_comp[1]}.csv"  # need the job name to be a string of numbers
     csv_path = os.path.join(CSV_UUID, csv_file)
     job_index = int(name_comp[2])
     topic = TOPIC
     message = {"csv": csv_path,
-               "update": {status: [job_index]}
+               "update": {status: [job_index]},
+               "refresh": False,
+               "clean": False
                }
     mb = messaging.MessageBroker(str(uuidgen.uuid4()))
     mb.publish_message(topic=topic, message=message, confirm_receipt=True)
-    print(f"Sent {message} to {topic}")
+    logging.info(f"Sent {message} to {topic}")
     time.sleep(.01)
 
 
-def update_status_to_slack(pod_name, status):
-    pass
+def update_status_to_slack(pod, status):
+    data_path = parse_data_path(pod)
+    text = f"Sorting {status} for {data_path}"
+    message = {"message": text}
+    mb = messaging.MessageBroker(str(uuidgen.uuid4()))
+    mb.publish_message(topic=TO_SLACK_TOPIC, message=message, confirm_receipt=True)
+    logging.info(f"Sent {message} to Slack IOT channel")
+    time.sleep(.01)
 
 
 if __name__ == "__main__":
-    scan_pods(namespace=NAMESPACE)
+    new_scan = Scanner(namespace=NAMESPACE, job_prefix=JOB_PREFIX)
+    new_scan.scan_pod()
