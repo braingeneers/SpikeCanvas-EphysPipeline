@@ -26,7 +26,7 @@ spec:
         command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
         args:
           - >-
-            python run_conn.py s3://braingeneers/ephys/2024-01-18-e-P001515/derived/kilosort2/interneurons_20231216_16_33_58_acqm.zip
+            python run_conn.py s3://braingeneers/ephys/2023-12-11-e-Hc120523_aav9hckcr1_chip21769/derived/kilosort2/elliott_chip21769_2_manual_curation_auto_format.zip
         env:
           - name: "PYTHONUNBUFFERED"
             value: "true"

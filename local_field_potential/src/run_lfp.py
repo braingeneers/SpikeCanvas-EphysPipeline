@@ -18,6 +18,7 @@ DEC = 20
 FS_DOWN = FS / DEC
 LOW_CUT = 0.1
 HIGH_CUT = 100.0
+hdf5_plugin_path = '/app/'
 
 
 # setup logging
@@ -28,6 +29,14 @@ def setup_logging(log_file):
                         format='%(asctime)s %(message)s',
                         handlers=[logging.FileHandler(log_file, mode="a"),
                                   stream_handler])
+
+def setup_hdf5():
+    os.environ['HDF5_PLUGIN_PATH'] = hdf5_plugin_path
+    # copy the plugin to "/usr/local/hdf5/lib/plugin" to make sure this file can be found by the script
+    path_to_lib = os.path.join(hdf5_plugin_path, "libcompression.so")
+    if os.path.isfile(path_to_lib):
+        os.makedirs("/usr/local/hdf5/lib/plugin/")
+        shutil.copy(path_to_lib, "/usr/local/hdf5/lib/plugin/libcompression.so")
 
 def load_raw_maxwell(dataset_path: str, channel_list: list, rec_period: list, fs=20000.0):
     """
@@ -143,6 +152,8 @@ if __name__ == "__main__":
     # setup logging 
     log = os.path.join(output_folder, "lfp.log")
     setup_logging(log)
+    # setup hdf5
+    setup_hdf5()
     
     # download file from s3
     if not wr.does_object_exist(data_path):

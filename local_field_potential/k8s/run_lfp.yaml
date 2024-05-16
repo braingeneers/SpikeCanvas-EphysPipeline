@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: sjg-lfp-test-1
+  name: sjg-lfp-chip23196-10
 spec:
   backoffLimit: 2
   template:
@@ -26,7 +26,7 @@ spec:
         command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
         args:
           - >-
-            python run_lfp.py s3://braingeneers/ephys/2023-12-03-e-Hc112823_avv9hckcr1/original/data/Hc112823_avv9hckcr1_21841_120323_1.raw.h5 210 240
+            python run_lfp.py s3://braingeneers/ephys/2024-04-10-e-interneurons_56/original/data/Trace_20240410_19_55_07_minute30_nosynaptic_pasca_ventral_56_23196.raw.h5 480 600
         env:
           - name: "PYTHONUNBUFFERED"
             value: "true"

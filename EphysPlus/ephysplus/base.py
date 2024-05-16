@@ -35,7 +35,7 @@ class Bunch(dict):
     def __init__(self, *args, **kwargs):
         super(Bunch, self).__init__(*args, **kwargs)
         self.__dict__ = self
-
+# hi sury - john
     @classmethod
     def bunchify(cls, data):
         """

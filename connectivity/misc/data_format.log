@@ -1,0 +1,4 @@
+Load "elliott_chip21769_2.zip" to SpikeData using braingeneers.analysis.load_phy_files()
+Convert to auto-curation npz file 
+Compress npz with this log file to a zip to run connectivity analysis 
+

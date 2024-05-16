@@ -10,6 +10,8 @@ import braingeneers.utils.s3wrangler as wr
 from braingeneers import analysis
 import matplotlib.pyplot as plt
 
+# TODO: add auto corelation analysis and save to a seperate folder.
+
 # parametesr
 OUTPUT_BUCKET = "derived/connectivity"
 SUFFIX = "conn.zip"

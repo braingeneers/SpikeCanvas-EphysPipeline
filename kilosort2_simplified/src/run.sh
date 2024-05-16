@@ -16,7 +16,7 @@ fi
 aws --endpoint $ENDPOINT_URL s3 cp ${REC_TIME}/metadata.json /project/SpikeSorting/metadata.json
 aws --endpoint $ENDPOINT_URL s3 cp $1 /project/SpikeSorting/Trace
 
-python kilosort2_simplified.py $DATA_NAME_FULL
+python kilosort2_simplified.py $DATA_NAME
 
 cd /project/SpikeSorting/inter/sorted/kilosort2 || exit
 aws --endpoint $ENDPOINT_URL s3 cp recording.dat s3://braingeneersdev/cache/${DATA_NAME}/recording.dat
