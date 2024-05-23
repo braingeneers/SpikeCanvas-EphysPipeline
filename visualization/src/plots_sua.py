@@ -30,6 +30,7 @@ class PlotSUA:
             cluster = data["cluster_id"]
             npos = data["neighbor_positions"]
             ntemp = data["neighbor_templates"]
+            print(f"Unit {cluster} has {len(npos)} neighbors and {len(ntemp)} templates")
             isi = np.diff(self.train[k])*1000    # neuron_data key is the index of the train
             logging.info(f"Plotting the No. {k} unit (cluster {cluster}) with {len(self.train[k])} spikes")
 
@@ -52,11 +53,17 @@ class PlotSUA:
             ax0.set_ylabel(u"\u03bcm", fontsize=11)
 
             # 2. plot spike waveform
-            raw_waveform = data["waveforms"]
-            xx = np.arange(raw_waveform.shape[1]) / self.fs * 1000
-            ax1.plot(xx, raw_waveform.T, color='k', alpha=0.2)
-            ax1.plot(xx, np.mean(raw_waveform, axis=0), color='r', linewidth=2)
-            ax1.set_title(f"Waveform", fontsize=11)
+            if "waveforms" in data:
+                raw_waveform = data["waveforms"]
+                xx = np.arange(raw_waveform.shape[1]) / self.fs * 1000
+                ax1.plot(xx, raw_waveform.T, color='k', alpha=0.2)
+                ax1.plot(xx, np.mean(raw_waveform, axis=0), color='r', linewidth=2)
+                ax1.set_title(f"Waveform", fontsize=11)
+            else:
+                waveform = data["template"]
+                xx = np.arange(len(waveform)) / self.fs * 1000
+                ax1.plot(xx, waveform, color='r', linewidth=2)
+                ax1.set_title(f"Template", fontsize=11)
             ax1.set_xlabel("Time (ms)", fontsize=11)
             ax1.set_ylabel("Voltage (uV)", fontsize=11)
 
@@ -110,7 +117,7 @@ class PlotSUA:
                 ax.tick_params(axis='both', which='major', labelsize=11)
                 ax.tick_params(axis='both', which='minor', labelsize=11)
 
-            plt.tight_layout()
+            # plt.tight_layout()
             if self.save_to is not None:
                 plt.savefig(f"{self.save_to}/sua_{self.title}_unit_{cluster}.png", dpi=300)
                 plt.close()

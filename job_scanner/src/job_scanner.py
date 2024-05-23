@@ -59,7 +59,7 @@ class Scanner:
                         if "-efi-" in data_path:
                             self.status_table[pname] = {"status": sts, "slack": True}
                         else:
-                            self.status_table[pname] = {"status": sts, "slack": False}
+                            self.status_table[pname] = {"status": sts, "slack": True}
                     elif pname in self.status_table:
                         if sts != self.status_table[pname]["status"]:
                             if sts in FINISH_FLAGS:

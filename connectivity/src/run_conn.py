@@ -47,13 +47,25 @@ def upload_file(phy_path, local_file):
 
 if __name__ == "__main__":
     # test data: s3://braingeneers/integrated/2023-09-16-efi-mouse-5plex-official/ephys/derived/pipeline/19894/2023-09-23-T070000-chip19894_acqm.zip
+    # change input to original/data/recording.raw.h5
+    rec_path = sys.argv[1]
+    data_path = rec_path.replace("original/data", "derived/kilosort2")
+    if data_path.endswith(".raw.h5.raw.h5"):
+        data_path = data_path.replace(".raw.h5.raw.h5", "_acqm.zip")
+    elif data_path.endswith(".raw.h5"):
+        data_path = data_path.replace(".raw.h5", "_acqm.zip")
+    elif data_path.endswith(".h5"):
+        data_path = data_path.replace(".h5", "_acqm.zip")
+    else:
+        logging.error(f"Recording is not a MaxWell h5 file: {rec_path}")
+        logging.error(f"Exit")
+        sys.exit(1)
 
-    data_path = sys.argv[1]
-    figure_name = data_path.split("/")[-1].replace(".zip", "")
     if not wr.does_object_exist(data_path):
         logging.exception(f"Data doesn't exist! Check the path: {data_path}")
         sys.exit(1)
 
+    figure_name = data_path.split("/")[-1].replace(".zip", "")
     # download file from s3 to data folder
     current_folder = os.getcwd()  # python scripts are in this folder, so create subfolder for data
     data_subfolder = "/data"

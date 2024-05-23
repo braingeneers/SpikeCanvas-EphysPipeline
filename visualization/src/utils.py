@@ -6,7 +6,7 @@ import pandas as pd
 from scipy import signal
 from scipy.sparse import csr_array
 import logging
-from deprecation import deprecated
+# from deprecation import deprecated
 import math
 
 
@@ -305,7 +305,6 @@ def _sttc_na(tA, tB, delt):
 
 
 
-@deprecated("use the function in braingeneers.analysis")
 def read_phy_files(path: str, fs=20000.0):
     """
     :param path: a s3 or local path to a zip of phy files.
@@ -331,7 +330,7 @@ def read_phy_files(path: str, fs=20000.0):
         wmi = np.load(f_zip.open('whitening_mat_inv.npy'))
         channels = np.load(f_zip.open('channel_map.npy')).squeeze()
         spike_templates = np.load(f_zip.open('spike_templates.npy')).squeeze()
-        spike_times = np.load(f_zip.open('spike_times.npy')).squeeze() / fs * 1e3  # in ms
+        spike_times = np.load(f_zip.open('spike_times.npy')).squeeze() / fs   # in second * 1e3  # in ms
         positions = np.load(f_zip.open('channel_positions.npy'))
         amplitudes = np.load(f_zip.open("amplitudes.npy")).squeeze()
         if 'cluster_info.tsv' in f_zip.namelist():
@@ -360,7 +359,7 @@ def read_phy_files(path: str, fs=20000.0):
         amp = np.max(temp, axis=0) - np.min(temp, axis=0)
         sorted_idx = np.argsort(amp)[::-1]
         nbgh_chan_idx = sorted_idx[:12]
-        nbgh_temps = temp.transpose()[sorted_idx]
+        nbgh_temps = temp.transpose()[nbgh_chan_idx]
         best_chan_temp = nbgh_temps[0]
         nbgh_channels = channels[nbgh_chan_idx]
         nbgh_postions = [tuple(positions[idx]) for idx in nbgh_chan_idx]
@@ -376,3 +375,17 @@ def read_phy_files(path: str, fs=20000.0):
     metadata = {0: config_dict}
     spike_train = list(cluster_agg["spikeTimes"])
     return fs, spike_train, neuron_dict
+
+def load_curation(qm_path):
+    with zipfile.ZipFile(qm_path, 'r') as f_zip:
+        qm = f_zip.open("qm.npz")
+        data = np.load(qm, allow_pickle=True)
+        spike_times = data["train"].item()
+        fs = data["fs"]
+        train = [times / fs for _, times in spike_times.items()]
+        if "config" in data:
+            config = data["config"].item()
+        else:
+            config = None
+        neuron_data = data["neuron_data"].item()
+    return train, neuron_data, config, fs

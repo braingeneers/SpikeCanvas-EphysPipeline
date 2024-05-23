@@ -45,8 +45,10 @@ class Kube:
                 limits=self.resources
             ),
             env=[client.V1EnvVar(name="PYTHONUNBUFFERED", value='true'),
-                 client.V1EnvVar(name="ENDPOINT_URL", value="http://rook-ceph-rgw-nautiluss3.rook"),
-                 client.V1EnvVar(name="S3_ENDPOINT", value="rook-ceph-rgw-nautiluss3.rook")],
+                #  client.V1EnvVar(name="ENDPOINT_URL", value="http://rook-ceph-rgw-nautiluss3.rook"),
+                #  client.V1EnvVar(name="S3_ENDPOINT", value="rook-ceph-rgw-nautiluss3.rook")],    
+                 client.V1EnvVar(name="ENDPOINT_URL", value="https://s3.braingeneers.gi.ucsc.edu"),  # use external url to avoid 403 error
+                 client.V1EnvVar(name="S3_ENDPOINT", value="s3.braingeneers.gi.ucsc.edu")],
             volume_mounts=[client.V1VolumeMount(name="prp-s3-credentials", mount_path="/root/.aws/credentials",
                                                 sub_path="credentials")])
         if "whitelist_nodes" in self.job_info:
@@ -71,7 +73,7 @@ class Kube:
             api_version='batch/v1',
             kind='Job',
             metadata=client.V1ObjectMeta(name=self.job_name),
-            spec=client.V1JobSpec(backoff_limit=0, template=template))
+            spec=client.V1JobSpec(backoff_limit=2, template=template))
         return job
 
     def check_job_exist(self):

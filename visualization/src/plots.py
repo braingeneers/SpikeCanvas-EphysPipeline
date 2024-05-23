@@ -61,6 +61,10 @@ class PlotlyEphys:
         self.standoff = 2
         self.edge_lw = 1
 
+    def plot_html_individual(self):
+        # for large amount of data, plot multiple small html pages
+        return 
+
     def plot_html_page(self):
         """
         generate one html page that summarize the data

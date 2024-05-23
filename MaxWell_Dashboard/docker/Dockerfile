@@ -11,7 +11,7 @@ RUN set -ex && \
 #COPY docker/top_level.txt /usr/local/lib/python3.10/site-packages/scipy-1.10.1.dist-info/top_level.txt
 
 # PRP setup
-ENV ENDPOINT_URL="https://s3-west.nrp-nautilus.io"
+ENV ENDPOINT_URL="https://braingeneers.gi.ucsc.edu"
 
 # run locally
 EXPOSE 8050

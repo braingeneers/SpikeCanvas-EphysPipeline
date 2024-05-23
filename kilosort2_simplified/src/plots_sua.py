@@ -110,7 +110,7 @@ class PlotSUA:
                 ax.tick_params(axis='both', which='major', labelsize=11)
                 ax.tick_params(axis='both', which='minor', labelsize=11)
 
-            plt.tight_layout()
+            # plt.tight_layout()
             if self.save_to is not None:
                 plt.savefig(f"{self.save_to}/sua_{self.title}_unit_{cluster}.png", dpi=300)
                 plt.close()

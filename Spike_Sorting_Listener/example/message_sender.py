@@ -9,7 +9,7 @@ import time
 TOPIC = "experiments/upload"
 
 
-def create_message(uuid, exp_list):
+def create_message(uuid, exp_list, ow=False):
     """
     create the minimum dictionary of metadata if the metadata.json is not available
     or the input experiment is a subset of all experiments
@@ -22,7 +22,7 @@ def create_message(uuid, exp_list):
     message = {
         "uuid": uuid,
         "stitch": "False",
-        "overwrite": "False",
+        "overwrite": ow,
         "ephys_experiments": {},
         "output": f"s3://braingeneers/{uuid}/derived/stitch/result_phy.zip"
     }
@@ -51,6 +51,7 @@ if __name__ == '__main__':
     uuid = None
     get_uuid = True
     get_exp = True
+    get_overwrite = True
     while get_uuid:
         uuid = input("Please enter a UUID: ")
         uuid = "".join(uuid.split())
@@ -109,7 +110,15 @@ if __name__ == '__main__':
         exp_exist = [os.path.join(data_path, exp) for exp in experiment]
         print(f"Getting read for the selected {len(exp_exist)} experiments...")
 
-    metadata = create_message(uuid, exp_exist)
+    while get_overwrite:
+        ow_input = input("Overwrite result? y/n")
+        if ow_input == "y":
+            ow = True
+        else:
+            ow = False
+        print(f"User set overwrite to {ow}")
+        get_overwrite = False
+    metadata = create_message(uuid, exp_exist, ow)
     mb.publish_message(topic=TOPIC, message=metadata, confirm_receipt=True)
     time.sleep(0.1)
     print(f"Message sent to {TOPIC} for UUID {uuid} for processing {len(exp_exist)} experiments")

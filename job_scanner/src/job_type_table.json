@@ -1,0 +1,8 @@
+ {
+    "surygeng/kilosort_docker:v0.2": "Kilosort2",
+    "surygeng/connectivity:v0.1": "Functional Connectivity Analysis",
+    "surygeng/ephys_pipeline:v0.1": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
+    "surygeng/local_field_potential:v0.1": "Local Field Potential Subbands",
+    "surygeng/qm_curation:latest": "Auto-Curation by Quality Metrics",
+    "surygeng/visualization:v0.1": "Visualization"
+}

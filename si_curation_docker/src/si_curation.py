@@ -257,7 +257,7 @@ def remove_units(spike_train, neuron_dict, removed_ids):
 
 
 def upload_file(phy_path, local_file):
-    upload_path = phy_path.replace("_phy.zip", "_qm_rd.zip")
+    upload_path = phy_path.replace("_phy.zip", "_acqm.zip")
     logging.info(f"Uploading data from {local_file} to {upload_path} ...")
     wr.upload(local_file=local_file, path=upload_path)
     logging.info("Done!")

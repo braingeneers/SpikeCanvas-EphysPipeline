@@ -18,7 +18,7 @@ for page in dash.page_registry.values():
 
 app.layout = html.Div([
     dcc.Store(id="multipage_data", data=str("{}"), storage_type='local'),
-    html.H1('Multi-page Dashboard (Needs a Better Name)'),
+    html.H1('Ephys Pipeline Dashboard'),
     html.Div([
         html.Div(
             dcc.Link(f"{page['name']} - {page['path']}", href=page["relative_path"])

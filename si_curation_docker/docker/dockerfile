@@ -11,9 +11,9 @@ RUN set -ex && \
     pip install -r ./src/requirements.txt
 
 # PRP setup
-ENV ENDPOINT_URL="https://s3-west.nrp-nautilus.io"
+ENV ENDPOINT_URL="https://braingeneers.gi.ucsc.edu"
 
 COPY src/ /src
 WORKDIR /src
 
-# qm_curation:latest
+# qm_curation:v0.2

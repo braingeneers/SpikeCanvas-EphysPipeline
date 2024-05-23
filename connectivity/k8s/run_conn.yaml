@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: sjg-alg-test-1
+  name: edp-alg-connectivity-3
 spec:
   backoffLimit: 2
   template:
@@ -18,7 +18,7 @@ spec:
             memory: "16Gi"
             ephemeral-storage: "8Gi"
           limits:
-            cpu: "4"
+            cpu: "2"
             memory: "16Gi"
             ephemeral-storage: "8Gi"
             nvidia.com/gpu: 0
@@ -26,16 +26,18 @@ spec:
         command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
         args:
           - >-
-            python run_conn.py s3://braingeneers/ephys/2023-12-11-e-Hc120523_aav9hckcr1_chip21769/derived/kilosort2/elliott_chip21769_2_manual_curation_auto_format.zip
+            python run_conn.py s3://braingeneers/integrated/2023-09-16-efi-mouse-5plex-official/ephys/original/data/19894/2023-09-23-T070000-chip19894.raw.h5
         env:
           - name: "PYTHONUNBUFFERED"
             value: "true"
 
           # Ceph (internal)
           - name: "ENDPOINT_URL"
-            value: "http://rook-ceph-rgw-nautiluss3.rook"  # ceph internal
+            # value: "http://rook-ceph-rgw-nautiluss3.rook"  # ceph internal
+            value: "https://s3.braingeneers.gi.ucsc.edu"  # ceph external
           - name: "S3_ENDPOINT"
-            value: "rook-ceph-rgw-nautiluss3.rook" # ceph internal
+            # value: "rook-ceph-rgw-nautiluss3.rook" # ceph internal
+            value: "s3.braingeneers.gi.ucsc.edu" # ceph external
 
         volumeMounts:
 
