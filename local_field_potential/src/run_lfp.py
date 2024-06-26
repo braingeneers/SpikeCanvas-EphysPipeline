@@ -182,8 +182,10 @@ if __name__ == "__main__":
         lfp_down = downsample(lfp, dec=DEC)[1]
         all_channel_lfp = np.vstack((all_channel_lfp, lfp_down))
     logging.info(f"All channel LFP shape {all_channel_lfp.shape}")
+    logging.info(f"Filtered with passband {LOW_CUT} - {HIGH_CUT} Hz, downsampled to {FS_DOWN} Hz.")
 
     # extract the subbands and save to a npz file
+    logging.info(f"Subband frequency: delta (0.5-4Hz), theta (4-8Hz), alpha (8-13Hz), beta (13-30Hz), gamma (30-50Hz)")
     logging.info("Saving LFP data to npz file...")
     lfp_data = {"lfp": all_channel_lfp, 
                 "delta": butter_bandpass_filter(all_channel_lfp, 0.5, 4, fs=FS_DOWN),

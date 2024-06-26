@@ -6,7 +6,7 @@ SUCCESS=0
 
 REC_TIME=$(echo $1 | awk -F '/original/data/|/shared/' '{print $1}')
 DATASET=$(echo $1 | awk -F '/original/data/|/shared/' '{print $2}')
-PARAM_FILE=$2
+# PARAM_FILE=$2
 DATA_NAME_FULL=$(echo ${DATASET} | awk -F '.raw.h5|.h5|.nwb' '{print $1}')
 
 if [[ $DATA_NAME_FULL == *"/"* ]]; then
@@ -22,7 +22,7 @@ aws --endpoint $ENDPOINT_URL s3 cp ${REC_TIME}/metadata.json /project/SpikeSorti
 # download raw data to local
 aws --endpoint $ENDPOINT_URL s3 cp $1 /project/SpikeSorting/Trace
 # download parameter file to local
-aws --endpoint $ENDPOINT_URL s3 cp $2 /project/SpikeSorting/parameters.json
+# aws --endpoint $ENDPOINT_URL s3 cp $2 /project/SpikeSorting/parameters.json
 
 python kilosort2_simplified.py $DATA_NAME
 

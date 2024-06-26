@@ -174,7 +174,9 @@ if __name__ == "__main__":
         if not data_format:
             data_format = "Maxwell"  # a patch for the old metadata.json
     if not os.path.isfile(parameter_path):
-        logging.error("Error: parameters.json not available. Using default parameters.")
+        params = {"min_snr": 5, "min_fr": 0.1, "max_isi_viol": 0.2}
+        logging.error(f"Error: parameters.json not available. Using default parameters for curation. {params}")
+        
     else:
         params = utils.load_paramter(parameter_path)   # TODO: save with kilosort parameters to the parameter_setting.json
 

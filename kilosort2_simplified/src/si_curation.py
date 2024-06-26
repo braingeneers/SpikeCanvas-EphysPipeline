@@ -183,11 +183,11 @@ class QualityMetrics:
                               "neighbor_positions": positions[sorted_idx],
                               "neighbor_templates": temp[sorted_idx]
                               }
-        # config = read_maxwell_mapping(self._rec_path)
+        config = read_maxwell_mapping(self._rec_path)
         spike_data = {"train": {c: self.we_clean.sorting.get_unit_spike_train(c)
                                 for c in clusters},
                       "neuron_data": neuron_dict,
-                      # "config": config,
+                      "config": config,
                       "redundant_pairs": self.redundant_pairs,
                       "fs": self.we_clean.recording.sampling_frequency}
         return spike_data
