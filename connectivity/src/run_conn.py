@@ -36,7 +36,7 @@ def setup_logging(log_file):
                                   stream_handler])
 
 def parse_s3_path(data_path, param_file_name):
-    buckets = ["derived/kilosort2", "derived/pipeline"]
+    buckets = ["derived/kilosort2", "derived/pipeline", "derived/autocuration"]
     ending = data_path.split("_")[-1]
     param_name = param_file_name.split(".")[0]
     save_to = data_path.replace(ending, f"{param_name}_{SUFFIX}")
@@ -82,20 +82,21 @@ if __name__ == "__main__":
     log_file = os.path.join(extract_dir, LOG_FILE_NAME)
     setup_logging(log_file)
 
-    logging.info(f"Start running connectivity analysis for {rec_path} with parameter {param_path} ...")
-
-    data_path = rec_path.replace("original/data", "derived/kilosort2")
-    if data_path.endswith(".raw.h5.raw.h5"):
-        data_path = data_path.replace(".raw.h5.raw.h5", "_acqm.zip")
-    elif data_path.endswith(".raw.h5"):
-        data_path = data_path.replace(".raw.h5", "_acqm.zip")
-    elif data_path.endswith(".h5"):
-        data_path = data_path.replace(".h5", "_acqm.zip")
+    if "derived" in rec_path and rec_path.endswith(".zip"):
+        data_path = rec_path
     else:
-        logging.error(f"Recording is not a MaxWell h5 file: {rec_path}")
-        logging.error(f"Exit")
-        sys.exit(1)
-
+        data_path = rec_path.replace("original/data", "derived/kilosort2")
+        if data_path.endswith(".raw.h5.raw.h5"):
+            data_path = data_path.replace(".raw.h5.raw.h5", "_acqm.zip")
+        elif data_path.endswith(".raw.h5"):
+            data_path = data_path.replace(".raw.h5", "_acqm.zip")
+        elif data_path.endswith(".h5"):
+            data_path = data_path.replace(".h5", "_acqm.zip")
+        else:
+            logging.error(f"Auto-curation for {rec_path} not available.")
+            logging.error(f"Exit")
+            sys.exit(1)
+    
     if not wr.does_object_exist(data_path):
         logging.exception(f"Data doesn't exist! Check the path: {data_path}")
         sys.exit(1)
@@ -103,6 +104,8 @@ if __name__ == "__main__":
     if not wr.does_object_exist(param_path):
         logging.exception(f"Data doesn't exist! Check the path: {param_path}")
         sys.exit(1)
+    
+    logging.info(f"Start running connectivity analysis for {data_path} with parameter {param_path} ...")
 
     figure_name = data_path.split("/")[-1].replace(".zip", "")
 

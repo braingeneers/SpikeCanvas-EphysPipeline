@@ -97,7 +97,7 @@ def plot_violin(cp_data, days, file_name):
 
     plt.savefig("violin_fr_{}.png".format(file_name), dpi=300)
 
-def plot_raster_with_fr(train:list, title:list, bin_size=0.1, w=5, avg=False, axs=None):
+def plot_raster_with_fr(train:list, title:str, bin_size=0.1, w=5, avg=False, axs=None):
     bins, fr_avg = utils.get_population_fr(trains=train, bin_size=bin_size, w=w, average=avg)
     if axs is None:
         fig, axs = plt.subplots(1, 1, figsize=(16, 6))
@@ -105,7 +105,7 @@ def plot_raster_with_fr(train:list, title:list, bin_size=0.1, w=5, avg=False, ax
 
     y = 0
     for vv in train:
-        axs.scatter(vv, [y]*len(vv), marker="|", c='k', s=4, alpha=0.7)
+        axs.scatter(vv, [y]*len(vv), marker="|", c='k', s=6, alpha=0.7)
         y += 1
     axs.set_xlabel("Time (s)", fontsize=16)
     axs.set_ylabel("Unit", fontsize=16)
@@ -116,7 +116,7 @@ def plot_raster_with_fr(train:list, title:list, bin_size=0.1, w=5, avg=False, ax
     axs1.yaxis.set_label_position("right") 
     axs1.spines['right'].set_color('r')
     axs1.spines['right'].set_linewidth(3)
-    axs1.plot(bins[1:], fr_avg, color='r', linewidth=3, alpha=0.5)
+    axs1.plot(bins[1:], fr_avg, color='r', linewidth=2, alpha=0.5)
     axs1.set_ylabel("Population Firing Rate (Hz)", fontsize=16, color='r')
     axs1.set_xlabel("Time (s)", fontsize=16)
     axs1.yaxis.set_tick_params(labelsize=16)
@@ -127,7 +127,7 @@ def plot_raster_with_fr(train:list, title:list, bin_size=0.1, w=5, avg=False, ax
     axs1.tick_params(axis='y', colors='r')
     # plt.savefig(f"raster_{words}.png", dpi=300)
 
-    return axs
+    return axs, axs1
 
 
 
@@ -236,7 +236,7 @@ def plot_activity_map(qm_path=None, sd=None, title="", axs=None):
     axs.set_title(f"Electrode Map {title}")
 
     if qm_path is not None:
-        train, neuron_data, config = utils.load_curation(qm_path)
+        train, neuron_data, config, fs = utils.load_curation(qm_path)
         assert len(train) > 0, "No unit found"
         assert len(train) == len(neuron_data), \
         "Incorrect number of units for spike train and neuron data"

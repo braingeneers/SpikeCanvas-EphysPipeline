@@ -353,9 +353,15 @@ def message_slack(job_name, job_info, message_text):
     else:
         job_type = "Unknown"
 
+    if "params" in job_info:
+        job_parameter = job_info["params"]
+    else:
+        job_parameter = "Hardcoded"
+
     slack_message = {
         "NRP Job": job_name,
         "Data Path": s3_path,
+        "Parameter": job_parameter,
         "Job": job_type,
         "Status": message_text
     }

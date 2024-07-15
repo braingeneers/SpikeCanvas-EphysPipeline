@@ -17,7 +17,7 @@ FS = 20000.0
 DEC = 20
 FS_DOWN = FS / DEC
 LOW_CUT = 0.1
-HIGH_CUT = 100.0
+HIGH_CUT = 200.0
 hdf5_plugin_path = '/app/'
 
 

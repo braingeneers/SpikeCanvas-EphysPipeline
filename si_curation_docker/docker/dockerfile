@@ -6,9 +6,17 @@ RUN apt-get update && apt-get install -y time
 RUN python -m pip install --force-reinstall 'git+https://github.com/SpikeInterface/spikeinterface.git'
 RUN python -m pip install --force-reinstall 'git+https://github.com/braingeneers/braingeneerspy.git#egg=braingeneerspy[iot, data]'
 
-COPY docker/requirements.txt ./src/requirements.txt
-RUN set -ex && \
-    pip install -r ./src/requirements.txt
+RUN pip install numpy \
+    deprecated \
+    numba \
+    tbb \
+    h5py \
+    scipy \
+    glances 
+
+# COPY docker/requirements.txt ./src/requirements.txt
+# RUN set -ex && \
+#     pip install -r ./src/requirements.txt
 
 # PRP setup
 ENV ENDPOINT_URL="https://braingeneers.gi.ucsc.edu"

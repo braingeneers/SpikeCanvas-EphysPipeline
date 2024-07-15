@@ -19,7 +19,7 @@ import json
 # BUCKET = "s3://braingeneers/ephys/"
 JOB_KWARGS = dict(n_jobs=10, progress_bar=True)
 os.environ["HDF5_PLUGIN_PATH"] = os.getcwd()
-LOG_FILE_NAME = "curation_log.txt"
+LOG_FILE_NAME = "run_autocuration.log"
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
 logging.basicConfig(level=logging.INFO,
@@ -132,6 +132,9 @@ class QualityMetrics:
         return remove_ids
 
     def curate_by_isi(self):
+        """
+        ISI violation by Hill method with 1.5 ms refactory period
+        """
         num_units = len(self.we.unit_ids)
         isi_viol_ratio, isi_viol_num = sqm.compute_isi_violations(self.we)
         remove_ids = []
@@ -144,6 +147,14 @@ class QualityMetrics:
                      f"of {self._isi_viol_thres}/1 of 1.5 ms refactory period. "
                      f"Remove number of units: {len(remove_ids)}/{num_units}")
         return remove_ids
+    
+    def curate_by_isi_ratio(self):
+        """
+        ISI violation by ratio defined as number of violations over total number of spikes
+        """
+        # TODO
+        
+        pass
 
     def curate_by_fr(self):
         num_units = len(self.we.unit_ids)
@@ -166,8 +177,8 @@ class QualityMetrics:
         print("done redundant")
 
         remove_ids = np.setdiff1d(self.we.sorting.unit_ids, curated_redundant.unit_ids)
-        logging.info(f"Curated by checking redundant units. "
-                     f"Remove number of units: {len(remove_ids)}/{num_units}")
+        logging.info(f"Curated by checking redundant units (Function turned off, no unit removed). "
+                     f"Found number of units to remove: {len(remove_ids)}/{num_units}")
         # self.we.sorting = curated_redundant
         # return remove_ids
         return redundant_unit_pairs
@@ -272,8 +283,13 @@ def remove_units(spike_train, neuron_dict, removed_ids):
     return update_trains, update_dict
 
 
-def upload_file(phy_path, local_file):
-    upload_path = phy_path.replace("_phy.zip", "_acqm.zip")
+def upload_file(phy_path, local_file, params_file_name=None):
+    # create upload path by appending parameter file to the phy path and hash string
+    if params_file_name is None:
+        upload_path = phy_path.replace("_phy.zip", "_acqm.zip")
+    else:
+        upload_path = phy_path.replace("_phy.zip", f"_{params_file_name}_acqm.zip")
+    upload_path = upload_path.replace("kilosort2", "autocuration")
     logging.info(f"Uploading data from {local_file} to {upload_path} ...")
     wr.upload(local_file=local_file, path=upload_path)
     logging.info("Done!")
@@ -292,19 +308,26 @@ def parse_uuid(data_path):
     phy_path = posixpath.join(phy_base_path, experiment + "_phy.zip")
     return base_path, phy_path
 
+def hash_file_name(input_string):
+    import hashlib
+    md5_hash = hashlib.md5()
+    md5_hash.update(input_string.encode('utf-8'))
+    hash_string = md5_hash.hexdigest()
+    return hash_string
+
 if __name__ == "__main__":
     # test data: s3://braingeneers/ephys/2024-01-05-e-uploader-test/original/data/test_0.raw.h5 
     # test parameter: s3://braingeneers/services/mqtt_job_listener/params/curation/params_1.json
     
-    input_str = sys.argv[1]
-    data_path = input_str.split(" ")[0]
-    param_path = input_str.split(" ")[1]
+    data_path = sys.argv[1]
+    param_path = sys.argv[2]
+    params_file_name = param_path.split("/")[-1].split(".")[0]
  
     s3_base_path, phy_path = parse_uuid(data_path=data_path)
     print(f"s3 path: {data_path}")  # original recording s3 full path
     print(f"s3 base: {s3_base_path}")
     print(f"phy path: {phy_path}")
-    print(f"param file path: {param_path}")
+    print(f"parameter file path: {param_path}")
 
     # download file from s3
     current_folder = os.getcwd()
@@ -322,6 +345,7 @@ if __name__ == "__main__":
             assert wr.does_object_exist(p)
         except AssertionError as err:
             logging.exception(f"File doesn't exist on S3! {p}")
+            logging.info("Program exited")
             raise err
 
     # download phy.zip
@@ -338,7 +362,7 @@ if __name__ == "__main__":
     logging.info("Done")
 
     # download param file
-    logging.info("Start downloading param file ...")
+    logging.info("Start downloading parameter file ...")
     param_file = posixpath.join(base_folder, "params.json")
     wr.download(param_path, param_file)
     logging.info("Done")
@@ -348,7 +372,8 @@ if __name__ == "__main__":
     if len(params_dict) > 0:
         logging.info(f"Use parameters {params_dict} from file {param_path} for curation")
     else:
-        logging.info(f"No user parameters found. Use default parameters {DEFUALT_PARAMS} for curation")
+        params_file_name = "params_default"
+        logging.info(f"User parameters not available. Use default parameters {DEFUALT_PARAMS} for curation")
 
     # do curation
     curation = QualityMetrics(base_folder=base_folder, 
@@ -359,5 +384,5 @@ if __name__ == "__main__":
 
     # curated_file = experiment + "_qm.zip"
     # waveform_file = experiment + "_wf.zip"
-    upload_file(phy_path, qm_file)
+    upload_file(phy_path, qm_file, params_file_name)
     # upload_file(uuid, wf_file, waveform_file)

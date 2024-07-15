@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: sjg-alg-connectivity-param-1
+  name: sjg-alg-connectivity-1
 spec:
   backoffLimit: 2
   template:
@@ -26,7 +26,7 @@ spec:
         command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
         args:
           - >-
-            python run_conn.py s3://braingeneers/ephys/2023-12-03-e-Hc112823_avv9hckcr1/original/data/Hc112823_avv9hckcr1_21841_120323_0.raw.h5 s3://braingeneers/services/mqtt_job_listener/params/connectivity/params_1.json
+            python run_conn.py s3://braingeneers/ephys/2023-04-04-e-hc328_hckcr1-2_040423_recs/derived/autocuration/2023_04_04_hc328_hckcr1-2_3_params_low_snr_3_acqm.zip s3://braingeneers/services/mqtt_job_listener/params/connectivity/params_1.json
         env:
           - name: "PYTHONUNBUFFERED"
             value: "true"

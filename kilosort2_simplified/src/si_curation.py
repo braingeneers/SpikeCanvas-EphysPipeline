@@ -25,7 +25,7 @@ class QualityMetrics:
 
     """
 
-    def __init__(self, base_folder, rec, phy_folder,
+    def __init__(self, base_folder, rec, phy_folder, rec_path,
                  min_snr=5, min_fr=0.1, max_isi_viol=0.2,
                  default=True):
 
@@ -36,6 +36,7 @@ class QualityMetrics:
         self.clean_folder = posixpath.join(base_folder, "cleaned_waveforms")
         phy_result = se.KiloSortSortingExtractor(phy_folder)
         self.phy_result = phy_result.remove_empty_units()
+        self._rec_path = rec_path
         self._snr_thres = min_snr
         self._fr_thres = min_fr
         self._isi_viol_thres = max_isi_viol

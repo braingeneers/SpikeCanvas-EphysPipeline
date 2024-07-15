@@ -69,8 +69,10 @@ class edpScanner:
                     else:
                         jtype = "unknown"
                     if pname not in self.status_table:
+                        data_path, params_path = parse_data_path(pod)
                         self.status_table[pname] = {"job_type": jtype, 
-                                                    "data_path": parse_data_path(pod),
+                                                    "data_path": data_path, # parse_data_path(pod),
+                                                    "parameter": params_path,
                                                     "status": sts} 
                     else:
                         self.status_table[pname]["status"] = sts
@@ -83,8 +85,11 @@ class edpScanner:
                     if sts in FINISH_FLAGS:
                         start_timestamp = pod.status.start_time  
                         start_ts_str = convert_time(start_timestamp)
-                        end_timestamp = pod.status.conditions[1].last_transition_time  
-                        end_ts_str = convert_time(end_timestamp)
+                        if pod.status.conditions is not None:
+                            end_timestamp = pod.status.conditions[1].last_transition_time  
+                            end_ts_str = convert_time(end_timestamp)
+                        else:
+                            end_ts_str = "Unknown"
                         self.status_table[pname]["start_time"] = start_ts_str
                         self.status_table[pname]["end_time"] = end_ts_str
                             
@@ -106,7 +111,7 @@ class edpScanner:
                                                                     propagation_policy='Foreground',
                                                                     grace_period_seconds=0)
                                                                 )
-                            logging.info(f"Delete {sts} pod {api_response.metadata.name}")
+                            logging.info(f"Delete {status["status"]} pod {api_response.metadata.name}")
                             time.sleep(0.1)
                         except ApiException as e:
                             logging.error(f"Exception when calling CoreV1Api->delete_namespaced_pod: {e}")
@@ -121,9 +126,14 @@ class edpScanner:
             if uuid not in uuid_status_table:
                 uuid_status_table[uuid] = {}
             rec_name = status["data_path"].split("/")[-1]
+            if status["parameter"] is not None:
+                parameter = status["parameter"].split("params/")[-1]
+            else:
+                parameter = "Hardcoded"
             uuid_status_table[uuid][rec_name] = {"Status": status["status"],
                                                  "Job": status["job_type"],
-                                                #  "NRP pod": pname
+                                                 "Parameter": parameter
+                                                #  "NRP pod": pname,
                                                 }
             if "start_time" in status:
                 uuid_status_table[uuid][rec_name]["Start Time"] = status["start_time"]
@@ -138,15 +148,28 @@ class edpScanner:
         time.sleep(.01)
 
 def parse_data_path(pod):
+    """
+    Parse the container's argument to get data path and parameter file path
+    The argument is structured as 
+        "python script_name.py data_path param_file_path other_input_args_if_any"
+    or 
+        "./script_name.sh data_path param_file_path other_input_args_if_any"
+    """
     args = pod.spec.containers[0].args[0]
-    if "run_lfp.py " in args:
-        data_path = args.split()[-3]
-    elif "run_conn.py " in args:
-        data_path = args.split()[-2]
-    else: 
-        data_path = args.split()[-1]   
-        # data_path = args.split()[-2]   # with parameter file 
-    return data_path
+    if args.startswith("./"):
+        data_path = args.split()[1]
+        if "mqtt_job_listener/params" in args:
+            params_path = args.split()[2]
+        else:
+            params_path = None
+    elif args.startswith("python"):
+        data_path = args.split()[2]
+        if "mqtt_job_listener/params" in args:
+            params_path = args.split()[3]
+        else:
+            params_path = None
+    return data_path, params_path
+
 
 def format_dict_textarea(input_dict):
     """

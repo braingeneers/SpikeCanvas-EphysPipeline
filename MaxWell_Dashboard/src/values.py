@@ -56,7 +56,7 @@ DEFAULT_JOBS = {"batch":
                      "memory_request": 32,
                      "disk_request": 400,
                      "GPU": 1,
-                     "param_label": "pipeline",
+                     "params_label": "pipeline",
                      "next_job": "None"
                      },
                 "chained": {
@@ -66,7 +66,7 @@ DEFAULT_JOBS = {"batch":
                         "memory_request": 32,
                         "disk_request": 400,
                         "GPU": 1,
-                        "param_label": "pipeline",
+                        "params_label": "pipeline",
                         "next_job": "None"},
                     1: {"image": "surygeng/kilosort_docker:v0.2",
                         "args": "./run.sh",
@@ -74,7 +74,7 @@ DEFAULT_JOBS = {"batch":
                         "memory_request": 32,
                         "disk_request": 400,
                         "GPU": 1,
-                        "param_label": "kilosort2",
+                        "params_label": "kilosort2",
                         "next_job": "None"},
                     2: {"image": "surygeng/qm_curation:v0.2",
                         "args": "python si_curation.py",
@@ -82,7 +82,7 @@ DEFAULT_JOBS = {"batch":
                         "memory_request": 32,
                         "disk_request": 200,
                         "GPU": 0,
-                        "param_label": "curation",
+                        "params_label": "curation",
                         "next_job": "None"},
                     3: {"image": "surygeng/visualization:v0.1",
                         "args": "python viz.py",
@@ -90,7 +90,7 @@ DEFAULT_JOBS = {"batch":
                         "memory_request": 16,
                         "disk_request": 8,
                         "GPU": 0,
-                        "param_label": "visualization",
+                        "params_label": "visualization",
                         "next_job": "None"},
                     4: {"image": "surygeng/connectivity:v0.1",
                         "args": "python run_conn.py",
@@ -98,7 +98,7 @@ DEFAULT_JOBS = {"batch":
                         "memory_request": 16,
                         "disk_request": 8,
                         "GPU": 0,
-                        "param_label": "connectivity",
+                        "params_label": "connectivity",
                         "next_job": "None"},
                     5: {"image": "surygeng/local_field_potential:v0.1",
                         "args": "python run_lfp.py",  # TODO implement this command because right now it's different to the one in the container. 
@@ -106,7 +106,7 @@ DEFAULT_JOBS = {"batch":
                         "memory_request": 64,
                         "disk_request": 64,
                         "GPU": 0,
-                        "param_label": "lfp",
+                        "params_label": "lfp",
                         "next_job": "None"},
                 }
                 }
