@@ -45,7 +45,8 @@ def upload_to_s3(file, s3_path):
 def create_csv_message(uuid, selected_files, job=3):
     rows = []
     job_index = []
-    uuid = f"s3://braingeneers/ephys/{uuid}derived/kilosort2/"
+    # uuid = f"s3://braingeneers/ephys/{uuid}derived/kilosort2/"
+    uuid = f"s3://braingeneers/ephys/{uuid}derived/autocuration/"
     for j in range(len(selected_files)):
         file = selected_files[j]
         job_info = dict.fromkeys(TABLE_HEADERS)
@@ -98,7 +99,8 @@ if __name__ == '__main__':
             uuid += "/"
             s3_path = os.path.join(DEFAULT_BUCKET, uuid)
         if os.path.join(s3_path, "derived/") in wr.list_directories(s3_path):
-            data_path = os.path.join(s3_path, "derived/kilosort2/")
+            # data_path = os.path.join(s3_path, "derived/kilosort2/")
+            data_path = os.path.join(s3_path, "derived/autocuration/")
             files = wr.list_objects(data_path)
             print(f"Found {len(files)} files.")
             for f in files:
@@ -108,7 +110,8 @@ if __name__ == '__main__':
             print("No available files. Please input another UUID")
     
     file_list = wr.list_objects(data_path)
-    file_name = [f.split("/kilosort2/")[1] for f in file_list]
+    # file_name = [f.split("/kilosort2/")[1] for f in file_list]
+    file_name = [f.split("/autocuration/")[1] for f in file_list]
 
     selected_files = []
     # get file label

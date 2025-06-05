@@ -18,6 +18,15 @@ import h5py
 JOB_KWARGS = dict(n_jobs=10, progress_bar=True)
 os.environ["HDF5_PLUGIN_PATH"] = os.getcwd()
 
+# Old default parameters
+# DEFUALT_PARAMS = {"min_snr": 5,
+#                   "min_fr": 0.1,
+#                   "max_isi_viol": 0.2}
+# New default parameters using Hunter's suggestion
+DEFUALT_PARAMS =  {"min_snr": 3,
+                  "min_fr": 0.1,
+                  "max_isi_viol": 0.5}
+
 
 class QualityMetrics:
     """
@@ -27,7 +36,9 @@ class QualityMetrics:
 
     def __init__(self, base_folder, rec, phy_folder, rec_path, 
                  data_format=None,
-                 min_snr=5, min_fr=0.1, max_isi_viol=0.2,
+                 min_snr=DEFUALT_PARAMS["min_snr"], 
+                 min_fr=DEFUALT_PARAMS["min_fr"], 
+                 max_isi_viol=DEFUALT_PARAMS["max_isi_viol"],
                  default=True):
 
         self.redundant_pairs = None

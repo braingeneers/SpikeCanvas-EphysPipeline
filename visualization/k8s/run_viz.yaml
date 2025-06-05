@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: edp-viz-test-2
+  name: edp-viz-stitching-5
 spec:
   backoffLimit: 2
   template:
@@ -26,7 +26,7 @@ spec:
         command: ["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"]
         args:
           - >-
-            python viz.py s3://braingeneers/integrated/2023-09-16-efi-mouse-5plex-official/ephys/derived/pipeline/19894/2023-09-23-T070000-chip19894_acqm.zip
+            python viz.py s3://braingeneers/ephys/2025-05-09-e-JLS-3D-PL-comp-DREADD-DCZ/derived/stitch2471/stitch_phy.zip
         env:
           - name: "PYTHONUNBUFFERED"
             value: "true"

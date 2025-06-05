@@ -8,7 +8,8 @@ spec:
     spec:
       containers:
         - name: container
-          image: surygeng/ephys_pipeline:v0.2
+          # image: surygeng/ephys_pipeline:v0.2
+          image: quay.io/ucsc_cgl/sury-ephys_pipeline:v0.1
           imagePullPolicy: Always
           resources:
             requests:
@@ -37,40 +38,6 @@ spec:
               subPath: "credentials"
             - name: ephemeral
               mountPath: "/root"
-      # tolerations:
-      #   - key: "msu-cache"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/5g"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/csusb"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/gitlab-issue"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/gpu-untested"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/prism-center"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/sdsc-llm"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/slow-network"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/suncave"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/testing"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
-      #   - key: "nautilus.io/u55c"
-      #     operator: "Exists"
-      #     effect: "NoSchedule"
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

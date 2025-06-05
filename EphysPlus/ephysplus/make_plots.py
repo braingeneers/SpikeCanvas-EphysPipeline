@@ -264,9 +264,9 @@ def plot_activity_map(qm_path=None, sd=None, title="", axs=None):
         x, y = data["position"][0], data["position"][1]
         axs.scatter(x, y, s=10*scale, color="g", alpha=0.8)
 
-    axs.scatter(-10, -10, s=10, color='g', label="1 Hz")
-    axs.scatter(-10, -10, s=50, color='g', label="5 Hz")
-    axs.scatter(-10, -10, s=100, color='g', label="10 Hz")
+    axs.scatter(None, None, s=10, color='g', label="1 Hz")
+    axs.scatter(None, None, s=50, color='g', label="5 Hz")
+    axs.scatter(None, None, s=100, color='g', label="10 Hz")
     axs.legend(loc="upper right", fontsize=12)
 
     axs.set_xlim(0, 3850)

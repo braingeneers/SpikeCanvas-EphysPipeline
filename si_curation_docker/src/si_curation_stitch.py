@@ -29,9 +29,14 @@ logging.basicConfig(level=logging.INFO,
                     handlers=[logging.FileHandler(LOG_FILE_NAME, mode="a"),
                               stream_handler])
 
-DEFUALT_PARAMS = {"min_snr": 5,
+# Old default parameters
+# DEFUALT_PARAMS = {"min_snr": 5,
+#                   "min_fr": 0.1,
+#                   "max_isi_viol": 0.2}
+# New default parameters using Hunter's suggestion
+DEFUALT_PARAMS =  {"min_snr": 3,
                   "min_fr": 0.1,
-                  "max_isi_viol": 0.2}
+                  "max_isi_viol": 0.5}
 
 def setup_hdf5():
     # os.environ['HDF5_PLUGIN_PATH'] = hdf5_plugin_path
@@ -537,7 +542,7 @@ if __name__ == "__main__":
         exp = f"rec_{i}"
         exp_local_path = posixpath.join(base_folder, exp)
         # wr.download(data_path, exp_local_path)
-        download_s3_with_retry(data_path, exp_local_path)
+        download_s3_with_retry(dp, exp_local_path)
         rec_name.append(exp)
         logging.info(f"Downloaded {dp} to {exp_local_path}")
     logging.info("Done")
@@ -554,8 +559,8 @@ if __name__ == "__main__":
     if len(params_dict) > 0:
         logging.info(f"Use parameters {params_dict} from file {param_path} for curation")
     else:
-        params_file_name = "params_default"
-        logging.info(f"User parameters not available. Use default parameters {DEFUALT_PARAMS} for curation")
+        params_file_name = "params_updated_default"
+        logging.info(f"User parameters not available. Use updated default parameters {DEFUALT_PARAMS} for curation")
 
     # if stitched, download stitch_inds.json
     if phy_path.endswith("stitch_phy.zip"):

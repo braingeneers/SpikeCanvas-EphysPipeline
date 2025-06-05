@@ -19,6 +19,11 @@ FORMAT_LIST = ["Maxwell", "mearec", "nwb"]
 data_format = None
 REMOVE_SINGLE_CHANNEL = False
 
+# updated default parameters for autocuration 
+DEFUALT_PARAMS =  {"min_snr": 3,
+            "min_fr": 0.1,
+            "max_isi_viol": 0.5}
+
 # TODO: Fix this mearec error 
 # assert filename.suffix in [".h5", ".hdf5"], "Provide an .h5 or .hdf5 file name"
 # AssertionError: Provide an .h5 or .hdf5 file name
@@ -178,8 +183,8 @@ if __name__ == "__main__":
             data_format = "Maxwell"  # a patch for the old metadata.json
             logging.info(f"Data format not found in metadata.json, default to Maxwell")
     if not os.path.isfile(parameter_path):
-        params = {"min_snr": 5, "min_fr": 0.1, "max_isi_viol": 0.2}
-        logging.error(f"Error: parameters.json not available. Using default parameters for curation. {params}")
+        params = DEFUALT_PARAMS
+        logging.error(f"Error: parameters.json not available. Using updated default parameters for curation. {params}")
         
     else:
         params = utils.load_paramter(parameter_path)   # TODO: save with kilosort parameters to the parameter_setting.json

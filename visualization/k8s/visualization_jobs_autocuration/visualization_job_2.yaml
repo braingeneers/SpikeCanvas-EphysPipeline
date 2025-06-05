@@ -1,0 +1,51 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sjg-viz-2
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      containers:
+      - args:
+        - python viz.py s3://braingeneers/ephys/2025-05-09-e-JLS-3D-PL-comp-DREADD-DCZ/derived/autocuration/Trace_20250429_12_50_06_chP002381_PL_badconfig_params_params_low_ISI_acqm.zip
+        command:
+        - stdbuf
+        - -i0
+        - -o0
+        - -e0
+        - /usr/bin/time
+        - -v
+        - bash
+        - -c
+        env:
+        - name: PYTHONUNBUFFERED
+          value: 'true'
+        - name: ENDPOINT_URL
+          value: https://s3.braingeneers.gi.ucsc.edu
+        - name: S3_ENDPOINT
+          value: s3.braingeneers.gi.ucsc.edu
+        image: surygeng/visualization:v0.1
+        imagePullPolicy: Always
+        name: container
+        resources:
+          limits:
+            cpu: '2'
+            ephemeral-storage: 8Gi
+            memory: 16Gi
+            nvidia.com/gpu: 0
+          requests:
+            cpu: '2'
+            ephemeral-storage: 8Gi
+            memory: 16Gi
+        volumeMounts:
+        - mountPath: /root/.aws/credentials
+          name: prp-s3-credentials
+          subPath: credentials
+      restartPolicy: Never
+      volumes:
+      - name: prp-s3-credentials
+        secret:
+          secretName: prp-s3-credentials
+      - emptyDir: {}
+        name: ephemeral

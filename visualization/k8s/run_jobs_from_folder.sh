@@ -1,10 +1,25 @@
 #!/bin/bash
 
 # Directory containing the job YAML files
-JOB_DIR="visualization_jobs"
+JOB_DIR="visualization_jobs_autocuration"
 
 # Apply all job YAML files
-kubectl apply -f $JOB_DIR
+# go through the directory and create a job for each file
+for file in $JOB_DIR/*.yaml; do
+    # Extract the job name from the filename
+    job_name=$(basename "$file" .yaml)
+    
+    # Create a job using the YAML file
+    kubectl create -f "$file"
+    
+    # Check if the job was created successfully
+    if [ $? -eq 0 ]; then
+        echo "Job $job_name created successfully."
+    else
+        echo "Failed to create job $job_name."
+    fi
+done
+# kubectl apply -f $JOB_DIR
 
 # # Function to check job status
 # check_job_status() {
