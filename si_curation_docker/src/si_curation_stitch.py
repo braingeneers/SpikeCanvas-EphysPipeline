@@ -305,21 +305,47 @@ class QualityMetrics:
 def read_maxwell_gain(h5_file):
     dataset = h5py.File(h5_file, 'r')
     if 'mapping' in dataset.keys():
+        # Legacy MaxOne format
         gain_uv = dataset['settings']['lsb'][0] * 1e6
     else:
-        gain_uv = dataset['recordings']['rec0000']['well000']['settings']['lsb'][0] * 1e6
+        # Dynamically find the correct well identifier for MaxTwo data
+        rec_group = dataset['recordings']['rec0000']
+        # Find well groups (well000, well001, etc.)
+        well_keys = [key for key in rec_group.keys() if key.startswith('well')]
+        if not well_keys:
+            raise KeyError("No well groups found in the recording")
+        
+        # Sort well keys to ensure consistent ordering (well000, well001, etc.)
+        well_keys.sort()
+        well_key = well_keys[0]  # Use the first well found
+        
+        logging.info(f"Found wells: {well_keys}, using: {well_key}")
+        gain_uv = rec_group[well_key]['settings']['lsb'][0] * 1e6
     return gain_uv
 
 
 def read_maxwell_mapping(h5_file):
     with h5py.File(h5_file, 'r') as dataset:
         if 'version' and 'mxw_version' in dataset.keys():
-            mapping = dataset['recordings']['rec0000']['well000']['settings']['mapping']
+            # Dynamically find the correct well identifier for MaxTwo data
+            rec_group = dataset['recordings']['rec0000']
+            # Find well groups (well000, well001, etc.)
+            well_keys = [key for key in rec_group.keys() if key.startswith('well')]
+            if not well_keys:
+                raise KeyError("No well groups found in the recording")
+            
+            # Sort well keys to ensure consistent ordering (well000, well001, etc.)
+            well_keys.sort()
+            well_key = well_keys[0]  # Use the first well found
+            
+            logging.info(f"Found wells: {well_keys}, using: {well_key}")
+            mapping = rec_group[well_key]['settings']['mapping']
             config = {'pos_x': np.array(mapping['x']),
                       'pos_y': np.array(mapping['y']),
                       'channel': np.array(mapping['channel']),
                       'electrode': np.array(mapping['electrode'])}
         else:
+            # Legacy MaxOne format
             mapping = dataset['mapping']
             config = {'pos_x': np.array(mapping['x']),
                       'pos_y': np.array(mapping['y']),

@@ -27,4 +27,4 @@ ENV ENDPOINT_URL="https://braingeneers.gi.ucsc.edu"
 COPY src/ /src
 WORKDIR /src
 
-# qm_curation:v0.3
+# qm_curation:v0.2
