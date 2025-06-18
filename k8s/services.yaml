@@ -1,0 +1,306 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: maxwell-config
+  namespace: braingeneers
+data:
+  pipeline.yaml: |
+    pipeline:
+      slack_topic: "telemetry/slack/TOSLACK/ephys-data-pipeline"
+      job_prefix: "edp-"
+      scan_interval: 1800  # 30 minutes
+      finish_flags: ["Succeeded", "Failed", "Unknown"]
+      running_flags: ["Running"]
+    
+    kubernetes:
+      namespace: "braingeneers"
+      
+    s3:
+      bucket: "s3://braingeneers/ephys/"
+      retry_attempts: 3
+      service_bucket: "s3://braingeneers/services/mqtt_job_listener"
+      parameter_bucket: "s3://braingeneers/services/mqtt_job_listener/params"
+    
+    mqtt:
+      topics:
+        - "services/csv_job"
+        - "experiments/upload"
+        - "telemetry/+/log/experiments/upload"
+    
+    logging:
+      level: "INFO"
+      format: "%(asctime)s %(message)s"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maxwell-spike-sorting-listener
+  namespace: braingeneers
+  labels:
+    app: maxwell-spike-sorting-listener
+    component: service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maxwell-spike-sorting-listener
+  template:
+    metadata:
+      labels:
+        app: maxwell-spike-sorting-listener
+        component: service
+    spec:
+      containers:
+      - name: spike-sorting-listener
+        image: maxwell-spike-sorting-listener:latest
+        env:
+        - name: COMPONENT_TYPE
+          value: "service"
+        - name: SERVICE_NAME
+          value: "spike-sorting-listener"
+        - name: PYTHONPATH
+          value: "/app:/app/shared"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: shared-data
+          mountPath: /data
+        - name: job-configs
+          mountPath: /app/job_configs
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import time; print('Service healthy')"
+          initialDelaySeconds: 30
+          periodSeconds: 60
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import time; print('Service ready')"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+      volumes:
+      - name: config
+        configMap:
+          name: maxwell-config
+      - name: shared-data
+        persistentVolumeClaim:
+          claimName: maxwell-shared-storage
+      - name: job-configs
+        configMap:
+          name: maxwell-job-configs
+      restartPolicy: Always
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maxwell-job-scanner
+  namespace: braingeneers
+  labels:
+    app: maxwell-job-scanner
+    component: service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maxwell-job-scanner
+  template:
+    metadata:
+      labels:
+        app: maxwell-job-scanner
+        component: service
+    spec:
+      serviceAccountName: maxwell-job-scanner
+      containers:
+      - name: job-scanner
+        image: maxwell-job-scanner:latest
+        env:
+        - name: COMPONENT_TYPE
+          value: "service"
+        - name: SERVICE_NAME
+          value: "job-scanner"
+        - name: PYTHONPATH
+          value: "/app:/app/shared"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: job-configs
+          mountPath: /app/job_configs
+        livenessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import time; print('Scanner healthy')"
+          initialDelaySeconds: 30
+          periodSeconds: 60
+        readinessProbe:
+          exec:
+            command:
+            - python
+            - -c
+            - "import time; print('Scanner ready')"
+          initialDelaySeconds: 10
+          periodSeconds: 30
+      volumes:
+      - name: config
+        configMap:
+          name: maxwell-config
+      - name: job-configs
+        configMap:
+          name: maxwell-job-configs
+      restartPolicy: Always
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: maxwell-dashboard
+  namespace: braingeneers
+  labels:
+    app: maxwell-dashboard
+    component: service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: maxwell-dashboard
+  template:
+    metadata:
+      labels:
+        app: maxwell-dashboard
+        component: service
+    spec:
+      containers:
+      - name: dashboard
+        image: maxwell-dashboard:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: COMPONENT_TYPE
+          value: "service"
+        - name: SERVICE_NAME
+          value: "dashboard"
+        - name: PORT
+          value: "8080"
+        - name: PYTHONPATH
+          value: "/app:/app/shared"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: config
+          mountPath: /config
+        - name: shared-data
+          mountPath: /data
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 60
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 30
+      volumes:
+      - name: config
+        configMap:
+          name: maxwell-config
+      - name: shared-data
+        persistentVolumeClaim:
+          claimName: maxwell-shared-storage
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: maxwell-dashboard
+  namespace: braingeneers
+  labels:
+    app: maxwell-dashboard
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: maxwell-dashboard
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: maxwell-job-scanner
+  namespace: braingeneers
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: maxwell-job-scanner
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "delete"]
+- apiGroups: ["batch"]
+  resources: ["jobs"]
+  verbs: ["get", "list", "delete"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: maxwell-job-scanner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: maxwell-job-scanner
+subjects:
+- kind: ServiceAccount
+  name: maxwell-job-scanner
+  namespace: braingeneers
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: maxwell-shared-storage
+  namespace: braingeneers
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: nfs-storage

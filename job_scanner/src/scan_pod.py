@@ -3,9 +3,12 @@
 # Remove jobs that are finished (includeing failed and unknown) from status_table after updating their status
 # do not actually remove jobs from nrp 
 
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+
 from braingeneers.iot import messaging
 from kubernetes import client, config
-import os
 import time
 import uuid as uuidgen
 from kubernetes.client.rest import ApiException
@@ -13,6 +16,15 @@ import logging
 import json
 import datetime
 from dateutil.tz import tzutc, gettz
+
+# Import shared utilities for future migration
+try:
+    from kubernetes_utils import KubernetesManager
+    from config import Config
+    SHARED_UTILS_AVAILABLE = True
+except ImportError:
+    SHARED_UTILS_AVAILABLE = False
+    logging.warning("Shared utilities not available, using legacy implementation")
 
 # TODO: add check output function from Kate's repo https://github.com/braingeneers/integrated-system-modules/tree/main/maxwell (analysis_tools.py)
 

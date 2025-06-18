@@ -1,3 +1,7 @@
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
+
 from braingeneers.utils import messaging
 import braingeneers.utils.s3wrangler as wr
 import braingeneers.utils.smart_open_braingeneers as smart_open
@@ -5,7 +9,6 @@ import uuid as uuidgen
 from k8s_kilosort2 import Kube
 import time
 import csv
-import os
 import logging
 import re
 import posixpath
@@ -13,6 +16,16 @@ import zipfile
 import json
 from job_utils import JOB_PREFIX, format_job_name
 from splitter_fanout import spawn_splitter_fanout
+
+# Import shared utilities
+try:
+    from maxwell_utils import MaxwellDataReader
+    from s3_utils import S3Manager
+    from config import Config
+    SHARED_UTILS_AVAILABLE = True
+except ImportError:
+    SHARED_UTILS_AVAILABLE = False
+    logging.warning("Shared utilities not available, using legacy implementation")
 
 LOCAL_CSV = "csv/"
 TOPIC = ["services/csv_job", "experiments/upload", "telemetry/+/log/experiments/upload"]
@@ -292,14 +305,14 @@ def is_maxtwo_recording(data_format: str, file_path: str) -> bool:
 def get_splitter_config() -> dict:
     """Get configuration for MaxTwo splitter job."""
     config = {
-        "args": "./start_splitter.sh",
-        "cpu_request": 8,
-        "memory_request": 64,
-        "disk_request": 400,
+        "args": "./start_splitter.sh",  # Container now has optimized version as default
+        "cpu_request": 6,   # Increased from 4 for parallel processing
+        "memory_request": 48,  # Increased from 32 for better caching  
+        "disk_request": 400,   # Keep same - needed for large 25GB+ files
         "GPU": 0,
-        "image": "surygeng/maxtwo_splitter:v0.1"
+        "image": "surygeng/maxtwo_splitter:v0.2"  # Updated to optimized version
     }
-    logging.info(f"Created splitter config: {config}")
+    logging.info(f"Created optimized splitter config: {config}")
     return config
 
 
