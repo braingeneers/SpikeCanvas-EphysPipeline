@@ -69,9 +69,79 @@ class edpScanner:
         else:
             return "Unknown"
 
+    def delete_associated_job(self, batch_v1, pod_name):
+        """
+        Delete the Kubernetes job associated with a pod.
+        
+        Args:
+            batch_v1: BatchV1Api client
+            pod_name: Name of the pod
+            
+        Returns:
+            bool: True if job was deleted successfully, False otherwise
+        """
+        try:
+            # First, try to get the pod to check its owner references
+            core_v1 = client.CoreV1Api()
+            try:
+                pod = core_v1.read_namespaced_pod(name=pod_name, namespace=self.namespace)
+                
+                # Check owner references to find the job
+                if pod.metadata.owner_references:
+                    for owner_ref in pod.metadata.owner_references:
+                        if owner_ref.kind == "Job":
+                            job_name = owner_ref.name
+                            logging.info(f"Found job {job_name} via owner reference for pod {pod_name}")
+                            
+                            # Delete the job
+                            api_response = batch_v1.delete_namespaced_job(
+                                name=job_name,
+                                namespace=self.namespace,
+                                body=client.V1DeleteOptions(
+                                    propagation_policy='Foreground',
+                                    grace_period_seconds=0
+                                )
+                            )
+                            logging.info(f"Deleted job {job_name}")
+                            return True
+                            
+            except ApiException:
+                # Pod might already be deleted, continue with fallback method
+                pass
+            
+            # Fallback: List all jobs and find by name pattern
+            job_list = batch_v1.list_namespaced_job(namespace=self.namespace)
+            
+            for job in job_list.items:
+                job_name = job.metadata.name
+                
+                # Common pattern: pod name starts with job name followed by a suffix
+                if pod_name.startswith(job_name):
+                    logging.info(f"Found associated job {job_name} for pod {pod_name} via name pattern")
+                    
+                    # Delete the job
+                    api_response = batch_v1.delete_namespaced_job(
+                        name=job_name,
+                        namespace=self.namespace,
+                        body=client.V1DeleteOptions(
+                            propagation_policy='Foreground',
+                            grace_period_seconds=0
+                        )
+                    )
+                    logging.info(f"Deleted job {job_name}")
+                    return True
+                    
+        except ApiException as e:
+            logging.error(f"Exception when deleting job for pod {pod_name}: {e}")
+            return False
+        
+        logging.warning(f"No associated job found for pod {pod_name}")
+        return False
+
     def scan_edp(self):
         config.load_kube_config()
         core_v1 = client.CoreV1Api()
+        batch_v1 = client.BatchV1Api()  # Add BatchV1Api for job operations
         logging.info(f"Start scanning {JOB_PREFIX} jobs for namespace {self.namespace}")
 
         while True:
@@ -81,6 +151,7 @@ class edpScanner:
                 logging.info("Refresh token")
                 config.load_kube_config()
                 core_v1 = client.CoreV1Api()
+                batch_v1 = client.BatchV1Api()  # Refresh BatchV1Api as well
                 pod_list = core_v1.list_namespaced_pod(namespace=self.namespace)
 
             current_pods = []
@@ -124,8 +195,12 @@ class edpScanner:
                     status = self.status_table[pname]
                     if status["status"] in FINISH_FLAGS:
                         del self.status_table[pname]
-                        # also remove the pod from nrp
+                        # Remove both the pod and its associated job from Kubernetes
                         try:
+                            # First delete the associated job
+                            self.delete_associated_job(batch_v1, pname)
+                            
+                            # Then delete the pod
                             api_response = \
                                 core_v1.delete_namespaced_pod(pname,
                                                                 namespace=self.namespace,
@@ -133,7 +208,7 @@ class edpScanner:
                                                                     propagation_policy='Foreground',
                                                                     grace_period_seconds=0)
                                                                 )
-                            logging.info(f"Delete {status['status']} pod {api_response.metadata.name}")
+                            logging.info(f"Deleted {status['status']} pod {api_response.metadata.name}")
                             time.sleep(0.1)
                         except ApiException as e:
                             logging.error(f"Exception when calling CoreV1Api->delete_namespaced_pod: {e}")
