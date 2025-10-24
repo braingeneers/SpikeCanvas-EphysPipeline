@@ -43,7 +43,8 @@ def create_message(uuid, exp_list, ow=False):
             exp_name = exp_dataset
         experiments[exp_name] = {"blocks": 
                                  [{"path": f"{INTER_BUCKET}{exp_dataset}"}],
-                                 "data_format": "maxtwo"}
+                                #  "data_format": "maxtwo"
+                                 }
         
     message["ephys_experiments"] = experiments
     print(message)
@@ -92,7 +93,16 @@ if __name__ == '__main__':
             print("No available recording. Please input another UUID")
 
     exp_list = wr.list_objects(data_path)
-    exp_name = [exp.split(INTER_BUCKET)[1] for exp in exp_list]
+    # More robust extraction of experiment names from S3 paths
+    exp_name = []
+    for exp in exp_list:
+        # Use Path to extract just the filename
+        filename = Path(exp).name
+        exp_name.append(filename)
+    
+    print("Available experiment files:")
+    for name in exp_name:
+        print(f"  {name}")
     # get experiment
     experiment = None
     while get_exp:

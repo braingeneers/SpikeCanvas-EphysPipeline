@@ -8,8 +8,8 @@ import time
 
 TOPIC = "experiments/upload"
 chip_id = "19894"
-# SUB_BUCKET = "original/data"
-SUB_BUCKET = "shared"
+SUB_BUCKET = "original/data"
+# SUB_BUCKET = "shared"
 
 
 def create_message(uuid, chip_id, exp_list):

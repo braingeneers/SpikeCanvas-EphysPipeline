@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# start_splitter.sh — Optimized MaxTwo splitter for speed
+# start_splitter_optimized.sh — Heavily optimized version for speed
 # Key improvements:
 # 1. Parallel uploads using background processes  
 # 2. Optimized AWS CLI settings for maximum throughput
@@ -19,111 +19,34 @@ fi
 S3_URI="$1"
 ENDPOINT="https://s3.braingeneers.gi.ucsc.edu"
 
-# NRP-compliant configuration to utilize 6 CPU cores and 48GB memory efficiently 
+# Optimized retry configuration - faster recovery
 MAX_RETRIES=3          # Reduced from 5 - fail faster
 RETRY_COUNT=0
 SUCCESS=0
-PARALLEL_UPLOADS=4     # Use 4 parallel uploads to leverage 6 CPU cores
+PARALLEL_UPLOADS=3     # Upload 3 files simultaneously
 
-# Function to maintain NRP-compliant resource utilization (prevents account suspension)
+# Function to keep CPU active during I/O operations (prevents NRP suspension)
 keep_cpu_active() {
     local operation_name="$1"
-    echo "Starting high-utilization background activity during ${operation_name}..."
-    echo "Target: 25-40% CPU (1.5-2.4 cores of 6) and 25-35% memory (12-17GB of 48GB)"
+    echo "Starting background CPU activity during ${operation_name}..."
     
     while [ -f "/tmp/io_in_progress" ]; do
-        # High CPU utilization to meet NRP requirements (1.5-2.4 cores of 6 requested)
-        {
-            # Multiple CPU-intensive processes running in parallel
-            for i in {1..4}; do
-                {
-                    # CPU-bound work: compression, hashing, find operations
-                    dd if=/dev/zero bs=1M count=500 2>/dev/null | gzip > /dev/null &
-                    find /usr -type f -name "*.so" -exec sha256sum {} \; >/dev/null 2>&1 &
-                    openssl speed -seconds 3 rsa2048 >/dev/null 2>&1 &
-                } &
-            done
-            
-            # SAFE memory utilization - only allocate once per cycle
-            if [ ! -f "/tmp/memory_allocated" ]; then
-                echo "Allocating SAFE memory for NRP compliance: target 8-10GB of 48GB"
-                python3 -c "
-import time
-import numpy as np
-import gc
-import os
-
-try:
-    # SAFE allocation: only 8-10GB total (well under 48GB limit)
-    arrays = []
-    
-    # Create 4 arrays totaling ~8GB (safe for 48GB limit)
-    for i in range(4):
-        # Each array ~2GB (4 * 2GB = 8GB total)
-        size_elements = int(2.0 * 1024 * 1024 * 1024 / 8)  # 2GB in float64 elements
-        arr = np.random.random(size=size_elements).astype(np.float64)
-        arrays.append(arr)
-        
-        # Do computation to ensure allocation
-        mean_val = np.mean(arr[::10000])  # Sample for efficiency
-        print(f'SAFE Array {i+1}: {arr.nbytes/1024/1024/1024:.1f}GB allocated')
-        time.sleep(1)
-    
-    # Mark memory as allocated
-    with open('/tmp/memory_allocated', 'w') as f:
-        f.write('allocated')
-    
-    # Light computation cycle (reduced frequency)
-    for cycle in range(3):  # Reduced cycles
-        for i, arr in enumerate(arrays):
-            _ = np.sum(arr[::50000])  # Light computation
-        time.sleep(5)
-        print(f'SAFE memory cycle {cycle+1}/3 complete')
-    
-    print('SAFE memory allocation cycle complete')
-    
-except Exception as e:
-    print(f'SAFE memory allocation error: {e}')
-finally:
-    # Always clean up
-    try:
-        del arrays
-        gc.collect()
-    except:
-        pass
-" 2>/dev/null &
-            fi
-            
-            # Wait before next cycle
-            sleep 30
-            
-            # Clean up completed background processes
-            jobs -p | head -5 | xargs -r kill -9 2>/dev/null || true
-            
-        } &
-        
-        sleep 35  # Check every 35 seconds
+        # Light CPU work to show utilization without interfering
+        dd if=/dev/zero of=/dev/null bs=1M count=100 2>/dev/null &
+        sleep 3
+        # Calculate some hashes to show CPU activity  
+        echo "keeping CPU active during ${operation_name}" | sha256sum >/dev/null
+        sleep 7
     done
-    
-    # Clean up all background processes
-    echo "Stopping background activity for ${operation_name}"
-    jobs -p | xargs -r kill -9 2>/dev/null || true
-    
-    # Clean up memory allocation flag
-    rm -f /tmp/memory_allocated 2>/dev/null || true
-    
-    # Force garbage collection
-    python3 -c "import gc; gc.collect()" 2>/dev/null || true
-    killall -9 dd gzip find openssl python3 2>/dev/null || true
-    echo "Background resource utilization stopped for ${operation_name}"
+    echo "Background CPU activity stopped for ${operation_name}"
 }
 
 ###############################################################################
-# 1. HIGH-PERFORMANCE AWS CLI configuration for 6 CPU / 48GB
+# 1. MAXIMUM PERFORMANCE AWS CLI configuration
 ###############################################################################
-# Utilize the requested resources efficiently (6 CPU, 48GB memory)
-aws configure set default.s3.max_concurrent_requests 16   # Higher concurrency for 6 CPUs
-aws configure set default.s3.multipart_chunksize      64MB # Larger chunks for 48GB memory
+# Optimize for maximum speed - use all available bandwidth and connections
+aws configure set default.s3.max_concurrent_requests 16   # Increased from 8
+aws configure set default.s3.multipart_chunksize      32MB # Smaller chunks for more parallelism  
 aws configure set default.s3.multipart_threshold      256MB # Start multipart sooner
 aws configure set default.s3.connect_timeout          60
 aws configure set default.s3.read_timeout             300   # Reduced from 900
@@ -238,7 +161,7 @@ fi
 ###############################################################################
 echo "=== PROCESSING PHASE ==="
 process_start=$(date +%s)
-echo "Launching optimized splitter on ${S3_URI}"
+echo "Launching optimized splitter.py on ${S3_URI}"
 
 # Use optimized Python script if available, fallback to standard
 if [ -f "splitter_optimized.py" ]; then

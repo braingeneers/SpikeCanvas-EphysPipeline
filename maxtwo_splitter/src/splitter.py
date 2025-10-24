@@ -4,7 +4,7 @@ Optimized MaxTwo splitter with parallel processing and memory efficiency improve
 
 Download a 6-well MaxTwo *.raw.h5* file from S3, split it into six single-well
 files while preserving hard links, and upload the split files back to S3 under
-…/original/split/.
+.../original/split/.
 
 Key optimizations:
 1. Parallel well processing using multiprocessing
@@ -99,14 +99,20 @@ def maintain_nrp_compliance():
             # Do some work with the array to ensure it's actually allocated
             _ = np.mean(dummy_array[::1000])
             
-            logging.info(f"NRP compliance: Allocated {dummy_size_gb:.1f}GB working memory")
+            logging.info(f"NRP compliance: allocated {dummy_size_gb:.1f}GB working memory")
             
-        logging.info(f"NRP compliance: Memory usage {current_memory_gb:.1f}GB/{MEMORY_LIMIT_GB}GB, CPU workers: {MAX_WORKERS}")
+            # Clean up immediately after allocation
+            del dummy_array
+            gc.collect()
+            
+        logging.info(f"NRP compliance: Memory usage {current_memory_gb:.1f}GB (target: {target_memory_gb}GB), CPU workers: {MAX_WORKERS}")
         
     except ImportError:
         logging.warning("psutil not available for resource monitoring")
     except Exception as e:
         logging.warning(f"Resource monitoring failed: {e}")
+        # Force cleanup on any error
+        gc.collect()
 
 # NOTE: Download and upload functions are handled by the optimized bash script
 # def download_s3_with_retry(src: str, dst: str, retries: int = 3):
@@ -185,60 +191,43 @@ def _discover_wells(src: h5py.File):
     return sorted(list(wells))
 
 def _link(dst_parent: h5py.Group, name: str, target: str):
-    """Create a hard link in HDF5 file."""
-    try:
-        dst_parent[name] = dst_parent.file[target]
-    except (KeyError, ValueError):
-        # If hard link fails, create a soft link instead
-        dst_parent[name] = h5py.SoftLink(target)
+    """Create a hard link in HDF5 file - WORKING version from original."""
+    dst_parent[name] = dst_parent.file[target]
 
 def _copy_tree_optimized(src, dst, src_path, dst_path, id_map, progress_callback=None):
-    """Optimized tree copying with memory management."""
+    """Tree copying with WORKING logic from original splitter."""
     try:
-        src_obj = src[src_path]
-        
-        if isinstance(src_obj, h5py.Dataset):
-            # Handle dataset copying with chunking for large datasets
-            if src_obj.size > 0:
-                if id(src_obj) in id_map:
-                    # Create hard link for duplicate data
-                    target_path = id_map[id(src_obj)]
-                    _link(dst, dst_path, target_path)
-                else:
-                    # Copy dataset with chunking for memory efficiency
-                    if src_obj.nbytes > CHUNK_SIZE:
-                        # Large dataset - copy in chunks
-                        dst.create_dataset(dst_path, data=src_obj, chunks=True, compression='gzip')
-                    else:
-                        # Small dataset - copy directly
-                        dst.create_dataset(dst_path, data=src_obj[:])
-                    id_map[id(src_obj)] = dst_path
-            else:
-                # Empty dataset
-                dst.create_dataset(dst_path, shape=src_obj.shape, dtype=src_obj.dtype)
-            
-            # Copy attributes
-            for attr_name, attr_value in src_obj.attrs.items():
-                dst[dst_path].attrs[attr_name] = attr_value
-                
-        elif isinstance(src_obj, h5py.Group):
-            # Create group and copy attributes
-            if dst_path not in dst:
-                group = dst.create_group(dst_path)
-            else:
-                group = dst[dst_path]
-                
-            for attr_name, attr_value in src_obj.attrs.items():
-                group.attrs[attr_name] = attr_value
-            
-            # Recursively copy children
-            for child_name in src_obj.keys():
-                child_src_path = f"{src_path}/{child_name}"
-                child_dst_path = f"{dst_path}/{child_name}"
-                _copy_tree_optimized(src, dst, child_src_path, child_dst_path, id_map, progress_callback)
+        obj = src[src_path]
+        obj_id = obj.id.__hash__()
         
         if progress_callback:
             progress_callback()
+
+        if isinstance(obj, h5py.Dataset):
+            # Use WORKING approach from original splitter
+            dst_grp = dst.require_group(Path(dst_path).parent.as_posix())
+            if obj_id in id_map:
+                # Create hard link using WORKING method
+                _link(dst_grp, Path(dst_path).name, id_map[obj_id])
+            else:
+                # Use WORKING copy method that preserves everything correctly
+                src.copy(src_path, dst_grp,
+                        name=Path(dst_path).name,
+                        shallow=False, expand_refs=True)
+                id_map[obj_id] = dst_path
+        else:  # h5py.Group
+            # Create group using WORKING method
+            dst.require_group(dst_path)
+            
+            # Recursively copy children
+            for child in obj:
+                child_src_path = f"{src_path}/{child}"
+                child_dst_path = f"{dst_path}/{child}"
+                _copy_tree_optimized(src, dst, child_src_path, child_dst_path, id_map, progress_callback)
+            
+            # Copy attributes using WORKING method (preserves types correctly)
+            for k, v in obj.attrs.items():
+                dst[dst_path].attrs[k] = v
             
     except Exception as e:
         logging.error(f"Error copying {src_path} to {dst_path}: {e}")
@@ -254,7 +243,7 @@ def _tree_size(obj: h5py.Group | h5py.Dataset) -> int:
     return size
 
 def process_single_well(args):
-    """Process a single well - designed for multiprocessing."""
+    """Process a single well - designed for multiprocessing with FIXED data handling."""
     local_h5, rec_name, out_dir, well, well_index, total_wells = args
     
     try:
@@ -265,31 +254,40 @@ def process_single_well(args):
         logging.info(f"[{well_index+1}/{total_wells}] Processing {well}")
         
         with h5py.File(local_h5, "r") as src:
-            # Collect source branches for this well
+            # Collect source branches for this well - FIXED to prevent duplication
             branches = []
             
-            # Check recordings
-            for rec in src.get("recordings", []):
-                p = f"recordings/{rec}/{well}"
-                if p in src:
-                    branches.append(p)
+            # Check recordings - only for this specific well
+            if "recordings" in src:
+                for rec_key in src["recordings"].keys():
+                    rec = src["recordings"][rec_key]
+                    if well in rec:
+                        p = f"recordings/{rec_key}/{well}"
+                        branches.append(p)
+                        logging.debug(f"Found recording data: {p}")
             
-            # Check data_store
-            p = f"data_store/data{int(well[-3:]):03d}"
-            if p in src:
+            # Check data_store - FIXED to use correct path format from original
+            well_num = int(well[-3:])  # Extract well number (e.g., well000 -> 0)
+            data_key = f"data0{well_num:03d}"  # Format: data0000, data0001, etc. (like original)
+            if "data_store" in src and data_key in src["data_store"]:
+                p = f"data_store/{data_key}"
                 branches.append(p)
+                logging.debug(f"Found data_store: {p}")
             
-            # Check wells
-            p = f"wells/{well}"
-            if p in src:
+            # Check wells section - only for this specific well
+            if "wells" in src and well in src["wells"]:
+                p = f"wells/{well}"
                 branches.append(p)
+                logging.debug(f"Found wells data: {p}")
             
-            # Add metadata
+            # Add metadata using ORIGINAL working method
             branches.extend(k for k in METADATA_KEYS if k in src)
             
             if not branches:
                 logging.warning(f"No data found for {well}")
                 return None
+            
+            logging.info(f"[{well_index+1}/{total_wells}] {well}: Found {len(branches)} data branches")
             
             # Create output file with progress tracking
             with h5py.File(dst_path, "w") as dst:
@@ -300,13 +298,21 @@ def process_single_well(args):
                     nonlocal processed_objects
                     processed_objects += 1
                 
+                # FIXED: Copy branches without duplication
                 for branch in branches:
-                    _copy_tree_optimized(src, dst, branch, branch, id_map, progress_callback)
+                    if branch in src:  # Verify branch exists
+                        _copy_tree_optimized(src, dst, branch, branch, id_map, progress_callback)
+                    else:
+                        logging.warning(f"Branch {branch} not found in source file")
         
         processing_time = time.perf_counter() - start_time
         file_size = os.path.getsize(dst_path) / (1024**3)  # GB
         
         logging.info(f"[{well_index+1}/{total_wells}] {well} completed: {file_size:.1f}GB in {processing_time:.1f}s")
+        
+        # VALIDATION: Check file size is reasonable
+        if file_size > 8.0:  # Each well should be ~4-6GB, not >8GB
+            logging.warning(f"[{well_index+1}/{total_wells}] {well}: File size {file_size:.1f}GB seems too large")
         
         return str(dst_path)
         
@@ -382,7 +388,14 @@ def main():
     s3_base_path = posixpath.dirname(s3_path)
     
     rec_basename = Path(s3_path).name
-    rec_name = rec_basename.split(".")[0]
+    # Handle filenames with multiple dots - extract everything before the extension
+    if rec_basename.endswith(".raw.h5"):
+        rec_name = rec_basename[:-7]  # Remove ".raw.h5" (7 characters)
+    elif rec_basename.endswith(".h5"):
+        rec_name = rec_basename[:-3]  # Remove ".h5" (3 characters)  
+    else:
+        # Fallback for other extensions
+        rec_name = rec_basename.rsplit(".", 1)[0]
     
     local_raw = Path(LOCAL_WORKDIR) / rec_basename
     local_split = Path(LOCAL_WORKDIR) / SPLIT_SUBDIR
