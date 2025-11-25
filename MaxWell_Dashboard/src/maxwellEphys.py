@@ -19,12 +19,17 @@ class MaxWellEphys:
         """
         load spike sorted data from s3 using analysis.read_phy_files()
         Generate dataframe for plotting functions
-        # TODO: to read the sorted data, first check available figures,
-        then qm, then phy, last show data not available
+        Data loading priority: 
+        1. _acqm.zip (latest auto-curation)
+        2. _qm_rd.zip (quality metrics with manual curation) 
+        3. _qm.zip (quality metrics auto-curation)
+        4. _phy.zip (uncurated spike sorting results)
         """
         data_path = parse_derived_path(data_path)
         print(f"Load data from {data_path}")
-        if data_path.endswith("_qm.zip") or data_path.endswith("_qm_rd.zip"):
+        if (data_path.endswith("_qm.zip") or 
+            data_path.endswith("_qm_rd.zip") or 
+            data_path.endswith("_acqm.zip")):
             self.ephys_data = load_curation(data_path)
         else:
             self.ephys_data = read_phy_files(data_path)
@@ -268,14 +273,19 @@ def parse_derived_path(data_path):
         if data_path.endswith(".raw.h5"):
             data_path = data_path.split(".raw.h5")[0]
 
-        for end in ["_qm_rd.zip", "_qm.zip"]:
+        # Check for curated data in order of preference (latest first)
+        for end in ["_acqm.zip", "_qm_rd.zip", "_qm.zip"]:
             qm_path = data_path + end
             if wr.does_object_exist(qm_path):
                 return qm_path
 
+        # Fall back to uncurated phy data
         phy_path = data_path.replace(".raw.h5", "_phy.zip")
         if wr.does_object_exist(phy_path):
             return phy_path
+        
+        # No processed data found
+        return None
     else:
         return data_path
 

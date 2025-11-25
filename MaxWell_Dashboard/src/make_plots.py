@@ -2,7 +2,6 @@
 from maxwellEphys import MaxWellEphys
 import numpy as np
 import plotly.graph_objects as go
-from plotly.validators.scatter.marker import SymbolValidator
 import plotly.express as px
 from plotly.subplots import make_subplots
 
@@ -21,7 +20,6 @@ class PlotEphys(MaxWellEphys):
         """
         raster_x, raster_y, fr_bins, firing_rate = self.raster()
         # fig_raster = go.Figure()
-        raw_symbols = SymbolValidator().values
         fig_raster = make_subplots(rows=2, cols=1, shared_xaxes=True, vertical_spacing=0.02,
                                    row_width=[0.2, 0.7])
 

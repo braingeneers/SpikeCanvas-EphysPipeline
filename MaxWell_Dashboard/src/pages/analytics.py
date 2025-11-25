@@ -10,6 +10,7 @@ from make_plots import PlotEphys
 import time
 import sys
 import os
+import posixpath
 import numpy as np
 
 sys.path.append('..')
@@ -23,7 +24,6 @@ from values import *
 # TODO: Add full electrode footprint
 # TODO: keep the sorting function and allow checking status?
 # TODO: create a second page for loading multiple recordings
-# TODO: add a loading bar
 
 
 # dash setting
@@ -38,9 +38,9 @@ fig_fr_dist = plotly.subplots.make_subplots(rows=1, cols=1)
 # ccg, bursts, connectivity
 
 ###### variables #######
-sttc_delta = 20
-sttc_thr = 0.35
-fr_coef = 10
+sttc_delta = 0.02  # STTC delta in seconds (20ms)
+sttc_thr = 0.35    # STTC threshold
+fr_coef = 10       # Firing rate coefficient
 ########## end ##########
 
 ####----------------------- make page -----------------------####
@@ -77,29 +77,72 @@ overview_figures_layout = dbc.Row(dbc.Card(
 ))
 
 layout = dbc.Container([
-    html.H2("Ephys Visualization"),
+    html.H2("SpikeCanvas Analytics"),
+    html.P("Interactive visualization of processed neural data", 
+           style={'color': '#7f8c8d', 'font-style': 'italic'}),
     html.Hr(),
     # Dropdowns
-    dbc.Row(html.Div(['Dataset (UUID), Filter UUID by Keyword: ',
-                      dcc.Textarea(id='textarea_filter_uuid',
-                                   placeholder="enter you keyword here",
-                                   value='',
-                                   style={'width': '30%', 'height': 25}, ),
-                      dcc.Dropdown(id="dropdown_uuid",
-                                   options=[],
-                                   value="",
-                                   disabled=False),
-                      dcc.Dropdown(id="dropdown_data",
-                                   options=[],
-                                   value="",
-                                   disabled=False),
-                      # dcc.Dropdown(id="dropdown_derived",
-                      #              options=[],
-                      #              value="",
-                      #              disabled=False),
-                      ])),
+    dbc.Row([
+        dbc.Col([
+            html.Label("Dataset (UUID) - Filter by Keyword:", style={'font-weight': 'bold'}),
+            dcc.Textarea(id='textarea_filter_uuid',
+                         placeholder="Enter keyword to filter UUIDs",
+                         value='',
+                         style={'width': '100%', 'height': 40, 'margin-bottom': '10px'}),
+            html.Label("Select Dataset UUID:", style={'font-weight': 'bold'}),
+            dcc.Dropdown(id="dropdown_uuid",
+                         options=[],
+                         value="",
+                         placeholder="Choose a dataset UUID...",
+                         disabled=False,
+                         style={'margin-bottom': '10px'}),
+            html.Label("Select Processed Data (Derived Folder):", style={'font-weight': 'bold'}),
+            dcc.Dropdown(id="dropdown_data",
+                         options=[],
+                         value="",
+                         placeholder="Choose processed data file...",
+                         disabled=False),
+        ], width=12)
+    ]),
 
     html.Br(),
+    
+    # Loading indicator
+    dbc.Row([
+        dbc.Col([
+            html.Div([
+                dbc.Progress(
+                    id="loading-progress",
+                    value=0,
+                    striped=True,
+                    animated=True,
+                    color="primary",
+                    style={'height': '25px', 'margin-bottom': '10px'}
+                ),
+                html.Div(
+                    id="loading-status",
+                    children="Ready to load data...",
+                    style={
+                        'text-align': 'center',
+                        'font-weight': 'bold',
+                        'color': '#2c3e50',
+                        'margin-bottom': '10px'
+                    }
+                ),
+                html.Div(
+                    id="loading-details",
+                    children="Select a processed data file to begin analysis",
+                    style={
+                        'text-align': 'center',
+                        'font-size': '12px',
+                        'color': '#7f8c8d',
+                        'margin-bottom': '20px'
+                    }
+                )
+            ], id="loading-container", style={'display': 'none'})
+        ], width=12)
+    ]),
+    
     # Spike sorting button
     # html.Div(
     #     children=[
@@ -138,9 +181,71 @@ def drop_down(value=None):
     prevent_initial_call=True
 )
 def dropdown_data(uuid):
-    data_path = os.path.join(uuid, "original/data")
-    return wr.list_objects(data_path)
+    if uuid is None or uuid == "":
+        return []
+    
+    processed_files = []
+    
+    # Check both autocuration and kilosort2 subfolders
+    subfolders = ['autocuration', 'kilosort2']
+    
+    for subfolder in subfolders:
+        try:
+            # Use forward slashes for S3 path compatibility
+            subfolder_path = f"{uuid.rstrip('/')}/derived/{subfolder}"
+            print(f"Checking path: {subfolder_path}")
+            
+            # List all files in the current subfolder
+            objects = wr.list_objects(subfolder_path)
+            
+            # Filter to show only processed files (curated results and phy files)
+            for obj in objects:
+                if obj.endswith(('_acqm.zip', '_qm_rd.zip', '_qm.zip', '_phy.zip')):
+                    # Keep the full derived path for display
+                    display_name = obj.replace(f"{uuid.rstrip('/')}/", "")
+                    processed_files.append({
+                        'label': f"{subfolder}/{display_name.split('/')[-1]}", 
+                        'value': display_name
+                    })
+                    
+        except Exception as e:
+            print(f"Error listing objects in {subfolder_path}: {e}")
+            continue
+    
+    # Sort files by subfolder and filename for better organization
+    processed_files.sort(key=lambda x: (x['label'].split('/')[0], x['label'].split('/')[1]))
+    
+    return processed_files
 
+
+# Show loading bar immediately when file is selected
+@callback(
+    [Output("loading-container", "style"),
+     Output("loading-progress", "value"),
+     Output("loading-status", "children"),
+     Output("loading-details", "children")],
+    Input("dropdown_data", "value"),
+    prevent_initial_call=True
+)
+def show_loading_container(data_filename):
+    if data_filename is None or data_filename == "":
+        return {'display': 'none'}, 0, "Ready to load data...", "Select a processed data file to begin analysis"
+    else:
+        filename_display = data_filename.split('/')[-1] if data_filename else "file"
+        return ({'display': 'block'}, 10, "Loading data...", 
+                f"Loading: {filename_display}")
+
+# Hide loading bar when processing is complete
+@callback(
+    Output("loading-container", "style", allow_duplicate=True),
+    [Input("loading-progress", "value")],
+    prevent_initial_call=True
+)
+def hide_loading_when_complete(progress_value):
+    if progress_value >= 100:
+        return {'display': 'none'}
+    else:
+        return {'display': 'block'}
 
 # add load figure button
 
@@ -182,23 +287,93 @@ def dropdown_data(uuid):
 # heatmap of sttc with 20ms window
 # burst duration, IBI, burst peak firing rate
 @callback(
-    Output('electrode_map', 'figure', allow_duplicate=True),
-    Output('raster_plot', 'figure', allow_duplicate=True),
-    Output('sttc_heatmap', 'figure'),
-    Output('firing_rate_distribution', 'figure'),
-    Input('dropdown_data', 'value'),
+    [Output('electrode_map', 'figure', allow_duplicate=True),
+     Output('raster_plot', 'figure', allow_duplicate=True),
+     Output('sttc_heatmap', 'figure'),
+     Output('firing_rate_distribution', 'figure'),
+     Output("loading-progress", "value", allow_duplicate=True),
+     Output("loading-status", "children", allow_duplicate=True),
+     Output("loading-details", "children", allow_duplicate=True)],
+    [Input('dropdown_data', 'value')],
+    [State('dropdown_uuid', 'value')],
     prevent_initial_call=True
 )
-def plot_initial_figures(s3_data_path):
+def plot_initial_figures(data_filename, uuid):
     button_id = ctx.triggered_id if not None else 'No clicks yet'
     if button_id == 'dropdown_data':
-        ephys_dash = PlotEphys(s3_data_path, fr_coef, sttc_delta, sttc_thr)
-        fig_map, circle_colors = ephys_dash.plot_map()
-        fig_raster = ephys_dash.plot_raster_fr()
-        fig_sttc = ephys_dash.plot_sttc_heatmap()
-        fig_fr_dist = ephys_dash.plot_fr_distribution()
-        print("Initial figures are ready!")
-        return fig_map, fig_raster, fig_sttc, fig_fr_dist
+        # Validate inputs
+        if data_filename is None or data_filename == "" or uuid is None or uuid == "":
+            print("No data file or UUID selected")
+            return fig_map, fig_raster, fig_sttc, fig_fr_dist, 0, "Ready to load data...", "Select a processed data file to begin analysis"
+        
+        # Construct full S3 path - data_filename now contains the derived path
+        s3_data_path = f"{uuid.rstrip('/')}/{data_filename}"
+
+        try:
+            print(f"Loading processed data from: {s3_data_path}")
+            
+            # Since we're already selecting from derived folder, we can use the path directly
+            # No need to call parse_derived_path as the file is already a processed result
+            if not wr.does_object_exist(s3_data_path):
+                print(f"Selected file does not exist: {s3_data_path}")
+                return (fig_map, fig_raster, fig_sttc, fig_fr_dist, 0, 
+                       "File not found!", f"Could not locate: {data_filename.split('/')[-1]}")
+            
+            # # Create a mock original path for PlotEphys compatibility
+            # # PlotEphys expects an original path and internally converts to derived
+            # # Handle both autocuration and kilosort2 subfolders
+            # original_filename = data_filename
+            # if "derived/autocuration/" in original_filename:
+            #     original_filename = original_filename.replace("derived/autocuration/", "original/data/")
+            # elif "derived/kilosort2/" in original_filename:
+            #     original_filename = original_filename.replace("derived/kilosort2/", "original/data/")
+            
+            # # Remove the processing suffixes and add back the .raw.h5 extension
+            # for suffix in ["_acqm.zip", "_qm_rd.zip", "_qm.zip", "_phy.zip"]:
+            #     if original_filename.endswith(suffix):
+            #         original_filename = original_filename.replace(suffix, ".raw.h5")
+            #         break
+            
+            # mock_original_path = f"{uuid.rstrip('/')}/{original_filename}"
+            # print(f"Using mock original path for PlotEphys: {mock_original_path}")
+            
+            # Initialize PlotEphys (50% progress)
+            print("Initializing data processing...")
+            ephys_dash = PlotEphys(s3_data_path, fr_coef, sttc_delta, sttc_thr)
+            
+            # Generate electrode map (60% progress)
+            print("Generating electrode map...")
+            new_fig_map, circle_colors = ephys_dash.plot_map()
+            
+            # Generate raster plot (70% progress)
+            print("Generating raster plot...")
+            new_fig_raster = ephys_dash.plot_raster_fr()
+            
+            # Generate STTC heatmap (85% progress)
+            print("Generating STTC heatmap...")
+            new_fig_sttc = ephys_dash.plot_sttc_heatmap()
+            
+            # Generate firing rate distribution (95% progress)
+            print("Generating firing rate distribution...")
+            new_fig_fr_dist = ephys_dash.plot_fr_distribution()
+            
+            print("All figures generated successfully!")
+            return (new_fig_map, new_fig_raster, new_fig_sttc, new_fig_fr_dist, 
+                   100, "Figures loaded successfully!", 
+                   "All visualizations are ready for analysis")
+        except Exception as e:
+            print(f"Error loading data: {e}")
+            import traceback
+            traceback.print_exc()
+            # Return empty figures on error
+            return (fig_map, fig_raster, fig_sttc, fig_fr_dist, 
+                   0, f"Error loading data: {str(e)}", 
+                   "Please check the file format and try again")
+    
+    # Return current figures if not triggered by dropdown
+    return (fig_map, fig_raster, fig_sttc, fig_fr_dist, 
+           0, "Ready to load data...", 
+           "Select a processed data file to begin analysis")
 
 # @callback(
 #     Output('electrode_map', 'figure', allow_duplicate=True),

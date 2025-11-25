@@ -10,6 +10,7 @@ import posixpath
 import pandas as pd
 from scipy import signal
 import shutil
+import json
 
 
 # parameters
@@ -125,13 +126,46 @@ def downsample(wav_lfp, dec=20, fs=20000.0):
 
 
 if __name__ == "__main__":
-    # input format:
-    ## s3_path, start_time, end_time
+    # Updated input format to match job system:
+    ## s3_path, param_path
     # example:
-    ## s3://braingeneers/ephys/2023-12-03-e-Hc112823_avv9hckcr1/original/data/Hc112823_avv9hckcr1_21841_120323_1.raw.h5 280 310
-
-    data_path = sys.argv[1]
-    st, end = int(sys.argv[2]), int(sys.argv[3])
+    ## s3://braingeneers/ephys/2023-12-03-e-Hc112823_avv9hckcr1/original/data/Hc112823_avv9hckcr1_21841_120323_1.raw.h5 s3://braingeneers/services/mqtt_job_listener/params/lfp/params_example.json
+    
+    # Legacy support for old format (3 arguments: data_path, start_time, end_time)
+    if len(sys.argv) == 4:
+        # Old format: python run_lfp.py data_path start_time end_time
+        data_path = sys.argv[1]
+        st, end = int(sys.argv[2]), int(sys.argv[3])
+    elif len(sys.argv) == 3:
+        # New format: python run_lfp.py data_path param_path
+        data_path = sys.argv[1]
+        param_path = sys.argv[2]
+        
+        # Load parameters from JSON file
+        try:
+            if param_path.startswith('s3://'):
+                # Download parameter file from S3
+                param_local = "/tmp/lfp_params.json"
+                wr.download(param_path, param_local)
+                with open(param_local, 'r') as f:
+                    params = json.load(f)
+            else:
+                # Local parameter file
+                with open(param_path, 'r') as f:
+                    params = json.load(f)
+            
+            # Extract parameters with defaults
+            st = int(params.get('start_time', 300))
+            end = int(params.get('end_time', 360))
+            logging.info(f"Loaded parameters from {param_path}: start_time={st}s, end_time={end}s")
+            
+        except Exception as e:
+            logging.error(f"Failed to load parameters from {param_path}: {e}")
+            logging.info("Using default parameters: start_time=300s, end_time=360s")
+            st, end = 300, 360
+    else:
+        logging.error("Invalid number of arguments. Expected: data_path param_path OR data_path start_time end_time")
+        sys.exit(1)
     file_name = data_path.split("/")[-1].split(".")[0]
     file_name = f"{file_name}_{st}s_{end}s"
     save_to_path = f"{data_path.split('/original/data')[0]}/derived/lfp/{file_name}.zip"

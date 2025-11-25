@@ -43,7 +43,7 @@ def create_message(uuid, exp_list, ow=False):
             exp_name = exp_dataset
         experiments[exp_name] = {"blocks": 
                                  [{"path": f"{INTER_BUCKET}{exp_dataset}"}],
-                                #  "data_format": "maxtwo"
+                                 "data_format": "maxtwo"
                                  }
         
     message["ephys_experiments"] = experiments

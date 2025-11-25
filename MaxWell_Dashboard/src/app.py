@@ -28,12 +28,16 @@ for page in dash.page_registry.values():
 
 app.layout = html.Div([
     # dcc.Store(id="multipage_data", data=str("{}"), storage_type='local'),   # store data for all pages
-    html.H1('Ephys Pipeline Dashboard'),
+    html.H1('SpikeCanvas', style={'color': '#2c3e50', 'text-align': 'center', 'margin': '20px 0'}),
+    html.H5('Cloud-based Electrophysiology Data Processing & Analysis Platform', 
+            style={'color': '#7f8c8d', 'text-align': 'center', 'font-style': 'italic', 'margin-bottom': '30px'}),
     html.Div([
-        html.Div(
-            dcc.Link(f"{page['name']} - {page['path']}", href=page["relative_path"])
-        ) for page in dash.page_registry.values()
-    ]),
+        html.Div([
+            dcc.Link(f"{page['name']}", href=page["relative_path"], 
+                    style={'text-decoration': 'none', 'color': '#3498db', 'font-weight': 'bold'})
+        ], style={'margin': '10px', 'padding': '10px', 'border': '1px solid #ecf0f1', 'border-radius': '5px'}) 
+        for page in dash.page_registry.values()
+    ], style={'display': 'flex', 'justify-content': 'center', 'flex-wrap': 'wrap', 'margin': '20px 0'}),
     dash.page_container
 ])
 

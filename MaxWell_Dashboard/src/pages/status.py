@@ -14,8 +14,9 @@ dash.register_page(__name__)
 
 ####----------------------- make page -----------------------####
 layout = dbc.Container([
-    html.H2("Job Status"),
-    # html.Br(),
+    html.H2("SpikeCanvas Status Monitor"),
+    html.P("Real-time tracking of processing jobs on the cloud", 
+           style={'color': '#7f8c8d', 'font-style': 'italic'}),
     html.Hr(),
     dbc.Card([
         # html.H5("Refresh to see the latest job status"),

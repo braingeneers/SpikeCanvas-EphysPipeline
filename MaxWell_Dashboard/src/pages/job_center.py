@@ -5,7 +5,6 @@ import braingeneers.utils.s3wrangler as wr
 import dash_bootstrap_components as dbc
 import os
 from datetime import datetime
-import braingeneers.data.datasets_electrophysiology as de
 import braingeneers.utils.smart_open_braingeneers as smart_open
 import json
 import sys
@@ -32,8 +31,9 @@ table_layout = dash_table.DataTable(
 # page layout
 print(f"Getting ready for page layout... ")
 layout = dbc.Container([
-    html.H2("Data Processing Center"),
-    # html.Br(),
+    html.H2("SpikeCanvas Job Center"),
+    html.P("Submit and manage electrophysiology data processing workflows", 
+           style={'color': '#7f8c8d', 'font-style': 'italic'}),
     html.Hr(),
     dbc.Row(html.Div([
         html.Div(["Dataset (UUID) ",

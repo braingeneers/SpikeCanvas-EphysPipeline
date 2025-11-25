@@ -1,9 +1,9 @@
-# User Manual for Job Center Webpage
+# SpikeCanvas - Electrophysiology Data Processing & Analysis Platform
 
-Note: other pages are still under construction. Please wait for future updates. 
+**SpikeCanvas** is a comprehensive web-based dashboard for neural data processing, spike sorting, quality control, and advanced analytics. This platform supports multiple electrophysiology recording formats and provides an intuitive interface for managing complex data processing workflows.
 
 ## Overview
-The Job Center Webpage is a data processing interface designed to manage and execute various jobs on datasets. This manual provides a comprehensive guide to using the webpage, including adding datasets, selecting jobs, setting parameters, and starting jobs.
+SpikeCanvas provides a complete suite of tools for electrophysiology data analysis, from raw neural recordings to publication-ready visualizations. The platform includes automated spike sorting, quality control, connectivity analysis, and interactive data exploration capabilities.
 
 ## Main Sections
 1. [Dataset Selection](#1-dataset-selection)
