@@ -3,11 +3,20 @@ Shared utilities for the Spike Sorting Listener service.
 Contains common constants and functions used across modules.
 """
 import re
+import os
 
 # Constants
 JOB_PREFIX = "edp-"
-DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
-NAMESPACE = "braingeneers"
+try:
+    from Services.common.config import load_config
+    _cfg = load_config()
+    DEFAULT_S3_BUCKET = _cfg.root()
+except Exception:
+    _fallback_bucket = os.getenv("S3_BUCKET", "braingeneers")
+    _fallback_prefix = os.getenv("S3_PREFIX", "ephys")
+    DEFAULT_S3_BUCKET = f"s3://{_fallback_bucket}/{_fallback_prefix.rstrip('/')}/"  # env-based fallback
+# Kubernetes namespace configurable via env var NRP_NAMESPACE (defaults to braingeneers)
+NAMESPACE = os.getenv("NRP_NAMESPACE", "braingeneers")
 
 def format_job_name(raw_name: str,
                     job_ind: int | None = None,

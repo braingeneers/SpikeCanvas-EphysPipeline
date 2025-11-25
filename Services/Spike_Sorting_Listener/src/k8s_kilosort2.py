@@ -2,11 +2,21 @@ from kubernetes import client, config
 import os
 import logging
 
-DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
-PARAMETER_BUCKET = "s3://braingeneers/services/mqtt_job_listener/params"
+try:
+    from k8s_config import load_s3_settings
+    _s3 = load_s3_settings()
+    DEFAULT_S3_BUCKET = _s3["root"]
+except Exception:
+    _fallback_bucket = os.getenv("S3_BUCKET", "braingeneers")
+    _fallback_prefix = os.getenv("S3_PREFIX", "ephys")
+    DEFAULT_S3_BUCKET = f"s3://{_fallback_bucket}/{_fallback_prefix.rstrip('/')}/"
+
+# Parameter bucket can be overridden; defaults under service bucket or separate var
+SERVICE_BUCKET = os.getenv("SERVICE_BUCKET", "s3://braingeneers/services/mqtt_job_listener")
+PARAMETER_BUCKET = os.getenv("PARAMETER_BUCKET", f"{SERVICE_BUCKET}/params")
 
 class Kube:
-    def __init__(self, job_name: str, job_info: dict, namespace='braingeneers'):
+    def __init__(self, job_name: str, job_info: dict, namespace=os.getenv('NRP_NAMESPACE', 'braingeneers')):
         config.load_kube_config()
         self.batch_v1 = client.BatchV1Api()
         self.namespace = namespace
@@ -40,6 +50,44 @@ class Kube:
                           "nvidia.com/gpu": str(self.job_info["GPU"])}
 
     def create_job_object(self):
+        # Build environment variables to inject into algorithm container
+        # This propagates S3 config from listener deployment to algorithm pods
+        job_env = [
+            client.V1EnvVar(name="PYTHONUNBUFFERED", value='true'),
+        ]
+        
+        # S3 configuration (bucket/prefix)
+        try:
+            if '_s3' in globals():
+                job_env.extend([
+                    client.V1EnvVar(name="S3_BUCKET", value=_s3["bucket"]),
+                    client.V1EnvVar(name="S3_PREFIX", value=_s3["prefix"])
+                ])
+        except Exception:
+            pass
+        
+        # Also check direct env vars as fallback
+        if os.getenv("S3_BUCKET"):
+            job_env.append(client.V1EnvVar(name="S3_BUCKET", value=os.getenv("S3_BUCKET")))
+        if os.getenv("S3_PREFIX"):
+            job_env.append(client.V1EnvVar(name="S3_PREFIX", value=os.getenv("S3_PREFIX")))
+        
+        # S3 endpoint configuration (allow override for different providers)
+        endpoint_url = os.getenv("ENDPOINT_URL", "https://s3.braingeneers.gi.ucsc.edu")
+        s3_endpoint = os.getenv("S3_ENDPOINT", "s3.braingeneers.gi.ucsc.edu")
+        job_env.extend([
+            client.V1EnvVar(name="ENDPOINT_URL", value=endpoint_url),
+            client.V1EnvVar(name="S3_ENDPOINT", value=s3_endpoint)
+        ])
+        
+        # AWS credentials (if set in listener environment, propagate to jobs)
+        # Note: In production, prefer IAM roles via ServiceAccount instead
+        for aws_var in ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", 
+                        "AWS_PROFILE", "AWS_ROLE_ARN", "AWS_SESSION_NAME"]:
+            val = os.getenv(aws_var)
+            if val:
+                job_env.append(client.V1EnvVar(name=aws_var, value=val))
+        
         container = client.V1Container(
             name="container",
             image=self.job_info["image"],
@@ -50,11 +98,7 @@ class Kube:
                 requests=self.resources,
                 limits=self.resources
             ),
-            env=[client.V1EnvVar(name="PYTHONUNBUFFERED", value='true'),
-                #  client.V1EnvVar(name="ENDPOINT_URL", value="http://rook-ceph-rgw-nautiluss3.rook"),
-                #  client.V1EnvVar(name="S3_ENDPOINT", value="rook-ceph-rgw-nautiluss3.rook")],    
-                 client.V1EnvVar(name="ENDPOINT_URL", value="https://s3.braingeneers.gi.ucsc.edu"),  # use external url to avoid 403 error
-                 client.V1EnvVar(name="S3_ENDPOINT", value="s3.braingeneers.gi.ucsc.edu")],
+            env=job_env,
             volume_mounts=[client.V1VolumeMount(name="prp-s3-credentials", mount_path="/root/.aws/credentials",
                                                 sub_path="credentials"),
                            client.V1VolumeMount(name="ephemeral", mount_path="/root")])

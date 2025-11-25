@@ -17,7 +17,11 @@ import h5py
 import time 
 import json
 
-# BUCKET = "s3://braingeneers/ephys/"
+try:
+    from Services.common.config import load_config
+    _cfg = load_config()
+except Exception:
+    _cfg = None
 JOB_KWARGS = dict(n_jobs=10, progress_bar=True)
 hdf5_plugin_path = '/src/'
 # os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path

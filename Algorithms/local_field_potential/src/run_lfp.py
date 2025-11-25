@@ -11,6 +11,7 @@ import pandas as pd
 from scipy import signal
 import shutil
 import json
+from Services.common.path_utils import replace_original_to_derived
 
 
 # parameters
@@ -168,7 +169,9 @@ if __name__ == "__main__":
         sys.exit(1)
     file_name = data_path.split("/")[-1].split(".")[0]
     file_name = f"{file_name}_{st}s_{end}s"
-    save_to_path = f"{data_path.split('/original/data')[0]}/derived/lfp/{file_name}.zip"
+    # build save path via helper
+    base_replaced = replace_original_to_derived(data_path.split(file_name)[0], stage="lfp")
+    save_to_path = f"{base_replaced}{file_name}.zip"
 
     # create folder in local for saving data
     current_folder = os.getcwd()
@@ -238,6 +241,6 @@ if __name__ == "__main__":
     logging.info(f"Local field potential extraction is done! Uploading output to {save_to_path}")
     lfp_file = shutil.make_archive(posixpath.join(base_folder, "lfp"), format="zip", root_dir=output_folder)
     wr.upload(local_file=lfp_file, path=save_to_path)
-    
+
 
 

@@ -8,15 +8,40 @@ TABLE_HEADERS = ["index", "status", "uuid", "experiment",
 
 LOCAL_CSV = "jobs.csv"
 
-SERVICE_BUCKET = "s3://braingeneers/services/mqtt_job_listener/csvs"
+import os
 
-PARAMETER_BUCKET = "s3://braingeneers/services/mqtt_job_listener/params"
+# S3 configuration from environment variables (set at deployment time)
+# These are read from .env file in Docker Compose or ConfigMap in Kubernetes
+_s3_bucket = os.getenv("S3_BUCKET")
+_s3_prefix = os.getenv("S3_PREFIX", "ephys")
 
-DEFAULT_BUCKET = "s3://braingeneers/ephys/"
+# Build DEFAULT_BUCKET from components
+if _s3_bucket:
+    DEFAULT_BUCKET = f"s3://{_s3_bucket}/{_s3_prefix.rstrip('/')}/"
+else:
+    # No bucket configured - will fail at runtime if S3 operations attempted
+    DEFAULT_BUCKET = None
+
+# Service paths for job management (CSV files, parameters)
+# Can override individually or derive from SERVICE_ROOT
+SERVICE_ROOT = os.getenv("SERVICE_ROOT")
+if SERVICE_ROOT:
+    CSV_BUCKET = os.getenv("SERVICE_BUCKET", f"{SERVICE_ROOT}/csvs")
+    PARAMETER_BUCKET = os.getenv("PARAMETER_BUCKET", f"{SERVICE_ROOT}/params")
+elif _s3_bucket:
+    # Build service root from base bucket if not explicitly set
+    _service_root = f"s3://{_s3_bucket}/services/mqtt_job_listener"
+    CSV_BUCKET = os.getenv("SERVICE_BUCKET", f"{_service_root}/csvs")
+    PARAMETER_BUCKET = os.getenv("PARAMETER_BUCKET", f"{_service_root}/params")
+else:
+    # No configuration available
+    CSV_BUCKET = None
+    PARAMETER_BUCKET = None
 
 JOB_PREFIX = "edp-"  # electrophysiology
 
-NAMESPACE = 'braingeneers'
+# Kubernetes namespace for jobs; configurable via env var NRP_NAMESPACE (defaults to braingeneers for backward compatibility)
+NAMESPACE = os.getenv('NRP_NAMESPACE', 'braingeneers')
 
 FINISH_FLAGS = ["Succeeded", "Failed", "Unknown"]
 

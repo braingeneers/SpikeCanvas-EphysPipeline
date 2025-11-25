@@ -6,10 +6,23 @@ from tenacity import retry, stop_after_attempt
 import os
 import csv
 from values import *
+try:
+    from Services.common.config import load_config, s3_uri
+    _cfg = load_config()
+except Exception:
+    _cfg = None
 import time
+import logging
 from dateutil.tz import gettz
 
-# TODO: change print to logging
+# Logger setup
+logger = logging.getLogger("dashboard-utils")
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+logger.setLevel(logging.INFO)
 
 
 @retry(stop=stop_after_attempt(5))
@@ -27,7 +40,7 @@ def upload_to_s3(file, s3_path):
                 writer.writerow(row)
         return None
     except Exception as err:
-        print(err)
+        logger.error(err)
         return f"Uploading file to s3 failed, please try later. {err}"
 
 
@@ -40,10 +53,11 @@ def mqtt_start_job(csv_path, job_index):
                }
     try:
         mb.publish_message(topic=topic, message=message, confirm_receipt=True)
-        print("Sent message:", topic, message)
+        logger.info(f"Sent message: {topic} {message}")
         time.sleep(.01)
         return None
     except Exception as err:
+        logger.error(f"mqtt_start_job error: {err}")
         return str(err)
 
 
@@ -144,7 +158,7 @@ def readable_keys(input_dict):
         if k in CONVERT_TO_READABLE:
             k = CONVERT_TO_READABLE[k]
         readable_dict[k] = v
-    print(readable_dict)
+    logger.debug(readable_dict)
     return readable_dict
 
 def convert_to_json_key(param_name):
@@ -154,14 +168,16 @@ def convert_to_json_key(param_name):
         return param_name
 
 def filter_dropdown(search_value=None):
-    print("search_value:", search_value)
-    uuids = wr.list_directories(DEFAULT_BUCKET)
+    logger.debug(f"search_value: {search_value}")
+    # Use configuration-derived bucket/prefix; fallback to DEFAULT_BUCKET if config failed.
+    base_bucket = DEFAULT_BUCKET if _cfg is None else _cfg.root()
+    uuids = wr.list_directories(base_bucket)
     if search_value is not None:
         filtered = [id for id in uuids if search_value in id]
-        print(f"number of filtered uuids {len(filtered)}")
+        logger.info(f"Filtered UUID count {len(filtered)}")
         return filtered
     else:
-        print(f"number of total uuids {len(uuids)}")
+        logger.info(f"Total UUID count {len(uuids)}")
         return uuids
     
 

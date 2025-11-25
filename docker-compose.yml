@@ -1,0 +1,129 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # Dashboard - Web UI for job submission and monitoring
+  # ============================================================================
+  dashboard:
+    image: surygeng/maxwell_dashboard:v0.1
+    container_name: maxwell-dashboard
+    ports:
+      - "${DASHBOARD_PORT:-8050}:8050"
+    environment:
+      # S3 Configuration
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_PREFIX=${S3_PREFIX:-ephys}
+      - S3_INPUT_PREFIX=${S3_INPUT_PREFIX}
+      - S3_OUTPUT_PREFIX=${S3_OUTPUT_PREFIX}
+      
+      # Service paths
+      - SERVICE_ROOT=${SERVICE_ROOT}
+      - SERVICE_BUCKET=${SERVICE_BUCKET}
+      - PARAMETER_BUCKET=${PARAMETER_BUCKET}
+      
+      # AWS credentials (use IAM roles in production)
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_ROLE_ARN=${AWS_ROLE_ARN}
+      - AWS_SESSION_NAME=${AWS_SESSION_NAME}
+      
+      # S3 endpoint
+      - ENDPOINT_URL=${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
+      - S3_ENDPOINT=${S3_ENDPOINT:-s3.braingeneers.gi.ucsc.edu}
+      
+      # Kubernetes
+      - NRP_NAMESPACE=${NRP_NAMESPACE:-braingeneers}
+    volumes:
+      - ~/.kube/config:/root/.kube/config:ro
+      - ~/.aws:/root/.aws:ro  # Mount AWS credentials if using profiles
+    restart: unless-stopped
+    networks:
+      - maxwell-net
+
+  # ============================================================================
+  # Listener - MQTT-based job orchestrator
+  # ============================================================================
+  listener:
+    image: surygeng/spike_sorting_listener:v0.1
+    container_name: maxwell-listener
+    environment:
+      # S3 Configuration (same as dashboard)
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_PREFIX=${S3_PREFIX:-ephys}
+      - S3_INPUT_PREFIX=${S3_INPUT_PREFIX}
+      - S3_OUTPUT_PREFIX=${S3_OUTPUT_PREFIX}
+      
+      # Service paths
+      - SERVICE_BUCKET=${SERVICE_BUCKET}
+      - PARAMETER_BUCKET=${PARAMETER_BUCKET}
+      - FLUIDICS_BUCKET=${FLUIDICS_BUCKET}
+      - INTEGRATED_BUCKET=${INTEGRATED_BUCKET}
+      
+      # AWS credentials
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_PROFILE=${AWS_PROFILE}
+      - AWS_ROLE_ARN=${AWS_ROLE_ARN}
+      - AWS_SESSION_NAME=${AWS_SESSION_NAME}
+      
+      # S3 endpoint
+      - ENDPOINT_URL=${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
+      - S3_ENDPOINT=${S3_ENDPOINT:-s3.braingeneers.gi.ucsc.edu}
+      
+      # Kubernetes
+      - NRP_NAMESPACE=${NRP_NAMESPACE:-braingeneers}
+      
+      # Container images (optional overrides)
+      - KILOSORT_IMAGE=${KILOSORT_IMAGE:-surygeng/kilosort_docker:v0.2}
+      - CURATION_IMAGE=${CURATION_IMAGE:-surygeng/qm_curation:v0.2}
+      - CONNECTIVITY_IMAGE=${CONNECTIVITY_IMAGE:-surygeng/connectivity:v0.1}
+      - VISUALIZATION_IMAGE=${VISUALIZATION_IMAGE:-surygeng/visualization:v0.1}
+      - LFP_IMAGE=${LFP_IMAGE:-surygeng/local_field_potential:v0.1}
+    volumes:
+      - ~/.kube/config:/root/.kube/config:ro
+      - ~/.aws:/root/.aws:ro
+      - ./listener-logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - maxwell-net
+
+  # ============================================================================
+  # Job Scanner - Monitors Kubernetes job status
+  # ============================================================================
+  scanner:
+    image: surygeng/job_scanner:v0.1
+    container_name: maxwell-scanner
+    environment:
+      - S3_BUCKET=${S3_BUCKET}
+      - SERVICE_ROOT=${SERVICE_ROOT}
+      - NRP_NAMESPACE=${NRP_NAMESPACE:-braingeneers}
+      - AWS_REGION=${AWS_REGION:-us-west-2}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - ENDPOINT_URL=${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
+    volumes:
+      - ~/.kube/config:/root/.kube/config:ro
+      - ~/.aws:/root/.aws:ro
+    restart: unless-stopped
+    networks:
+      - maxwell-net
+
+networks:
+  maxwell-net:
+    driver: bridge
+
+# ============================================================================
+# Usage Instructions:
+# ============================================================================
+# 1. Copy .env.template to .env and configure your S3 bucket/credentials
+# 2. Ensure kubectl is configured to access your Kubernetes cluster
+# 3. Start services:
+#    docker-compose up -d
+# 4. View logs:
+#    docker-compose logs -f dashboard
+# 5. Stop services:
+#    docker-compose down
+# 6. Access dashboard at http://localhost:8050

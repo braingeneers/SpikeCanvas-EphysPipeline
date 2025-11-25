@@ -30,7 +30,8 @@ except ImportError:
 
 # set up parameters
 JOB_PREFIX = "edp-"  # electrophysiology
-NAMESPACE = 'braingeneers'
+# Kubernetes namespace configurable via NRP_NAMESPACE env var (fallback 'braingeneers')
+NAMESPACE = os.getenv('NRP_NAMESPACE', 'braingeneers')
 TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/ephys-data-pipeline"
 # TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/iot-experiments"
 LOG_FILE_NAME = "edp_scanner.log"

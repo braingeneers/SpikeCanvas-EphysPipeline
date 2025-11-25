@@ -6,10 +6,20 @@ import uuid as uuidgen
 from kubernetes.client.rest import ApiException
 import logging
 
-CSV_UUID = "s3://braingeneers/services/mqtt_job_listener/csvs/"
+# CSV storage path - configurable via environment (default built from S3_BUCKET if available)
+_s3_bucket = os.getenv("S3_BUCKET")
+_service_root = os.getenv("SERVICE_ROOT")
+if _service_root:
+    CSV_UUID = f"{_service_root}/csvs/"
+elif _s3_bucket:
+    CSV_UUID = f"s3://{_s3_bucket}/services/mqtt_job_listener/csvs/"
+else:
+    CSV_UUID = None  # Will fail if CSV operations attempted without configuration
+
 JOB_PREFIX = "edp-"  # electrophysiology
 TOPIC = "services/csv_job"
-NAMESPACE = 'braingeneers'
+# Kubernetes namespace configurable via NRP_NAMESPACE env var
+NAMESPACE = os.getenv('NRP_NAMESPACE', 'braingeneers')
 TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/iot-experiments"
 LOG_FILE_NAME = "scanner.log"
 FINISH_FLAGS = ["Succeeded", "Failed", "Unknown"]
