@@ -7,13 +7,17 @@ WORKDIR /app
 
 # Install braingeneers and requirements
 RUN pip install --upgrade pip
-# RUN pip install braingeneers['iot','analysis','data']
-RUN pip install --force-reinstall git+https://github.com/braingeneers/braingeneerspy.git
 
-# Copy and install requirements
+# Copy and install requirements first
 COPY docker/requirements.txt ./requirements.txt
 RUN set -ex && \
     pip install -r ./requirements.txt
+
+# Install braingeneers from GitHub (always most up-to-date)
+RUN pip install "git+https://github.com/braingeneers/braingeneerspy.git#egg=braingeneers[iot,analysis,data]"
+
+# Manually create _version.py since git metadata is not preserved during pip install from git
+RUN echo 'version = "0.0.0+git"' > /usr/local/lib/python3.10/site-packages/braingeneers/_version.py
 
 # Copy scipy fix if needed
 COPY docker/top_level.txt /usr/local/lib/python3.10/site-packages/scipy-1.10.1.dist-info/top_level.txt
@@ -21,8 +25,9 @@ COPY docker/top_level.txt /usr/local/lib/python3.10/site-packages/scipy-1.10.1.d
 # Copy source code
 COPY src/ /app
 
-# PRP setup
+# Environment setup
 ENV ENDPOINT_URL="https://braingeneers.gi.ucsc.edu"
+ENV S3_ENDPOINT="s3.braingeneers.gi.ucsc.edu"
 
 # Expose port
 EXPOSE 8050
