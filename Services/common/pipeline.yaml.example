@@ -1,0 +1,45 @@
+# Example Pipeline Configuration
+# This file demonstrates how to configure the EphysPipeline for your institution
+
+# Required: S3 bucket name (without s3:// prefix)
+bucket: my-institution-bucket
+
+# Optional: Root prefix within the bucket (default: "ephys")
+# All data will be stored under s3://bucket/prefix/
+prefix: ephys
+
+# Optional: Separate prefixes for input and output data
+# If not specified, both use the root prefix
+# input_prefix: raw-recordings
+# output_prefix: processed-results
+
+# Optional: AWS configuration
+# region: us-west-2
+# profile: default
+
+# Optional: Cross-account S3 access
+# role_arn: arn:aws:iam::123456789012:role/S3AccessRole
+# session_name: ephys-pipeline
+
+# Example configurations for different scenarios:
+
+# Scenario 1: Simple single-bucket setup
+# bucket: neuroscience-data
+# prefix: ephys
+
+# Scenario 2: Separate input/output locations
+# bucket: research-data
+# prefix: ephys
+# input_prefix: raw-recordings
+# output_prefix: analysis-results
+
+# Scenario 3: Multi-institution shared bucket
+# bucket: consortium-data
+# prefix: institution-xyz/ephys
+
+# Scenario 4: Cross-account access
+# bucket: central-data-repository
+# prefix: institution-abc/ephys
+# region: us-east-1
+# role_arn: arn:aws:iam::987654321098:role/DataAccessRole
+# session_name: ephys-pipeline-session
