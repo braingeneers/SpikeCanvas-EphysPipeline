@@ -17,7 +17,7 @@ from dateutil.tz import gettz
 
 # Patch for JWT/shadows database issue in braingeneerspy
 # The MessageBroker tries to access jwt_service_account_token property which triggers
-# shadows database access even though it is not needed for MQTT messaging.
+# shadows database access even though it's not needed for MQTT messaging.
 # This monkey-patch prevents that unnecessary access.
 # Updated: 2025-11-25 - Fixed property replacement v2
 
@@ -27,15 +27,14 @@ def _patched_jwt_getter(self):
     return None
 
 # Apply the patch by completely deleting and recreating the property
-if hasattr(messaging.MessageBroker, "jwt_service_account_token"):
+if hasattr(messaging.MessageBroker, 'jwt_service_account_token'):
     # Delete the old property descriptor completely
-    delattr(messaging.MessageBroker, "jwt_service_account_token")
+    delattr(messaging.MessageBroker, 'jwt_service_account_token')
     # Create new property with our patched getter
-    setattr(messaging.MessageBroker, "jwt_service_account_token", property(
+    setattr(messaging.MessageBroker, 'jwt_service_account_token', property(
         fget=_patched_jwt_getter,
         doc="Patched JWT property - returns None to bypass shadows database"
     ))
-
 
 # Logger setup
 logger = logging.getLogger("dashboard-utils")
