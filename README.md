@@ -2,9 +2,16 @@
 
 A comprehensive, scalable platform for processing and analyzing high-density electrophysiology data from Maxwell biosensor arrays. This pipeline provides end-to-end processing capabilities from raw neural recordings to publication-ready analyses and visualizations.
 
+> **Paper**: Read more about this work in our preprint: [Multiscale Cloud-Based Pipeline for Neuronal Electrophysiology Analysis and Visualization](https://www.biorxiv.org/content/10.1101/2024.11.14.623530v2) (bioRxiv, 2024)
+
 ## Overview
 
 The Maxwell Electrophysiology Pipeline is designed for high-throughput processing of neural data with automated spike sorting, quality control, connectivity analysis, and interactive visualization. The platform supports containerized workflows that can be deployed on Kubernetes clusters for scalable data processing.
+
+All algorithms follow a consistent three-step workflow:
+1. **Load data from S3** – Download input data (raw recordings, spike-sorting results, or intermediate outputs)
+2. **Process** – Apply algorithm-specific computation (spike sorting, connectivity analysis, LFP filtering, curation, or visualization)
+3. **Save results to S3** – Upload processed outputs back to S3 storage for downstream use or visualization
 
 ## Repository Structure
 

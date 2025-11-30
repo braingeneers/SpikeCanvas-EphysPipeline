@@ -27,11 +27,11 @@ def _patched_jwt_getter(self):
     return None
 
 # Apply the patch by completely deleting and recreating the property
-if hasattr(messaging.MessageBroker, 'jwt_service_account_token'):
+if hasattr(messaging.MessageBroker, "jwt_service_account_token"):
     # Delete the old property descriptor completely
-    delattr(messaging.MessageBroker, 'jwt_service_account_token')
+    delattr(messaging.MessageBroker, "jwt_service_account_token")
     # Create new property with our patched getter
-    setattr(messaging.MessageBroker, 'jwt_service_account_token', property(
+    setattr(messaging.MessageBroker, "jwt_service_account_token", property(
         fget=_patched_jwt_getter,
         doc="Patched JWT property - returns None to bypass shadows database"
     ))

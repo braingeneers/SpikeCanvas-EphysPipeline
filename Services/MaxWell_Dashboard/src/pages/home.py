@@ -214,7 +214,7 @@ layout = dbc.Container([
             html.Hr(),
             html.P([
                 "For technical support and questions, contact the ",
-                html.A("Braingeneers team at UCSC", href="https://braingeneers.gi.ucsc.edu", target="_blank"),
+                html.A("Braingeneers team at UCSC", href="https://braingeneers.ucsc.edu", target="_blank"),
                 ". "
                 # "This platform is developed and maintained by the UC Santa Cruz Genomics Institute."
             ], style={'text-align': 'center', 'margin-top': '20px', 'font-style': 'italic'})
