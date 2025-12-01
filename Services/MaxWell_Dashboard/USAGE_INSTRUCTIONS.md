@@ -30,7 +30,7 @@ The MaxWell Ephys Pipeline Dashboard is a comprehensive web-based interface for 
 - System status indicators
 - Recent activity summary
 
-### 🔧 Job Center (Data Processing Center)
+###  Job Center (Data Processing Center)
 **Purpose**: Primary interface for submitting and managing data processing jobs
 
 #### Dataset Selection
@@ -59,9 +59,9 @@ The MaxWell Ephys Pipeline Dashboard is a comprehensive web-based interface for 
    - **Individual Selection**: Check specific recordings from the list
 
 3. **Available Job Types**
-   - ✅ **Ephys Pipeline**: Complete pipeline (Kilosort2 + Auto-Curation + Visualization)
+   -  **Ephys Pipeline**: Complete pipeline (Kilosort2 + Auto-Curation + Visualization)
    - ⚡ **Spike Sorting**: Kilosort2 spike detection and clustering
-   - 📊 **Auto-Curation**: Quality metrics and unit validation
+   -  **Auto-Curation**: Quality metrics and unit validation
    - 📈 **Visualization**: Generate plots and visual summaries
    - 🔗 **Functional Connectivity**: Network analysis and connectivity metrics
    - 📡 **Local Field Potential Subbands**: LFP frequency analysis
@@ -93,7 +93,7 @@ The MaxWell Ephys Pipeline Dashboard is a comprehensive web-based interface for 
    - Jobs are queued and executed automatically
    - Receive confirmation of successful submission
 
-### 📊 Status Monitor
+###  Status Monitor
 **Purpose**: Real-time monitoring of job execution and system status
 
 #### Job Status Tracking
@@ -151,7 +151,7 @@ The MaxWell Ephys Pipeline Dashboard is a comprehensive web-based interface for 
    - Zoom and pan through long recordings
    - Synchronize multiple plot views
 
-### 📊 Analytics Gallery
+###  Analytics Gallery
 **Purpose**: Pre-configured analysis templates and visualization galleries
 
 #### Template Analyses

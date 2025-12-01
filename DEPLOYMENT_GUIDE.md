@@ -4,7 +4,7 @@ Complete guide for deploying EphysPipeline in any environment - from desktop to 
 
 ## Choose Your Deployment Scenario
 
-### 🖥️ Desktop/Laptop (Quickest)
+###  Desktop/Laptop (Quickest)
 **Best for:** First-time users, small labs, development, testing
 
 **Time to deploy:** 5 minutes
@@ -13,7 +13,7 @@ Complete guide for deploying EphysPipeline in any environment - from desktop to 
 
 ---
 
-### 🖧 Server (Recommended for Teams)
+###  Server (Recommended for Teams)
 **Best for:** Lab servers, shared access, persistent deployment
 
 **Time to deploy:** 15-30 minutes
@@ -22,7 +22,7 @@ Complete guide for deploying EphysPipeline in any environment - from desktop to 
 
 ---
 
-### 🏢 Custom Docker Registry
+###  Custom Docker Registry
 **Best for:** Institutions wanting full control, custom modifications
 
 **Time to deploy:** 1-2 hours
@@ -31,7 +31,7 @@ Complete guide for deploying EphysPipeline in any environment - from desktop to 
 
 ---
 
-### ☁️ Kubernetes/Cloud
+###  Kubernetes/Cloud
 **Best for:** Large-scale, high-availability, multi-institution
 
 **Time to deploy:** 2-4 hours
@@ -674,4 +674,4 @@ After deployment:
 
 ---
 
-**Deployment complete!** 🎉 Your EphysPipeline is ready for production use.
+**Deployment complete!**  Your EphysPipeline is ready for production use.
