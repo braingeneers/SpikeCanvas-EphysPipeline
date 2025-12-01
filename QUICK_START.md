@@ -30,6 +30,26 @@ cd EphysPipeline
 
 ### Step 2: Create Configuration
 
+**Option A: Interactive Setup (Recommended)**
+
+Run the interactive configuration script:
+
+```bash
+python3 configure.py
+```
+
+The script will guide you step-by-step through:
+- S3 bucket configuration
+- AWS credentials (access key and secret key)
+- AWS region selection
+- S3 endpoint configuration
+- Service storage paths
+- Optional resource limits
+
+Your configuration will be saved to `.env` file.
+
+**Option B: Manual Setup**
+
 Create a `pipeline.yaml` file in the repository root:
 
 ```bash

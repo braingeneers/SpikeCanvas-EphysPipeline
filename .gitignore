@@ -16,3 +16,42 @@ performance/
 PIPELINE_README.md
 .vscode/
 pipeline_paper_hippo_slice/
+
+# Old directory structure (removed from repo, ignore if recreated)
+/MaxWell_Dashboard/
+/Spike_Sorting_Listener/
+/job_scanner/
+/kilosort2_simplified/
+/local_field_potential/
+/maxtwo_splitter/
+/si_curation_docker/
+/shared/
+/docker/
+/k8s/
+/parameters/
+/tools/
+
+# Old documentation files (removed from repo)
+/EMERGENCY_RESPONSE_COMPLETE.md
+/H5PY_CORRUPTION_FIX_SUMMARY.md
+/MAXTWO_SPEED_OPTIMIZATION_COMPLETE.md
+/MIGRATION_GUIDE.md
+/NRP_COMPLIANCE_SOLUTION_COMPLETE.md
+/NRP_EMERGENCY_FIX.md
+/OOM_FIX_DEPLOYMENT_SUMMARY.md
+/RECOMMENDED_STRUCTURE.md
+/STRUCTURE_COMPARISON.md
+
+# Old scripts (removed from repo)
+/build.sh
+/build_optimized_splitter.sh
+/deploy.sh
+/deploy_splitter_optimization.sh
+/final_deployment_summary.sh
+/test_splitter_optimization.sh
+/validate_complete_fix.sh
+/validate_nrp_compliance.sh
+/validate_nrp_fix.sh
+/validate_nrp_utilization_compliance.sh
+/validate_nrp_utilization_strategy.sh
+/migrate_to_new_structure.py
