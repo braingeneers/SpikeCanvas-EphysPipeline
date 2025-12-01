@@ -30,43 +30,22 @@ cd EphysPipeline
 
 ### Step 2: Create Configuration
 
-**Option A: Interactive Setup (Recommended)**
-
 Run the interactive configuration script:
 
 ```bash
 python3 configure.py
 ```
 
-The script will guide you step-by-step through:
-- S3 bucket configuration
-- AWS credentials (access key and secret key)
-- AWS region selection
-- S3 endpoint configuration
-- Service storage paths
-- Optional resource limits
+The script will guide you through 5 simple steps:
+1. **S3 Storage** - Your bucket name and data folder
+2. **AWS Credentials** - Access key and secret key
+3. **S3 Endpoint** - Storage endpoint URL
+4. **Service Configuration** - Automatically configured
+5. **Kubernetes** - Namespace (if using NRP)
 
-Your configuration will be saved to `.env` file.
+Your configuration will be saved to `.env` file with secure permissions.
 
-**Option B: Manual Setup**
-
-Create a `pipeline.yaml` file in the repository root:
-
-```bash
-cat > pipeline.yaml << EOF
-# Your S3 configuration
-bucket: your-bucket-name
-prefix: ephys
-EOF
-```
-
-Replace `your-bucket-name` with your actual S3 bucket name.
-
-**Example:**
-```yaml
-bucket: my-lab-neuroscience-data
-prefix: ephys
-```
+> **Need more control?** See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for advanced configuration options including Kubernetes deployment, IAM roles, and multiple credential methods.
 
 ### Step 3: Start the Services
 
@@ -87,9 +66,9 @@ You should see the EphysPipeline dashboard!
 
 ## What Just Happened?
 
+- ✅ Created `.env` configuration file with your S3 and AWS settings
 - ✅ Downloaded pre-built Docker images from Docker Hub
 - ✅ Started the Dashboard service
-- ✅ Configured it to use your S3 bucket
 - ✅ Dashboard is now accessible at localhost:8050
 
 ## Stopping the Services
@@ -104,24 +83,27 @@ docker-compose down
 
 Just run `docker-compose up` again. Docker will use cached images, so it starts instantly.
 
+> **Note:** Your `.env` configuration file is preserved, so you don't need to run `configure.py` again.
+
 ## Configuration Options
 
-### Minimal Configuration (What We Just Did)
-```yaml
-bucket: my-bucket
-prefix: ephys
+The `configure.py` script creates a `.env` file with your settings. You can edit this file directly if needed.
+
+**Example `.env` file:**
+```bash
+S3_BUCKET=my-bucket
+S3_PREFIX=ephys
+AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=...
+AWS_DEFAULT_REGION=us-west-2
+S3_ENDPOINT_URL=https://s3.us-west-2.amazonaws.com
 ```
 
-### Full Configuration (Optional)
-```yaml
-bucket: my-bucket
-prefix: ephys
-input_prefix: raw-recordings    # Separate folder for raw data
-output_prefix: processed-data   # Separate folder for results
-region: us-west-2               # AWS region
-```
-
-See [Services/common/CONFIG_USAGE_GUIDE.md](Services/common/CONFIG_USAGE_GUIDE.md) for all options.
+**For advanced configuration:**
+- Multiple credential methods (IAM roles, profiles)
+- Kubernetes/NRP deployment
+- Custom service paths
+- See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)
 
 ## Running in the Background
 
@@ -148,9 +130,8 @@ docker-compose down
 - On Linux: `sudo systemctl start docker`
 
 ### Error: "No such file or directory: ~/.aws/credentials"
-- You need to configure AWS credentials
-- Run: `aws configure` (if you have AWS CLI)
-- Or set environment variables:
+- The interactive script will prompt you for AWS credentials
+- Or set environment variables before running docker-compose:
   ```bash
   export AWS_ACCESS_KEY_ID="your-key"
   export AWS_SECRET_ACCESS_KEY="your-secret"
@@ -158,13 +139,13 @@ docker-compose down
   ```
 
 ### Error: "Access Denied" when accessing S3
-- Check your AWS credentials are correct
+- Check your AWS credentials in `.env` are correct
 - Verify your IAM user/role has S3 read permissions
-- Confirm the bucket name in `pipeline.yaml` is correct
+- Confirm the bucket name in `.env` is correct
 
 ### Dashboard shows "No UUIDs found"
-- Check that data exists in `s3://your-bucket/ephys/`
-- Verify the `prefix` in `pipeline.yaml` matches your data location
+- Check that data exists in `s3://your-bucket/your-prefix/`
+- Verify the `S3_PREFIX` in `.env` matches your data location
 - Check container logs: `docker-compose logs dashboard`
 
 ### Port 8050 already in use
@@ -179,8 +160,9 @@ docker-compose down
 
 - **Process your first dataset** - Use the Job Center to submit spike sorting jobs
 - **Learn about all features** - Read the [main README.md](README.md)
+- **Advanced configuration** - See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)
 - **Deploy to a server** - See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-- **Customize the setup** - See [CUSTOM_BUILD_GUIDE.md](CUSTOM_BUILD_GUIDE.md)
+- **Customize algorithms** - See [CUSTOM_BUILD_GUIDE.md](CUSTOM_BUILD_GUIDE.md)
 
 ## System Requirements
 
@@ -208,8 +190,8 @@ For production use or team access, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md
 ## Getting Help
 
 - Check the [Troubleshooting](#troubleshooting) section above
-- Read the full documentation: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-- Review configuration guide: [Services/common/CONFIG_USAGE_GUIDE.md](Services/common/CONFIG_USAGE_GUIDE.md)
+- Read the configuration guide: [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)
+- Read the deployment guide: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - Open an issue: [GitHub Issues](https://github.com/braingeneers/EphysPipeline/issues)
 - Ask in Slack: #braingeneers-helpdesk channel
 
@@ -218,8 +200,11 @@ For production use or team access, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md
 When running on a desktop:
 - The dashboard is accessible to anyone on your local network
 - Don't expose it to the internet without proper authentication
-- Keep your AWS credentials secure (don't commit them to git)
+- Keep your AWS credentials secure (`.env` file has restricted permissions)
+- Never commit `.env` to git (already in .gitignore)
 - Use IAM roles with minimal required permissions
+
+> **For production deployment:** See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for IAM role-based authentication (no keys needed).
 
 ## Updates
 

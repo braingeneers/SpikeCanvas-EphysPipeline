@@ -2,6 +2,8 @@
 
 This guide explains how to configure and use the Maxwell Electrophysiology Pipeline with your institution's S3 storage and credentials.
 
+> **🚀 New to the pipeline?** Start with [QUICK_START.md](QUICK_START.md) for a simple desktop setup using the interactive `configure.py` script. This guide is for advanced configuration, Kubernetes deployment, and developer integration.
+
 ## Table of Contents
 - [Overview](#overview)
 - [Quick Start for Deployment](#quick-start-for-deployment)
