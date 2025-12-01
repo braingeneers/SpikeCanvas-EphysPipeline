@@ -5,12 +5,12 @@ Build and deploy EphysPipeline using your own Docker registry instead of pre-bui
 ## When to Use This Guide
 
 Use custom builds when you need:
-- ✅ Full control over Docker images
-- ✅ Custom code modifications
-- ✅ Your own Docker registry (not Docker Hub)
-- ✅ Air-gapped or restricted environments
-- ✅ Compliance requirements
-- ✅ Custom base images or dependencies
+-  Full control over Docker images
+-  Custom code modifications
+-  Your own Docker registry (not Docker Hub)
+-  Air-gapped or restricted environments
+-  Compliance requirements
+-  Custom base images or dependencies
 
 For quick deployment with pre-built images, see [QUICK_START.md](QUICK_START.md) instead.
 
@@ -622,4 +622,4 @@ No data loss - configuration and S3 data remain the same.
 
 ---
 
-**Custom build complete!** 🚀 You now have full control over your EphysPipeline deployment.
+**Custom build complete!**  You now have full control over your EphysPipeline deployment.

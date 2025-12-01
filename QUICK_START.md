@@ -66,10 +66,10 @@ You should see the EphysPipeline dashboard!
 
 ## What Just Happened?
 
-- ✅ Created `.env` configuration file with your S3 and AWS settings
-- ✅ Downloaded pre-built Docker images from Docker Hub
-- ✅ Started the Dashboard service
-- ✅ Dashboard is now accessible at localhost:8050
+-  Created `.env` configuration file with your S3 and AWS settings
+-  Downloaded pre-built Docker images from Docker Hub
+-  Started the Dashboard service
+-  Dashboard is now accessible at localhost:8050
 
 ## Stopping the Services
 
@@ -180,10 +180,10 @@ docker-compose down
 ## Desktop vs Server?
 
 This quick start is perfect for:
-- ✅ Learning the system
-- ✅ Testing with small datasets
-- ✅ Development work
-- ✅ Small labs without servers
+-  Learning the system
+-  Testing with small datasets
+-  Development work
+-  Small labs without servers
 
 For production use or team access, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for server deployment.
 
@@ -223,4 +223,4 @@ docker-compose up
 
 ---
 
-**That's it!** You now have a working EphysPipeline installation on your desktop. 🎉
+**That's it!** You now have a working EphysPipeline installation on your desktop. 

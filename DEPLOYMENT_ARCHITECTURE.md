@@ -11,7 +11,7 @@ Visual guide to deployment options and architecture for Maxwell EphysPipeline.
 │                     EphysPipeline Deployment Options                     │
 └─────────────────────────────────────────────────────────────────────────┘
 
-    🖥️ Desktop               🖧 Server              🏢 Custom Build        ☁️ Cloud/K8s
+     Desktop                Server               Custom Build         Cloud/K8s
     
     Individual Use          Team Access           Full Control          Enterprise Scale
     ├── Quick Start         ├── Linux Server      ├── Own Registry      ├── Kubernetes
@@ -71,8 +71,8 @@ Visual guide to deployment options and architecture for Maxwell EphysPipeline.
 3. Access `http://localhost:8050`
 4. Dashboard lists UUIDs and submits jobs
 
-**Pros:** ✅ Instant setup, ✅ No server needed, ✅ Great for testing  
-**Cons:** ⚠️ Local resources only, ⚠️ Not accessible to team
+**Pros:**  Instant setup,  No server needed,  Great for testing  
+**Cons:**  Local resources only,  Not accessible to team
 
 ---
 
@@ -130,8 +130,8 @@ Visual guide to deployment options and architecture for Maxwell EphysPipeline.
 4. Configure firewall (port 8050)
 5. Team accesses via server hostname/IP
 
-**Pros:** ✅ Team access, ✅ Persistent, ✅ Better resources, ✅ Production-ready  
-**Cons:** ⚠️ Need server infrastructure, ⚠️ Basic sysadmin required
+**Pros:**  Team access,  Persistent,  Better resources,  Production-ready  
+**Cons:**  Need server infrastructure,  Basic sysadmin required
 
 ---
 
@@ -193,8 +193,8 @@ Visual guide to deployment options and architecture for Maxwell EphysPipeline.
 3. Push to your registry with `./push-all.sh`
 4. Deploy using `docker-compose.custom.yml`
 
-**Pros:** ✅ Full control, ✅ Custom modifications, ✅ Independent, ✅ Compliant  
-**Cons:** ⚠️ Requires build infrastructure, ⚠️ More maintenance, ⚠️ Registry costs
+**Pros:**  Full control,  Custom modifications,  Independent,  Compliant  
+**Cons:**  Requires build infrastructure,  More maintenance,  Registry costs
 
 ---
 
@@ -290,8 +290,8 @@ Visual guide to deployment options and architecture for Maxwell EphysPipeline.
 4. Configure Ingress for HTTPS
 5. Set up monitoring and auto-scaling
 
-**Pros:** ✅ High availability, ✅ Auto-scaling, ✅ Enterprise-grade, ✅ Multi-region  
-**Cons:** ⚠️ Complex setup, ⚠️ K8s expertise required, ⚠️ Higher costs
+**Pros:**  High availability,  Auto-scaling,  Enterprise-grade,  Multi-region  
+**Cons:**  Complex setup,  K8s expertise required,  Higher costs
 
 ---
 
@@ -405,20 +405,20 @@ region: us-east-1            AWS_REGION=us-west-2           us-west-2
 │ Feature          │ Desktop  │ Server   │ Custom Build  │ Kubernetes        │
 ├──────────────────┼──────────┼──────────┼───────────────┼───────────────────┤
 │ Setup Time       │ 5 min    │ 15-30min │ 1-2 hours     │ 2-4 hours         │
-│ Difficulty       │ ⭐        │ ⭐⭐      │ ⭐⭐⭐         │ ⭐⭐⭐⭐           │
-│ Team Access      │ ❌        │ ✅        │ ✅             │ ✅                 │
-│ High Availability│ ❌        │ ❌        │ ❌             │ ✅                 │
-│ Auto-scaling     │ ❌        │ ❌        │ ❌             │ ✅                 │
-│ Custom Code      │ ❌        │ ❌        │ ✅             │ ✅                 │
-│ Air-gapped       │ ❌        │ ❌        │ ✅             │ ✅                 │
+│ Difficulty       │         │       │          │            │
+│ Team Access      │         │         │              │                  │
+│ High Availability│         │         │              │                  │
+│ Auto-scaling     │         │         │              │                  │
+│ Custom Code      │         │         │              │                  │
+│ Air-gapped       │         │         │              │                  │
 │ Resource Control │ Limited  │ Good     │ Full          │ Full              │
-│ SSL/HTTPS        │ ❌        │ Manual   │ Manual        │ Easy (Ingress)    │
+│ SSL/HTTPS        │         │ Manual   │ Manual        │ Easy (Ingress)    │
 │ Monitoring       │ Basic    │ Docker   │ Docker        │ Advanced (K8s)    │
 │ Cost             │ Free     │ Server   │ Server+Reg    │ Cloud+K8s         │
 │ Best For         │ Learning │ Labs     │ Institutions  │ Enterprise        │
 └──────────────────┴──────────┴──────────┴───────────────┴───────────────────┘
 
-Legend: ⭐ = Easy, ⭐⭐⭐⭐ = Expert level required
+Legend:  = Easy,  = Expert level required
 ```
 
 ---
@@ -431,14 +431,14 @@ Legend: ⭐ = Easy, ⭐⭐⭐⭐ = Expert level required
                                   ├── Just trying it out?
                                   │   Learning the system?
                                   │   Small dataset?
-                                  │   └─→ YES ──→ 🖥️ DESKTOP (Tier 1)
+                                  │   └─→ YES ──→  DESKTOP (Tier 1)
                                   │              Quick Start Guide
                                   │              5 minutes
                                   │
                                   ├── Need team access?
                                   │   Have a server?
                                   │   Production use?
-                                  │   └─→ YES ──→ 🖧 SERVER (Tier 2)
+                                  │   └─→ YES ──→  SERVER (Tier 2)
                                   │              Deployment Guide
                                   │              15-30 minutes
                                   │
@@ -446,7 +446,7 @@ Legend: ⭐ = Easy, ⭐⭐⭐⭐ = Expert level required
                                   │   Have own registry?
                                   │   Air-gapped environment?
                                   │   Compliance requirements?
-                                  │   └─→ YES ──→ 🏢 CUSTOM BUILD (Tier 3)
+                                  │   └─→ YES ──→  CUSTOM BUILD (Tier 3)
                                   │              Custom Build Guide
                                   │              1-2 hours
                                   │
@@ -454,7 +454,7 @@ Legend: ⭐ = Easy, ⭐⭐⭐⭐ = Expert level required
                                       Auto-scaling?
                                       Multi-region?
                                       Enterprise scale?
-                                      └─→ YES ──→ ☁️ KUBERNETES (Tier 4)
+                                      └─→ YES ──→  KUBERNETES (Tier 4)
                                                  Deployment Guide (K8s section)
                                                  2-4 hours
 
@@ -475,7 +475,7 @@ Scale to K8s if needed
 Stage 1: Desktop              Stage 2: Server              Stage 3: Cloud/K8s
 ───────────────────           ────────────────             ───────────────────
 
-🖥️ Individual Use              🖧 Team Access                ☁️ Enterprise Scale
+ Individual Use               Team Access                 Enterprise Scale
 │                              │                             │
 ├─ laptop:8050                 ├─ server.lab.edu:8050       ├─ ephys.institution.edu
 ├─ Local resources             ├─ Shared server              ├─ Load balanced
@@ -487,10 +487,10 @@ Stage 1: Desktop              Stage 2: Server              Stage 3: Cloud/K8s
 Migration Steps:               Migration Steps:             Migration Steps:
 ─────────────────              ─────────────────            ─────────────────
 1. Works on laptop             1. Copy pipeline.yaml        1. Create K8s cluster
-2. ✓ Validated                 2. Install Docker on server  2. Create ConfigMap
+2.  Validated                 2. Install Docker on server  2. Create ConfigMap
                                3. Run docker-compose up     3. Deploy with kubectl
                                4. Configure firewall        4. Set up Ingress
-                               5. ✓ Team can access         5. Configure monitoring
+                               5.  Team can access         5. Configure monitoring
 
 Time: Day 1                    Time: Week 1-2               Time: Month 1-3
 Cost: $0                       Cost: $100-500/month         Cost: $500-5000/month
@@ -548,11 +548,11 @@ Host Machine:
 └──────────────────────────────────────────────────────────────────────────┘
 
 Benefits:
-✅ Single source of truth
-✅ Easy to update (edit one file, restart containers)
-✅ No configuration drift between services
-✅ Version control friendly
-✅ Works same way in all deployment scenarios
+ Single source of truth
+ Easy to update (edit one file, restart containers)
+ No configuration drift between services
+ Version control friendly
+ Works same way in all deployment scenarios
 ```
 
 ---
@@ -567,4 +567,4 @@ Benefits:
 
 ---
 
-**Choose your deployment path above and follow the corresponding guide!** 🚀
+**Choose your deployment path above and follow the corresponding guide!** 
