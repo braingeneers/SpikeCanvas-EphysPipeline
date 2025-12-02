@@ -66,8 +66,6 @@ output_prefix: processed-data    # Optional: Override for output data location
 # AWS Credentials (optional)
 region: us-west-2                # AWS region
 profile: my-aws-profile          # AWS profile name
-role_arn: arn:aws:iam::...       # AWS role ARN for cross-account access
-session_name: pipeline-session   # Session name for assumed role
 ```
 
 ### Environment Variables
@@ -82,8 +80,6 @@ All YAML options can be set via environment variables:
 | `S3_OUTPUT_PREFIX` | Output data prefix | `processed-data` |
 | `AWS_REGION` | AWS region | `us-west-2` |
 | `AWS_PROFILE` | AWS profile | `default` |
-| `AWS_ROLE_ARN` | Role ARN | `arn:aws:iam::123456789:role/...` |
-| `AWS_SESSION_NAME` | Session name | `pipeline-session` |
 | `PIPELINE_CONFIG` | Custom config file path | `/custom/path/pipeline.yaml` |
 
 ### Configuration Priority (Highest to Lowest)
@@ -221,12 +217,13 @@ docker run -v ./prod-pipeline.yaml:/app/config/pipeline.yaml ...
 
 **Scenario:** Access S3 bucket in a different AWS account.
 
+### Example 4: Different Region
+
 ```yaml
-bucket: other-account-bucket
+bucket: west-coast-bucket
 prefix: ephys
-region: us-west-2
-role_arn: arn:aws:iam::987654321:role/CrossAccountS3Access
-session_name: ephys-pipeline-session
+region: us-west-1
+profile: west-coast-profile
 ```
 
 ## Docker Compose Example
@@ -337,8 +334,8 @@ print(f"Raw config: {cfg.raw}")
 - Check docker-compose environment section
 
 **3. Bucket access denied**
-- Verify AWS credentials are available (mount ~/.aws or use IAM role)
-- Check bucket permissions and IAM policies
+- Verify AWS credentials are available (mount ~/.aws)
+- Check bucket permissions
 - Ensure region is correct if bucket has region restrictions
 
 **4. Wrong bucket being used**

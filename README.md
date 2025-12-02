@@ -206,9 +206,6 @@ This section describes how to deploy the SpikeCanvas services (Dashboard, Listen
    
    # Method 2: AWS Profile (uses ~/.aws/credentials)
    # AWS_PROFILE=your-profile-name
-   
-   # Method 3: IAM Role (recommended - uses pod/instance IAM role)
-   # No AWS_* vars needed if using IAM roles
    ```
 
 4. **Start the services**:
@@ -233,7 +230,6 @@ The `.env` file controls all aspects of the pipeline deployment. See `.env.templ
 - `S3_ENDPOINT`: Alternative S3 endpoint variable (optional)
 
 **AWS Credentials** (choose one approach):
-- **IAM Roles** (recommended): No configuration needed, uses instance/pod IAM role
 - **AWS Profile**: Set `AWS_PROFILE=profile-name`, requires `~/.aws/credentials`
 - **Access Keys**: Set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
 
@@ -376,8 +372,7 @@ docker-compose down
 **Algorithm jobs fail to access S3**:
 - Listener injects env vars into jobs - check listener logs: `docker-compose logs listener`
 - Verify Kubernetes cluster has network access to S3
-- For IAM roles: Ensure Kubernetes service account has IAM role annotation
-- For access keys: Verify keys are valid and have S3 permissions
+- Verify keys are valid and have S3 permissions
 
 **Jobs not appearing in dashboard**:
 - Check job_scanner is running: `docker-compose ps scanner`
@@ -391,11 +386,10 @@ docker-compose down
 
 ### Security Best Practices
 
-1. **Use IAM roles** instead of access keys when possible (AWS EKS, EC2)
-2. **Restrict S3 permissions** to only necessary buckets and prefixes
-3. **Keep `.env` file secure** - add to `.gitignore`, use file permissions (chmod 600)
-4. **Rotate credentials regularly** if using access keys
-5. **Use separate buckets** for different security zones (production vs. testing)
+1. **Restrict S3 permissions** to only necessary buckets and prefixes
+2. **Keep `.env` file secure** - add to `.gitignore`, use file permissions (chmod 600)
+3. **Rotate credentials regularly**
+4. **Use separate buckets** for different security zones (production vs. testing)
 
 ### Kubernetes Job Permissions
 
@@ -582,7 +576,7 @@ region: us-west-2
 Never hardcode `s3://braingeneers/ephys/`. Always build with `cfg.s3_uri()` or `s3_uri()` helper.
 
 ### Credentials
-Prefer IAM roles (pod/service-account) over static keys. If needed, standard AWS env vars (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) are supported implicitly via the AWS SDK chain.
+Standard AWS env vars (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) are supported implicitly via the AWS SDK chain.
 
 ### Validation
 On first import the config layer logs resolved values:
@@ -597,7 +591,7 @@ Legacy references to `DEFAULT_BUCKET` now use the configuration layer but mainta
 
 ## Kubernetes Deployment Configuration
 
-When running in Kubernetes, dynamic S3 settings are provided via a ConfigMap and IAM role (service account) instead of embedding credentials in code.
+When running in Kubernetes, dynamic S3 settings are provided via a ConfigMap instead of embedding credentials in code.
 
 ### Sample ConfigMap
 ```yaml
@@ -609,31 +603,10 @@ metadata:
 data:
   S3_BUCKET: ucdavis-neural
   S3_PREFIX: ephys
+  AWS_ACCESS_KEY_ID: your-access-key
+  AWS_SECRET_ACCESS_KEY: your-secret-key
+  ENDPOINT_URL: https://s3.braingeneers.gi.ucsc.edu
 ```
-
-### Service Account with IAM Role (IRSA)
-```yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: ephys-sa
-  namespace: braingeneers
-  annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<ACCOUNT_ID>:role/ephys-s3-access-role
-```
-
-IAM policy example (restrict access to bucket/prefix):
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["s3:GetObject","s3:PutObject","s3:ListBucket"],
-      "Resource": [
-        "arn:aws:s3:::ucdavis-neural",
-        "arn:aws:s3:::ucdavis-neural/ephys/*"
-      ]
     }
   ]
 }

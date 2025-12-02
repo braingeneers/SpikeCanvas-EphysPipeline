@@ -81,9 +81,8 @@ class Kube:
         ])
         
         # AWS credentials (if set in listener environment, propagate to jobs)
-        # Note: In production, prefer IAM roles via ServiceAccount instead
         for aws_var in ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", 
-                        "AWS_PROFILE", "AWS_ROLE_ARN", "AWS_SESSION_NAME"]:
+                        "AWS_PROFILE"]:
             val = os.getenv(aws_var)
             if val:
                 job_env.append(client.V1EnvVar(name=aws_var, value=val))
