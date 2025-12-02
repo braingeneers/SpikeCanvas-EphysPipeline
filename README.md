@@ -1,4 +1,4 @@
-# Maxwell Electrophysiology Pipeline
+# SpikeCanvas
 
 A comprehensive, scalable platform for processing and analyzing high-density electrophysiology data from Maxwell biosensor arrays. This pipeline provides end-to-end processing capabilities from raw neural recordings to publication-ready analyses and visualizations.
 
@@ -6,7 +6,7 @@ A comprehensive, scalable platform for processing and analyzing high-density ele
 
 ## Overview
 
-The Maxwell Electrophysiology Pipeline is designed for high-throughput processing of neural data with automated spike sorting, quality control, connectivity analysis, and interactive visualization. The platform supports containerized workflows that can be deployed on Kubernetes clusters for scalable data processing.
+The SpikeCanvas is designed for high-throughput processing of neural data with automated spike sorting, quality control, connectivity analysis, and interactive visualization. The platform supports containerized workflows that can be deployed on Kubernetes clusters for scalable data processing.
 
 All algorithms follow a consistent three-step workflow:
 1. **Load data from S3** – Download input data (raw recordings, spike-sorting results, or intermediate outputs)
@@ -165,7 +165,7 @@ docker run -v /data:/data surygeng/connectivity:v0.1 \
 
 ## Docker Compose Deployment
 
-This section describes how to deploy the Maxwell Ephys Pipeline services (Dashboard, Listener, Scanner) using Docker Compose on your local server or institution infrastructure.
+This section describes how to deploy the SpikeCanvas services (Dashboard, Listener, Scanner) using Docker Compose on your local server or institution infrastructure.
 
 ### Prerequisites
 

@@ -1,6 +1,6 @@
-# EphysPipeline Deployment Architecture
+# SpikeCanvas Deployment Architecture
 
-Visual guide to deployment options and architecture for Maxwell EphysPipeline.
+Visual guide to deployment options and architecture for Maxwell SpikeCanvas.
 
 ---
 
@@ -8,7 +8,7 @@ Visual guide to deployment options and architecture for Maxwell EphysPipeline.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                     EphysPipeline Deployment Options                     │
+│                     SpikeCanvas Deployment Options                     │
 └─────────────────────────────────────────────────────────────────────────┘
 
      Desktop                Server               Custom Build         Cloud/K8s
@@ -143,7 +143,7 @@ Visual guide to deployment options and architecture for Maxwell EphysPipeline.
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
 │  1. Clone Repository                                                    │
-│     git clone https://github.com/braingeneers/EphysPipeline.git        │
+│     git clone https://github.com/braingeneers/SpikeCanvas.git        │
 │                                                                          │
 │  2. Customize Code (optional)                                           │
 │     Edit: Services/MaxWell_Dashboard/src/                               │
@@ -335,7 +335,7 @@ region: us-east-1            AWS_REGION=us-west-2           us-west-2
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│  Complete EphysPipeline Data Flow                                          │
+│  Complete SpikeCanvas Data Flow                                          │
 └────────────────────────────────────────────────────────────────────────────┘
 
 1. Data Upload

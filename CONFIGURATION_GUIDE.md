@@ -1,6 +1,6 @@
-# Maxwell Ephys Pipeline Configuration Guide
+# SpikeCanvas Configuration Guide
 
-This guide explains how to configure and use the Maxwell Electrophysiology Pipeline with your institution's S3 storage and credentials.
+This guide explains how to configure and use the SpikeCanvas with your institution's S3 storage and credentials.
 
 > ** New to the pipeline?** Start with [QUICK_START.md](QUICK_START.md) for a simple desktop setup using the interactive `configure.py` script. This guide is for advanced configuration, Kubernetes deployment, and developer integration.
 

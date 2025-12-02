@@ -1,6 +1,6 @@
 # Custom Build Guide
 
-Build and deploy EphysPipeline using your own Docker registry instead of pre-built images.
+Build and deploy SpikeCanvas using your own Docker registry instead of pre-built images.
 
 ## When to Use This Guide
 
@@ -94,7 +94,7 @@ set -e
 REGISTRY="${REGISTRY:-localhost}"
 TAG="${TAG:-latest}"
 
-echo "Building all EphysPipeline images..."
+echo "Building all SpikeCanvas images..."
 echo "Registry: $REGISTRY"
 echo "Tag: $TAG"
 echo ""
@@ -618,8 +618,8 @@ No data loss - configuration and S3 data remain the same.
 
 - **Deployment Issues:** [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - **Configuration:** [Services/common/CONFIG_USAGE_GUIDE.md](Services/common/CONFIG_USAGE_GUIDE.md)
-- **GitHub Issues:** https://github.com/braingeneers/EphysPipeline/issues
+- **GitHub Issues:** https://github.com/braingeneers/SpikeCanvas/issues
 
 ---
 
-**Custom build complete!**  You now have full control over your EphysPipeline deployment.
+**Custom build complete!**  You now have full control over your SpikeCanvas deployment.

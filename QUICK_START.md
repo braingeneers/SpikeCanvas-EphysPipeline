@@ -1,6 +1,6 @@
-# Quick Start - Run EphysPipeline on Your Desktop
+# Quick Start - Run SpikeCanvas on Your Desktop
 
-Get the EphysPipeline dashboard running on your local machine in 5 minutes!
+Get the SpikeCanvas dashboard running on your local machine in 5 minutes!
 
 ## Prerequisites
 
@@ -24,8 +24,8 @@ Before you start, make sure you have:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/braingeneers/EphysPipeline.git
-cd EphysPipeline
+git clone https://github.com/braingeneers/SpikeCanvas.git
+cd SpikeCanvas
 ```
 
 ### Step 2: Create Configuration
@@ -62,7 +62,7 @@ Open your browser and go to:
 http://localhost:8050
 ```
 
-You should see the EphysPipeline dashboard!
+You should see the SpikeCanvas dashboard!
 
 ## What Just Happened?
 
@@ -192,7 +192,7 @@ For production use or team access, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md
 - Check the [Troubleshooting](#troubleshooting) section above
 - Read the configuration guide: [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)
 - Read the deployment guide: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-- Open an issue: [GitHub Issues](https://github.com/braingeneers/EphysPipeline/issues)
+- Open an issue: [GitHub Issues](https://github.com/braingeneers/SpikeCanvas/issues)
 - Ask in Slack: #braingeneers-helpdesk channel
 
 ## Security Note
@@ -223,4 +223,4 @@ docker-compose up
 
 ---
 
-**That's it!** You now have a working EphysPipeline installation on your desktop. 
+**That's it!** You now have a working SpikeCanvas installation on your desktop. 
