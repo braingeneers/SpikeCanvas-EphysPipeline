@@ -68,9 +68,6 @@ AWS_REGION=us-west-2
 
 # Method 2: AWS Profile (uses ~/.aws/credentials)
 # AWS_PROFILE=your-profile-name
-
-# Method 3: IAM Role (recommended - no keys needed)
-# Automatically uses instance/pod IAM role - no config needed
 ```
 
 ### Step 3: Start Services
@@ -147,7 +144,6 @@ metadata:
 spec:
   template:
     spec:
-      serviceAccountName: ephys-sa  # For IAM role
       containers:
       - name: dashboard
         image: surygeng/dashboard:latest
@@ -415,19 +411,13 @@ def create_job_object(self):
 
 Choose **ONE** authentication method:
 
-#### Method 1: IAM Role (Recommended)
-- **Variables**: None required
-- **Setup**: Attach IAM role to EC2 instance or Kubernetes ServiceAccount
-- **Pros**: Most secure, no credential management, automatic rotation
-- **Cons**: Requires IAM configuration
-
-#### Method 2: AWS Profile
+#### Method 1: AWS Profile
 - **Variables**: `AWS_PROFILE`
 - **Setup**: Configure `~/.aws/credentials` on the host
 - **Pros**: Multiple profile support, credentials outside code
 - **Cons**: Requires volume mount of `~/.aws/` directory
 
-#### Method 3: Access Keys
+#### Method 2: Access Keys
 - **Variables**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
 - **Setup**: Add keys to `.env` file
 - **Pros**: Simple to set up
@@ -600,8 +590,7 @@ docker-compose logs dashboard | tail -50
 **Causes**:
 1. Listener not injecting credentials properly
 2. Kubernetes cluster can't reach S3
-3. IAM role not configured
-4. Access keys expired
+3. Access keys expired
 
 **Solutions**:
 ```bash
@@ -640,7 +629,7 @@ docker-compose exec dashboard env | grep S3_BUCKET
 **Symptoms**: "403 Forbidden" or "Access Denied" in logs
 
 **Causes**:
-1. IAM policy too restrictive
+1. S3 permissions too restrictive
 2. Wrong AWS credentials
 3. Bucket policy blocks access
 
@@ -651,12 +640,12 @@ export AWS_ACCESS_KEY_ID=<your-key>
 export AWS_SECRET_ACCESS_KEY=<your-secret>
 aws s3 ls s3://your-bucket/ephys/
 
-# 2. Check IAM policy grants required permissions:
+# 2. Check S3 permissions:
 # - s3:GetObject
 # - s3:PutObject
 # - s3:ListBucket
 
-# 3. Verify bucket policy allows your IAM user/role
+# 3. Verify bucket policy allows your access
 ```
 
 ### Issue: Jobs submit but don't start
@@ -742,16 +731,18 @@ SERVICE_ROOT=s3://ephys-data/services
 PARAMETER_BUCKET=s3://ephys-data/services/params
 ```
 
-### Example 3: AWS with IAM Role
+### Example 3: AWS with Access Keys
+
+**Environment**: Running on AWS with access keys
 
 ```bash
 # .env
 S3_BUCKET=institution-ephys-prod
 S3_PREFIX=ephys
+AWS_ACCESS_KEY_ID=<your-key>
+AWS_SECRET_ACCESS_KEY=<your-secret>
 AWS_REGION=us-east-1
 NRP_NAMESPACE=ephys-prod
-# No AWS_ACCESS_KEY_ID or AWS_SECRET_ACCESS_KEY needed
-# IAM role attached to EC2 instance or EKS ServiceAccount
 ```
 
 ### Example 4: Development Environment
@@ -774,11 +765,10 @@ JOB_GPU_LIMIT=0  # No GPU for dev
 ## Best Practices
 
 ### Security
-1. **Use IAM roles** instead of access keys whenever possible
-2. **Rotate credentials** regularly if using access keys
-3. **Restrict S3 permissions** to minimum required (GetObject, PutObject, ListBucket)
-4. **Keep `.env` secure** - add to `.gitignore`, use chmod 600
-5. **Use separate buckets** for production vs. development
+1. **Rotate credentials** regularly
+2. **Restrict S3 permissions** to minimum required (GetObject, PutObject, ListBucket)
+3. **Keep `.env` secure** - add to `.gitignore`, use chmod 600
+4. **Use separate buckets** for production vs. development
 
 ### Configuration Management
 1. **Document your configuration** - keep notes on what each value means for your setup

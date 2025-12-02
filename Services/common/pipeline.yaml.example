@@ -17,10 +17,6 @@ prefix: ephys
 # region: us-west-2
 # profile: default
 
-# Optional: Cross-account S3 access
-# role_arn: arn:aws:iam::123456789012:role/S3AccessRole
-# session_name: ephys-pipeline
-
 # Example configurations for different scenarios:
 
 # Scenario 1: Simple single-bucket setup
@@ -36,10 +32,3 @@ prefix: ephys
 # Scenario 3: Multi-institution shared bucket
 # bucket: consortium-data
 # prefix: institution-xyz/ephys
-
-# Scenario 4: Cross-account access
-# bucket: central-data-repository
-# prefix: institution-abc/ephys
-# region: us-east-1
-# role_arn: arn:aws:iam::987654321098:role/DataAccessRole
-# session_name: ephys-pipeline-session

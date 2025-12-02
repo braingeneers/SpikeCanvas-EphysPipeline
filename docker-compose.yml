@@ -21,7 +21,7 @@ services:
       - SERVICE_BUCKET=${SERVICE_BUCKET}
       - PARAMETER_BUCKET=${PARAMETER_BUCKET}
       
-      # AWS credentials (use IAM roles in production)
+      # AWS credentials
       - AWS_REGION=${AWS_REGION:-us-west-2}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}

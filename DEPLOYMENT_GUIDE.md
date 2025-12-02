@@ -116,11 +116,7 @@ EOF
 chmod 600 ~/.aws/credentials
 ```
 
-**Option B: IAM Instance Role (EC2 Only)**
-
-If running on EC2, attach an IAM role with S3 access. No credentials file needed.
-
-**Option C: Environment Variables**
+**Option B: Environment Variables**
 
 ```bash
 export AWS_ACCESS_KEY_ID="your-key"
@@ -462,11 +458,10 @@ See [Services/common/CONFIG_USAGE_GUIDE.md](Services/common/CONFIG_USAGE_GUIDE.m
 - Don't expose to public internet without authentication
 
 ### AWS Security
-- Use IAM roles instead of access keys when possible
 - Follow principle of least privilege
 - Enable S3 bucket encryption
-- Use separate IAM users for different environments
 - Rotate credentials regularly
+- Use separate credentials for different environments
 
 ### Docker Security
 - Run containers as non-root user (where possible)
@@ -590,7 +585,7 @@ Common issues:
    aws s3 ls s3://your-bucket/
    ```
 
-2. Check IAM permissions
+2. Check S3 permissions
 
 3. Verify bucket name in config
 

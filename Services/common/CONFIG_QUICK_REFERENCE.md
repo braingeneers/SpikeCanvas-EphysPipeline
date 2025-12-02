@@ -109,7 +109,6 @@ prefix: institution-name/ephys
 
 **Access denied?**
 - Mount AWS credentials: `-v ~/.aws:/root/.aws:ro`
-- Or use IAM instance role (EKS/EC2)
 - Verify bucket permissions
 
 ## See Full Documentation
