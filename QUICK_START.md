@@ -1,25 +1,30 @@
-# Quick Start - Run SpikeCanvas on Your Desktop
+# SpikeCanvas Quick Start Guide for NRP
 
-Get the SpikeCanvas dashboard running on your local machine in 5 minutes!
+This guide will walk you through setting up and running SpikeCanvas on the Neuroscience Research Platform (NRP). By the end, you'll have a fully configured pipeline ready to process electrophysiology data stored in S3.
 
-## Prerequisites
+## What You'll Need
 
-Before you start, make sure you have:
+Before starting, gather the following information:
 
-1. **Docker Desktop** installed and running
-   - Windows/Mac: [Download Docker Desktop](https://www.docker.com/products/docker-desktop)
-   - Linux: [Install Docker Engine](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/)
+1. **S3 Storage Details**
+   - Your S3 bucket name (e.g., `braingeneers`)
+   - The root folder for your ephys data (e.g., `ephys`)
+   - Your data should be organized as: `s3://bucket-name/ephys/UUID/original/data/`
 
-2. **Internet connection** - to download Docker images and access S3
+2. **AWS Credentials**
+   - AWS Access Key ID (starts with `AKIA`)
+   - AWS Secret Access Key
+   - AWS Region (e.g., `us-west-2`)
 
-3. **AWS credentials** configured (for S3 access)
-   - File at `~/.aws/credentials` with your AWS access keys
-   - OR environment variables `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
-   - OR IAM instance role (if running on EC2)
+3. **S3 Endpoint URL**
+   - Standard AWS: `https://s3.us-west-2.amazonaws.com`
+   - Braingeneers: `https://s3.braingeneers.gi.ucsc.edu`
+   - Or your custom S3-compatible endpoint
 
-4. **S3 bucket** name where your ephys data is stored
+4. **NRP Namespace** (if using NRP)
+   - Your assigned NRP namespace for running jobs
 
-## 5-Minute Setup
+## Step-by-Step Setup
 
 ### Step 1: Clone the Repository
 
@@ -28,199 +33,451 @@ git clone https://github.com/braingeneers/SpikeCanvas.git
 cd SpikeCanvas
 ```
 
-### Step 2: Create Configuration
+### Step 2: Run Configuration Script
 
-Run the interactive configuration script:
+The interactive configuration script will guide you through all required settings:
 
 ```bash
 python3 configure.py
 ```
 
-The script will guide you through 5 simple steps:
-1. **S3 Storage** - Your bucket name and data folder
-2. **AWS Credentials** - Access key and secret key
-3. **S3 Endpoint** - Storage endpoint URL
-4. **Service Configuration** - Automatically configured
-5. **Kubernetes** - Namespace (if using NRP)
+You'll be prompted for the following:
 
-Your configuration will be saved to `.env` file with secure permissions.
+#### 2.1 S3 Storage Setup
 
-> **Need more control?** See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for advanced configuration options including Kubernetes deployment, IAM roles, and multiple credential methods.
+The script will explain how your data is organized:
 
-### Step 3: Start the Services
+```
+s3://your-bucket/ephys/
+└── UUID-123/                    (your experiment ID)
+    ├── original/data/           (raw recordings)
+    └── derived/                 (processing results)
+        ├── kilosort2/          (spike sorting)
+        ├── connectivity/       (connectivity analysis)
+        ├── lfp/                (LFP analysis)
+        └── visualization/      (plots & figures)
+```
+
+**You'll need to provide:**
+- Your S3 bucket name (e.g., `braingeneers`)
+- Root folder for ephys data (default: `ephys`)
+
+**Example:**
+```
+What is your S3 bucket name? (just the name, no s3://): braingeneers
+What is the root folder name for ephys data? [ephys]: ephys
+```
+
+#### 2.2 AWS Credentials
+
+**You'll need to provide:**
+- AWS Access Key ID
+- AWS Secret Access Key  
+- AWS Region (default: `us-west-2`)
+
+**Example:**
+```
+AWS Access Key ID: AKIAIOSFODNN7EXAMPLE
+AWS Secret Access Key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+AWS Region [us-west-2]: us-west-2
+```
+
+#### 2.3 S3 Endpoint
+
+**You'll need to provide:**
+- Your S3 endpoint URL
+
+**Common options:**
+- Standard AWS S3: `https://s3.us-west-2.amazonaws.com`
+- Braingeneers: `https://s3.braingeneers.gi.ucsc.edu`
+
+**Example:**
+```
+S3 Endpoint URL: https://s3.braingeneers.gi.ucsc.edu
+```
+
+#### 2.4 Service Configuration
+
+This step is automatic. The script will configure service storage paths:
+```
+s3://your-bucket/services/
+├── logs/
+├── status/
+└── results/
+```
+
+#### 2.5 Kubernetes Namespace
+
+If you're using NRP, enter your assigned namespace. Otherwise, press Enter to skip.
+
+**Example:**
+```
+Kubernetes namespace: my-lab-nrp-namespace
+```
+
+### Step 3: Review Your Configuration
+
+The script will show a summary of your configuration:
+
+```
+======================================================================
+  Configuration Summary
+======================================================================
+
+   S3 Bucket:     s3://braingeneers/ephys/
+   AWS Region:    us-west-2
+   Access Key:    AKIAIOSF...AMPLE
+   Endpoint:      https://s3.braingeneers.gi.ucsc.edu
+   Namespace:     my-lab-nrp-namespace
+
+Save this configuration? [Y/n]: y
+```
+
+### Step 4: Verify the Configuration File
+
+Your settings are saved in `.env` file:
+
+```bash
+cat .env
+```
+
+You should see something like:
+
+```bash
+# SpikeCanvas Configuration
+# Generated by configure.py
+
+# ============================================================
+# S3 Storage Configuration
+# ============================================================
+S3_BUCKET=braingeneers
+S3_PREFIX=ephys
+S3_INPUT_PREFIX=
+S3_OUTPUT_PREFIX=
+S3_ENDPOINT_URL=https://s3.braingeneers.gi.ucsc.edu
+
+# ============================================================
+# AWS Credentials
+# ============================================================
+AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+AWS_DEFAULT_REGION=us-west-2
+
+# ============================================================
+# Service Configuration
+# ============================================================
+SERVICES_PATH=s3://braingeneers/services
+LOGS_PATH=s3://braingeneers/services/logs
+STATUS_PATH=s3://braingeneers/services/status
+RESULTS_PATH=s3://braingeneers/services/results
+
+# ============================================================
+# Kubernetes Configuration
+# ============================================================
+K8S_NAMESPACE=my-lab-nrp-namespace
+```
+
+## Understanding Your Data Structure
+
+After configuration, your data will be organized as follows:
+
+### Raw Data Location
+```
+s3://braingeneers/ephys/2024-01-15-e-example123/original/data/
+├── data.raw.h5          (raw recording)
+└── mapping.csv          (electrode mapping)
+```
+
+### Processing Results Location
+```
+s3://braingeneers/ephys/2024-01-15-e-example123/derived/
+├── kilosort2/           (spike sorting output)
+│   ├── spike_times.npy
+│   ├── spike_clusters.npy
+│   └── ...
+├── connectivity/        (connectivity matrices)
+│   └── connectivity_matrix.npy
+├── lfp/                 (LFP filtered data)
+│   └── lfp_filtered.h5
+└── visualization/       (plots and figures)
+    └── raster_plot.png
+```
+
+### Service Data Location
+```
+s3://braingeneers/services/
+├── logs/                (job logs)
+├── status/              (job status files)
+└── results/             (job results metadata)
+```
+
+## Running the Pipeline
+
+### Option 1: Local Desktop Testing (Docker Compose)
+
+Start the dashboard locally:
 
 ```bash
 docker-compose up
 ```
 
-The first time you run this, Docker will download the pre-built images (~2-3 GB). This takes a few minutes depending on your internet speed.
+Access the dashboard at: `http://localhost:8050`
 
-### Step 4: Access the Dashboard
+**When to use:**
+- Testing your configuration
+- Viewing existing results
+- Submitting jobs to NRP from your local machine
+- Development and debugging
 
-Open your browser and go to:
-```
-http://localhost:8050
-```
+### Option 2: Deploy to NRP (Kubernetes)
 
-You should see the SpikeCanvas dashboard!
-
-## What Just Happened?
-
--  Created `.env` configuration file with your S3 and AWS settings
--  Downloaded pre-built Docker images from Docker Hub
--  Started the Dashboard service
--  Dashboard is now accessible at localhost:8050
-
-## Stopping the Services
-
-Press `Ctrl+C` in the terminal where docker-compose is running, then:
+For production use on NRP, deploy the services to Kubernetes:
 
 ```bash
-docker-compose down
+# Apply Kubernetes configurations
+kubectl apply -f Services/MaxWell_Dashboard/k8s/
+kubectl apply -f Services/Spike_Sorting_Listener/k8s/
+kubectl apply -f Services/job_scanner/k8s/
 ```
 
-## Restarting Later
+The services will run on NRP and be accessible to your team.
 
-Just run `docker-compose up` again. Docker will use cached images, so it starts instantly.
+**When to use:**
+- Team access to the dashboard
+- 24/7 availability
+- Processing large datasets
+- Production workflows
 
-> **Note:** Your `.env` configuration file is preserved, so you don't need to run `configure.py` again.
+## Testing Your Configuration
 
-## Configuration Options
+### Test 1: Check S3 Access
 
-The `configure.py` script creates a `.env` file with your settings. You can edit this file directly if needed.
+Verify you can list your data:
 
-**Example `.env` file:**
 ```bash
-S3_BUCKET=my-bucket
+aws s3 ls s3://braingeneers/ephys/ --endpoint-url=https://s3.braingeneers.gi.ucsc.edu
+```
+
+You should see a list of UUIDs (experiment folders).
+
+### Test 2: Test Dashboard Connection
+
+1. Start the dashboard: `docker-compose up`
+2. Open browser: `http://localhost:8050`
+3. Check if UUIDs appear in the dropdown
+4. If you see UUIDs, your configuration is correct!
+
+### Test 3: Submit a Test Job
+
+1. In the dashboard, go to the **Job Center** tab
+2. Select a UUID with raw data
+3. Choose an algorithm (e.g., `kilosort2`)
+4. Click **Submit Job**
+5. Check the **Job Status** tab to monitor progress
+
+## Common Configuration Scenarios
+
+### Scenario 1: Using Braingeneers S3
+
+```bash
+S3_BUCKET=braingeneers
 S3_PREFIX=ephys
-AWS_ACCESS_KEY_ID=AKIA...
-AWS_SECRET_ACCESS_KEY=...
-AWS_DEFAULT_REGION=us-west-2
+S3_ENDPOINT_URL=https://s3.braingeneers.gi.ucsc.edu
+K8S_NAMESPACE=your-nrp-namespace
+```
+
+### Scenario 2: Using Standard AWS S3
+
+```bash
+S3_BUCKET=my-lab-ephys-data
+S3_PREFIX=ephys
 S3_ENDPOINT_URL=https://s3.us-west-2.amazonaws.com
+AWS_DEFAULT_REGION=us-west-2
+K8S_NAMESPACE=your-nrp-namespace
 ```
 
-**For advanced configuration:**
-- Multiple credential methods (IAM roles, profiles)
-- Kubernetes/NRP deployment
-- Custom service paths
-- See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)
-
-## Running in the Background
-
-To run services in the background (detached mode):
+### Scenario 3: Using Custom MinIO
 
 ```bash
-docker-compose up -d
+S3_BUCKET=my-minio-bucket
+S3_PREFIX=ephys
+S3_ENDPOINT_URL=https://minio.example.com
+K8S_NAMESPACE=your-nrp-namespace
 ```
 
-View logs:
+## Updating Configuration
+
+If you need to change settings later:
+
+### Method 1: Re-run the Configuration Script
+
 ```bash
-docker-compose logs -f
+python3 configure.py
 ```
 
-Stop services:
+The script will backup your existing `.env` file to `.env.backup` before creating a new one.
+
+### Method 2: Edit the .env File Directly
+
+```bash
+vim .env
+```
+
+After editing, restart the services:
+
 ```bash
 docker-compose down
+docker-compose up
 ```
 
 ## Troubleshooting
 
-### Error: "Cannot connect to Docker daemon"
-- Make sure Docker Desktop is running
-- On Linux: `sudo systemctl start docker`
+### Issue: "No UUIDs found"
 
-### Error: "No such file or directory: ~/.aws/credentials"
-- The interactive script will prompt you for AWS credentials
-- Or set environment variables before running docker-compose:
-  ```bash
-  export AWS_ACCESS_KEY_ID="your-key"
-  export AWS_SECRET_ACCESS_KEY="your-secret"
-  docker-compose up
-  ```
+**Cause:** Dashboard cannot access your S3 bucket.
 
-### Error: "Access Denied" when accessing S3
-- Check your AWS credentials in `.env` are correct
-- Verify your IAM user/role has S3 read permissions
-- Confirm the bucket name in `.env` is correct
+**Solutions:**
+1. Check S3 credentials in `.env` are correct
+2. Verify S3 endpoint URL is correct
+3. Test S3 access: `aws s3 ls s3://your-bucket/ephys/ --endpoint-url=YOUR_ENDPOINT`
+4. Check IAM permissions (need `s3:ListBucket` and `s3:GetObject`)
 
-### Dashboard shows "No UUIDs found"
-- Check that data exists in `s3://your-bucket/your-prefix/`
-- Verify the `S3_PREFIX` in `.env` matches your data location
-- Check container logs: `docker-compose logs dashboard`
+### Issue: "Access Denied" when accessing S3
 
-### Port 8050 already in use
-- Change the port in `docker-compose.yml`:
-  ```yaml
-  ports:
-    - "8051:8050"  # Use 8051 instead
-  ```
-- Then access at `http://localhost:8051`
+**Cause:** AWS credentials don't have sufficient permissions.
+
+**Solutions:**
+1. Verify AWS Access Key ID and Secret Access Key are correct
+2. Check IAM policy includes:
+   ```json
+   {
+     "Effect": "Allow",
+     "Action": [
+       "s3:ListBucket",
+       "s3:GetObject",
+       "s3:PutObject"
+     ],
+     "Resource": [
+       "arn:aws:s3:::your-bucket",
+       "arn:aws:s3:::your-bucket/*"
+     ]
+   }
+   ```
+
+### Issue: Jobs not starting on NRP
+
+**Cause:** Kubernetes namespace not configured or incorrect.
+
+**Solutions:**
+1. Verify `K8S_NAMESPACE` in `.env` matches your NRP namespace
+2. Check you have permissions in that namespace: `kubectl get pods -n your-namespace`
+3. Verify the Listener service is running: `kubectl get pods -n your-namespace | grep listener`
+
+### Issue: "Cannot connect to Docker daemon"
+
+**Cause:** Docker is not running.
+
+**Solutions:**
+- Mac/Windows: Start Docker Desktop
+- Linux: `sudo systemctl start docker`
+
+### Issue: Port 8050 already in use
+
+**Cause:** Another service is using port 8050.
+
+**Solutions:**
+Change the port in `docker-compose.yml`:
+```yaml
+services:
+  dashboard:
+    ports:
+      - "8051:8050"  # Use port 8051 instead
+```
+
+Then access at: `http://localhost:8051`
+
+## Security Best Practices
+
+### 1. Protect Your .env File
+
+The `.env` file contains sensitive credentials:
+
+```bash
+# Check file permissions (should be 600)
+ls -la .env
+
+# If not, set correct permissions
+chmod 600 .env
+```
+
+### 2. Never Commit Credentials to Git
+
+The `.env` file is already in `.gitignore`, but double-check:
+
+```bash
+# This should show .env
+cat .gitignore | grep .env
+```
+
+### 3. Use IAM Roles When Possible
+
+For production NRP deployments, use Kubernetes ServiceAccounts with IAM roles instead of access keys. See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for details.
+
+### 4. Rotate Credentials Regularly
+
+Change your AWS access keys periodically and update `.env`:
+
+```bash
+# Edit .env with new credentials
+vim .env
+
+# Restart services
+docker-compose restart
+```
 
 ## Next Steps
 
-- **Process your first dataset** - Use the Job Center to submit spike sorting jobs
-- **Learn about all features** - Read the [main README.md](README.md)
-- **Advanced configuration** - See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)
-- **Deploy to a server** - See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-- **Customize algorithms** - See [CUSTOM_BUILD_GUIDE.md](CUSTOM_BUILD_GUIDE.md)
+Now that your configuration is complete:
 
-## System Requirements
+1. **Explore the Dashboard**
+   - Browse your UUIDs
+   - View existing results
+   - Check data quality metrics
 
-**Minimum:**
-- 4 GB RAM
-- 10 GB free disk space
-- Modern CPU (2+ cores)
+2. **Process Your First Dataset**
+   - Go to Job Center
+   - Submit a Kilosort2 spike sorting job
+   - Monitor progress in Job Status tab
 
-**Recommended:**
-- 8+ GB RAM
-- 20+ GB free disk space
-- 4+ CPU cores
-- SSD for better performance
+3. **Learn Advanced Features**
+   - [README.md](README.md) - Full feature overview
+   - [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) - Advanced configuration
+   - [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) - Production deployment
 
-## Desktop vs Server?
+4. **Deploy to NRP**
+   - See [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for Kubernetes deployment instructions
+   - Set up persistent services for your team
 
-This quick start is perfect for:
--  Learning the system
--  Testing with small datasets
--  Development work
--  Small labs without servers
+## Quick Reference Card
 
-For production use or team access, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md) for server deployment.
+| Configuration Item | What It Is | Example Value |
+|-------------------|------------|---------------|
+| S3_BUCKET | Your S3 bucket name | `braingeneers` |
+| S3_PREFIX | Root folder for data | `ephys` |
+| S3_ENDPOINT_URL | S3 service endpoint | `https://s3.braingeneers.gi.ucsc.edu` |
+| AWS_ACCESS_KEY_ID | AWS access key | `AKIA...` |
+| AWS_SECRET_ACCESS_KEY | AWS secret key | `wJal...` |
+| AWS_DEFAULT_REGION | AWS region | `us-west-2` |
+| K8S_NAMESPACE | NRP namespace | `my-lab-namespace` |
 
 ## Getting Help
 
-- Check the [Troubleshooting](#troubleshooting) section above
-- Read the configuration guide: [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md)
-- Read the deployment guide: [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
-- Open an issue: [GitHub Issues](https://github.com/braingeneers/SpikeCanvas/issues)
-- Ask in Slack: #braingeneers-helpdesk channel
-
-## Security Note
-
-When running on a desktop:
-- The dashboard is accessible to anyone on your local network
-- Don't expose it to the internet without proper authentication
-- Keep your AWS credentials secure (`.env` file has restricted permissions)
-- Never commit `.env` to git (already in .gitignore)
-- Use IAM roles with minimal required permissions
-
-> **For production deployment:** See [CONFIGURATION_GUIDE.md](CONFIGURATION_GUIDE.md) for IAM role-based authentication (no keys needed).
-
-## Updates
-
-To get the latest version:
-
-```bash
-# Pull latest code
-git pull
-
-# Pull latest Docker images
-docker-compose pull
-
-# Restart services
-docker-compose up
-```
+- **Configuration Issues:** Re-run `python3 configure.py`
+- **S3 Access Issues:** Check credentials and IAM permissions
+- **NRP Issues:** Verify namespace and kubectl access
+- **Bug Reports:** [GitHub Issues](https://github.com/braingeneers/SpikeCanvas/issues)
+- **Questions:** #braingeneers-helpdesk on Slack
 
 ---
 
-**That's it!** You now have a working SpikeCanvas installation on your desktop. 
+**You're all set!** Your SpikeCanvas is now configured and ready to process electrophysiology data on NRP. 
