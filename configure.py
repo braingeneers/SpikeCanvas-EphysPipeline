@@ -180,16 +180,16 @@ def main():
     # Service Configuration
     # ==========================================================================
     print_header("Step 4: Service Configuration")
-    print("\nThe pipeline stores service data (logs, status files, etc.) in S3.")
+    print("\nThe pipeline stores service data (logs, status, parameters) in S3.")
     print("We'll automatically set this up for you.")
     
-    # Always use standard service paths
-    config["SERVICES_PATH"] = f"s3://{config['S3_BUCKET']}/services"
-    config["LOGS_PATH"] = f"{config['SERVICES_PATH']}/logs"
-    config["STATUS_PATH"] = f"{config['SERVICES_PATH']}/status"
-    config["RESULTS_PATH"] = f"{config['SERVICES_PATH']}/results"
+    # Always use standard service paths matching actual structure
+    config["SERVICE_ROOT"] = f"s3://{config['S3_BUCKET']}/services/mqtt_job_listener"
+    config["LOGS_PATH"] = f"{config['SERVICE_ROOT']}/logs"
+    config["CSVS_PATH"] = f"{config['SERVICE_ROOT']}/csvs"
+    config["PARAMS_PATH"] = f"{config['SERVICE_ROOT']}/params"
     
-    print(f"Service data will be stored at: s3://{config['S3_BUCKET']}/services/")
+    print(f"Service data will be stored at: {config['SERVICE_ROOT']}/")
     
     # ==========================================================================
     # Kubernetes Configuration
@@ -245,10 +245,10 @@ AWS_DEFAULT_REGION={config['AWS_DEFAULT_REGION']}
 # ============================================================
 # Service Configuration
 # ============================================================
-SERVICES_PATH={config['SERVICES_PATH']}
+SERVICE_ROOT={config['SERVICE_ROOT']}
 LOGS_PATH={config['LOGS_PATH']}
-STATUS_PATH={config['STATUS_PATH']}
-RESULTS_PATH={config['RESULTS_PATH']}
+CSVS_PATH={config['CSVS_PATH']}
+PARAMS_PATH={config['PARAMS_PATH']}
 
 # ============================================================
 # Kubernetes Configuration
