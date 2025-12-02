@@ -1,6 +1,6 @@
-# EphysPipeline Deployment Guide
+# SpikeCanvas Deployment Guide
 
-Complete guide for deploying EphysPipeline in any environment - from desktop to enterprise cloud.
+Complete guide for deploying SpikeCanvas in any environment - from desktop to enterprise cloud.
 
 ## Choose Your Deployment Scenario
 
@@ -57,7 +57,7 @@ Complete guide for deploying EphysPipeline in any environment - from desktop to 
 
 ## Server Deployment
 
-Deploy EphysPipeline on a Linux server for team access.
+Deploy SpikeCanvas on a Linux server for team access.
 
 ### System Requirements
 
@@ -97,8 +97,8 @@ docker-compose --version
 ### Step 2: Clone Repository
 
 ```bash
-git clone https://github.com/braingeneers/EphysPipeline.git
-cd EphysPipeline
+git clone https://github.com/braingeneers/SpikeCanvas.git
+cd SpikeCanvas
 ```
 
 ### Step 3: Configure S3 Access
@@ -213,14 +213,14 @@ Create a systemd service:
 ```bash
 sudo cat > /etc/systemd/system/ephys-pipeline.service << EOF
 [Unit]
-Description=EphysPipeline Services
+Description=SpikeCanvas Services
 Requires=docker.service
 After=docker.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/path/to/EphysPipeline
+WorkingDirectory=/path/to/SpikeCanvas
 ExecStart=/usr/local/bin/docker-compose up -d
 ExecStop=/usr/local/bin/docker-compose down
 User=your-username
@@ -658,7 +658,7 @@ docker-compose up -d
 - **Quick Start Issues:** [QUICK_START.md](QUICK_START.md)
 - **Configuration Help:** [Services/common/CONFIG_USAGE_GUIDE.md](Services/common/CONFIG_USAGE_GUIDE.md)
 - **Custom Builds:** [CUSTOM_BUILD_GUIDE.md](CUSTOM_BUILD_GUIDE.md)
-- **GitHub Issues:** https://github.com/braingeneers/EphysPipeline/issues
+- **GitHub Issues:** https://github.com/braingeneers/SpikeCanvas/issues
 - **Slack:** #braingeneers-helpdesk channel
 
 ---
@@ -674,4 +674,4 @@ After deployment:
 
 ---
 
-**Deployment complete!**  Your EphysPipeline is ready for production use.
+**Deployment complete!**  Your SpikeCanvas is ready for production use.

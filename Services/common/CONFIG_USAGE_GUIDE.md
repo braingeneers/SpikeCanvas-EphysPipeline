@@ -2,7 +2,7 @@
 
 ## Overview
 
-The external configuration system allows you to deploy the EphysPipeline with institution-specific S3 bucket configurations without modifying code. It supports both YAML configuration files and environment variables.
+The external configuration system allows you to deploy the SpikeCanvas with institution-specific S3 bucket configurations without modifying code. It supports both YAML configuration files and environment variables.
 
 ## Quick Start
 
@@ -386,4 +386,4 @@ The system maintains backward compatibility:
 For issues or questions:
 - Check container logs: `docker logs <container>`
 - Review this guide
-- Open an issue on GitHub: https://github.com/braingeneers/EphysPipeline/issues
+- Open an issue on GitHub: https://github.com/braingeneers/SpikeCanvas/issues

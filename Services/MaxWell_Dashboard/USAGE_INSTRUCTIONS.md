@@ -254,7 +254,7 @@ The MaxWell Ephys Pipeline Dashboard is a comprehensive web-based interface for 
 ## Support Information
 
 **Project**: Braingeneers @ UCSC  
-**Maintainer**: Maxwell Ephys Pipeline Team  
+**Maintainer**: SpikeCanvas Team  
 **Documentation**: See individual module README files  
 **Updates**: Dashboard is actively maintained and updated regularly  
 
