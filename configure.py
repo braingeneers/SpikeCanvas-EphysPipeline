@@ -185,7 +185,7 @@ def main():
     
     # Always use standard service paths matching actual structure
     config["SERVICE_ROOT"] = f"s3://{config['S3_BUCKET']}/services/mqtt_job_listener"
-    config["LOGS_PATH"] = f"{config['SERVICE_ROOT']}/logs"
+    config["LOGS_PATH"] = f"{config['SERVICE_ROOT']}/listener.log"
     config["CSVS_PATH"] = f"{config['SERVICE_ROOT']}/csvs"
     config["PARAMS_PATH"] = f"{config['SERVICE_ROOT']}/params"
     
