@@ -21,13 +21,13 @@ maxwell_ephys_pipeline/
 │   ├── connectivity/        # Functional connectivity analysis
 │   ├── kilosort2_simplified/ # Spike sorting with Kilosort2
 │   ├── local_field_potential/ # LFP analysis and filtering
+│   ├── maxtwo_splitter/     # Data preprocessing and splitting
 │   ├── si_curation_docker/  # Quality control and curation
 │   └── visualization/       # Data visualization tools
 ├── Services/                # Platform services and interfaces
 │   ├── MaxWell_Dashboard/   # SpikeCanvas web dashboard
 │   ├── Spike_Sorting_Listener/ # Job orchestration service
 │   ├── job_scanner/         # Job monitoring and status tracking
-│   ├── maxtwo_splitter/     # Data preprocessing and splitting
 │   └── parameters/          # Configuration templates
 └── performance/            # Benchmarking and optimization tools
 ```
@@ -105,14 +105,24 @@ maxwell_ephys_pipeline/
   - Resource management and scaling
   - Job status monitoring
 
-### Monitoring & Utilities
-- **Location**: `Services/job_scanner/`, `Services/maxtwo_splitter/`
-- **Description**: Supporting services for job monitoring and data preprocessing
+### MaxTwo Data Splitter
+- **Location**: `Algorithms/maxtwo_splitter/`
+- **Description**: Preprocessing algorithm for splitting 6-well MaxTwo recordings into individual well files
 - **Features**:
-  - Job status tracking and logging
-  - Data format conversion
+  - Parallel well processing with multiprocessing
+  - Memory-optimized file operations
+  - Hard-link preservation for efficient storage
+  - Automated upload to S3 split directory
+- **Docker Image**: `surygeng/maxtwo_splitter:v0.1`
+
+### Job Monitoring
+- **Location**: `Services/job_scanner/`
+- **Description**: Job status tracking and monitoring utilities
+- **Features**:
+  - Real-time job status updates
   - Performance monitoring
   - Error handling and recovery
+  - Log aggregation
 
 ## Quick Start
 
