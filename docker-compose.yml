@@ -1,6 +1,81 @@
 version: '3.8'
 
+# ==============================================================================
+# SpikeCanvas Services - Standalone Docker Compose Configuration
+# ==============================================================================
+# This configuration provides a complete, self-contained setup for running
+# the SpikeCanvas electrophysiology analysis pipeline in your own lab.
+#
+# Core Services:
+# - Maxwell Dashboard: Web UI for job submission and monitoring
+# - Spike Sorting Listener: MQTT-based job orchestrator
+# - Job Scanner: Kubernetes job status monitor
+# - MQTT Broker: Message broker for inter-service communication
+# - Redis: State persistence and caching (optional)
+#
+# Prerequisites:
+# 1. Docker and Docker Compose installed
+# 2. Kubernetes cluster access (kubectl configured with ~/.kube/config)
+# 3. S3-compatible storage (AWS S3, MinIO, or Ceph)
+# 4. AWS credentials configured
+#
+# Quick Start:
+# 1. Copy .env.template to .env and configure your settings
+# 2. docker-compose up -d
+# 3. Access dashboard at http://localhost:8050
+# ==============================================================================
+
 services:
+  # ============================================================================
+  # MQTT Broker - Message broker for inter-service communication
+  # ============================================================================
+  mqtt:
+    image: eclipse-mosquitto:2.0
+    container_name: maxwell-mqtt
+    ports:
+      - "${MQTT_PORT:-1883}:1883"        # MQTT protocol
+      - "${MQTT_WS_PORT:-9001}:9001"     # MQTT over WebSocket
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+      - mqtt-data:/mosquitto/data
+      - mqtt-logs:/mosquitto/log
+    restart: unless-stopped
+    networks:
+      maxwell-net:
+        aliases:
+          - mqtt.local
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-i", "healthcheck", "-W", "3"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: ["/usr/sbin/mosquitto", "-c", "/mosquitto-no-auth.conf"]
+    # For production, create mosquitto/config/mosquitto.conf with authentication
+
+  # ============================================================================
+  # Redis - State persistence and caching (optional but recommended)
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: maxwell-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      maxwell-net:
+        aliases:
+          - redis.local
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: redis-server --appendonly yes
+
   # ============================================================================
   # Dashboard - Web UI for job submission and monitoring
   # ============================================================================
@@ -11,36 +86,54 @@ services:
       - "${DASHBOARD_PORT:-8050}:8050"
     environment:
       # S3 Configuration
-      - S3_BUCKET=${S3_BUCKET}
-      - S3_PREFIX=${S3_PREFIX:-ephys}
-      - S3_INPUT_PREFIX=${S3_INPUT_PREFIX}
-      - S3_OUTPUT_PREFIX=${S3_OUTPUT_PREFIX}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PREFIX: ${S3_PREFIX:-ephys}
+      S3_INPUT_PREFIX: ${S3_INPUT_PREFIX}
+      S3_OUTPUT_PREFIX: ${S3_OUTPUT_PREFIX}
       
       # Service paths
-      - SERVICE_ROOT=${SERVICE_ROOT}
-      - SERVICE_BUCKET=${SERVICE_BUCKET}
-      - PARAMETER_BUCKET=${PARAMETER_BUCKET}
+      SERVICE_ROOT: ${SERVICE_ROOT}
+      SERVICE_BUCKET: ${SERVICE_BUCKET}
+      PARAMETER_BUCKET: ${PARAMETER_BUCKET}
       
-      # AWS credentials
-      - AWS_REGION=${AWS_REGION:-us-west-2}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_PROFILE=${AWS_PROFILE}
-      - AWS_ROLE_ARN=${AWS_ROLE_ARN}
-      - AWS_SESSION_NAME=${AWS_SESSION_NAME}
+      # AWS credentials (use ONE of these methods)
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_PROFILE: ${AWS_PROFILE}
       
-      # S3 endpoint
-      - ENDPOINT_URL=${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
-      - S3_ENDPOINT=${S3_ENDPOINT:-s3.braingeneers.gi.ucsc.edu}
+      # S3 endpoint (for non-AWS S3-compatible storage)
+      ENDPOINT_URL: ${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
+      S3_ENDPOINT: ${S3_ENDPOINT:-s3.braingeneers.gi.ucsc.edu}
       
-      # Kubernetes
-      - NRP_NAMESPACE=${NRP_NAMESPACE:-braingeneers}
+      # Kubernetes configuration
+      NRP_NAMESPACE: ${NRP_NAMESPACE:-default}
+      
+      # MQTT connection
+      MQTT_BROKER: mqtt.local
+      MQTT_PORT: 1883
+      
+      # Redis connection (optional)
+      REDIS_HOST: redis.local
+      REDIS_PORT: 6379
     volumes:
       - ~/.kube/config:/root/.kube/config:ro
-      - ~/.aws:/root/.aws:ro  # Mount AWS credentials if using profiles
+      - ~/.aws:/root/.aws:ro
+      - dashboard-data:/app/data
+    depends_on:
+      mqtt:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - maxwell-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/_alive_"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ============================================================================
   # Listener - MQTT-based job orchestrator
@@ -49,46 +142,65 @@ services:
     image: surygeng/spike_sorting_listener:v0.1
     container_name: maxwell-listener
     environment:
-      # S3 Configuration (same as dashboard)
-      - S3_BUCKET=${S3_BUCKET}
-      - S3_PREFIX=${S3_PREFIX:-ephys}
-      - S3_INPUT_PREFIX=${S3_INPUT_PREFIX}
-      - S3_OUTPUT_PREFIX=${S3_OUTPUT_PREFIX}
+      # S3 Configuration
+      S3_BUCKET: ${S3_BUCKET}
+      S3_PREFIX: ${S3_PREFIX:-ephys}
+      S3_INPUT_PREFIX: ${S3_INPUT_PREFIX}
+      S3_OUTPUT_PREFIX: ${S3_OUTPUT_PREFIX}
       
       # Service paths
-      - SERVICE_BUCKET=${SERVICE_BUCKET}
-      - PARAMETER_BUCKET=${PARAMETER_BUCKET}
-      - FLUIDICS_BUCKET=${FLUIDICS_BUCKET}
-      - INTEGRATED_BUCKET=${INTEGRATED_BUCKET}
+      SERVICE_BUCKET: ${SERVICE_BUCKET}
+      PARAMETER_BUCKET: ${PARAMETER_BUCKET}
+      FLUIDICS_BUCKET: ${FLUIDICS_BUCKET}
+      INTEGRATED_BUCKET: ${INTEGRATED_BUCKET}
       
       # AWS credentials
-      - AWS_REGION=${AWS_REGION:-us-west-2}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - AWS_PROFILE=${AWS_PROFILE}
-      - AWS_ROLE_ARN=${AWS_ROLE_ARN}
-      - AWS_SESSION_NAME=${AWS_SESSION_NAME}
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_PROFILE: ${AWS_PROFILE}
       
       # S3 endpoint
-      - ENDPOINT_URL=${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
-      - S3_ENDPOINT=${S3_ENDPOINT:-s3.braingeneers.gi.ucsc.edu}
+      ENDPOINT_URL: ${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
+      S3_ENDPOINT: ${S3_ENDPOINT:-s3.braingeneers.gi.ucsc.edu}
       
-      # Kubernetes
-      - NRP_NAMESPACE=${NRP_NAMESPACE:-braingeneers}
+      # Kubernetes configuration
+      NRP_NAMESPACE: ${NRP_NAMESPACE:-default}
       
-      # Container images (optional overrides)
-      - KILOSORT_IMAGE=${KILOSORT_IMAGE:-surygeng/kilosort_docker:v0.2}
-      - CURATION_IMAGE=${CURATION_IMAGE:-surygeng/qm_curation:v0.2}
-      - CONNECTIVITY_IMAGE=${CONNECTIVITY_IMAGE:-surygeng/connectivity:v0.1}
-      - VISUALIZATION_IMAGE=${VISUALIZATION_IMAGE:-surygeng/visualization:v0.1}
-      - LFP_IMAGE=${LFP_IMAGE:-surygeng/local_field_potential:v0.1}
+      # MQTT connection
+      MQTT_BROKER: mqtt.local
+      MQTT_PORT: 1883
+      
+      # Redis connection (optional)
+      REDIS_HOST: redis.local
+      REDIS_PORT: 6379
+      
+      # Container images for algorithms (customize as needed)
+      KILOSORT_IMAGE: ${KILOSORT_IMAGE:-surygeng/kilosort_docker:v0.2}
+      CURATION_IMAGE: ${CURATION_IMAGE:-surygeng/qm_curation:v0.2}
+      CONNECTIVITY_IMAGE: ${CONNECTIVITY_IMAGE:-surygeng/connectivity:v0.1}
+      VISUALIZATION_IMAGE: ${VISUALIZATION_IMAGE:-surygeng/visualization:v0.1}
+      LFP_IMAGE: ${LFP_IMAGE:-surygeng/local_field_potential:v0.1}
+      MAXTWO_SPLITTER_IMAGE: ${MAXTWO_SPLITTER_IMAGE:-surygeng/maxtwo_splitter:v0.1}
     volumes:
       - ~/.kube/config:/root/.kube/config:ro
       - ~/.aws:/root/.aws:ro
       - ./listener-logs:/app/logs
+      - listener-data:/app/data
+    depends_on:
+      mqtt:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - maxwell-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ============================================================================
   # Job Scanner - Monitors Kubernetes job status
@@ -97,33 +209,140 @@ services:
     image: surygeng/job_scanner:v0.1
     container_name: maxwell-scanner
     environment:
-      - S3_BUCKET=${S3_BUCKET}
-      - SERVICE_ROOT=${SERVICE_ROOT}
-      - NRP_NAMESPACE=${NRP_NAMESPACE:-braingeneers}
-      - AWS_REGION=${AWS_REGION:-us-west-2}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - ENDPOINT_URL=${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
+      # S3 Configuration
+      S3_BUCKET: ${S3_BUCKET}
+      SERVICE_ROOT: ${SERVICE_ROOT}
+      
+      # Kubernetes configuration
+      NRP_NAMESPACE: ${NRP_NAMESPACE:-default}
+      
+      # AWS credentials
+      AWS_REGION: ${AWS_REGION:-us-west-2}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_PROFILE: ${AWS_PROFILE}
+      
+      # S3 endpoint
+      ENDPOINT_URL: ${ENDPOINT_URL:-https://s3.braingeneers.gi.ucsc.edu}
+      
+      # MQTT connection (for status updates)
+      MQTT_BROKER: mqtt.local
+      MQTT_PORT: 1883
+      
+      # Redis connection (optional)
+      REDIS_HOST: redis.local
+      REDIS_PORT: 6379
+      
+      # Scanning configuration
+      SCAN_INTERVAL: ${SCAN_INTERVAL:-60}  # seconds
     volumes:
       - ~/.kube/config:/root/.kube/config:ro
       - ~/.aws:/root/.aws:ro
+      - scanner-data:/app/data
+    depends_on:
+      mqtt:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     networks:
       - maxwell-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
+# ==============================================================================
+# Networks
+# ==============================================================================
 networks:
   maxwell-net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
 
-# ============================================================================
-# Usage Instructions:
-# ============================================================================
-# 1. Copy .env.template to .env and configure your S3 bucket/credentials
-# 2. Ensure kubectl is configured to access your Kubernetes cluster
-# 3. Start services:
+# ==============================================================================
+# Volumes - Persisted data
+# ==============================================================================
+volumes:
+  # MQTT data persistence
+  mqtt-data:
+    driver: local
+  mqtt-logs:
+    driver: local
+  
+  # Redis data persistence
+  redis-data:
+    driver: local
+  
+  # Service-specific data
+  dashboard-data:
+    driver: local
+  listener-data:
+    driver: local
+  scanner-data:
+    driver: local
+
+# ==============================================================================
+# Usage Instructions
+# ==============================================================================
+# 
+# 1. Initial Setup:
+#    cp .env.template .env
+#    Edit .env with your S3 bucket, AWS credentials, and Kubernetes namespace
+#
+# 2. Start Services:
 #    docker-compose up -d
-# 4. View logs:
-#    docker-compose logs -f dashboard
-# 5. Stop services:
-#    docker-compose down
-# 6. Access dashboard at http://localhost:8050
+#
+# 3. View Logs:
+#    docker-compose logs -f                 # All services
+#    docker-compose logs -f dashboard       # Specific service
+#
+# 4. Check Service Health:
+#    docker-compose ps
+#
+# 5. Access Dashboard:
+#    Open browser to http://localhost:8050
+#
+# 6. Stop Services:
+#    docker-compose down                    # Stop and remove containers
+#    docker-compose down -v                 # Also remove volumes
+#
+# 7. Update Services:
+#    docker-compose pull                    # Pull latest images
+#    docker-compose up -d                   # Recreate containers
+#
+# 8. Troubleshooting:
+#    docker-compose logs mqtt               # Check MQTT broker logs
+#    docker-compose exec dashboard bash     # Shell into container
+#    docker-compose restart listener        # Restart specific service
+#
+# ==============================================================================
+# Production Recommendations
+# ==============================================================================
+#
+# 1. Security:
+#    - Enable MQTT authentication (see mosquitto/config/mosquitto.conf)
+#    - Use Redis password protection
+#    - Set up SSL/TLS for MQTT and Redis
+#    - Use AWS IAM roles instead of access keys when possible
+#
+# 2. Monitoring:
+#    - Set up log aggregation (e.g., ELK stack, Grafana Loki)
+#    - Configure Prometheus metrics
+#    - Set up alerting for service failures
+#
+# 3. Scaling:
+#    - Use external MQTT broker (e.g., AWS IoT Core, HiveMQ Cloud)
+#    - Use managed Redis (e.g., AWS ElastiCache, Redis Cloud)
+#    - Deploy on Kubernetes for auto-scaling
+#
+# 4. Backup:
+#    - Regularly backup Redis data volume
+#    - Export MQTT retained messages
+#    - Backup Kubernetes configurations
+#
+# ==============================================================================

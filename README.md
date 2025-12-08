@@ -126,11 +126,67 @@ maxwell_ephys_pipeline/
 
 ## Quick Start
 
+### Two Deployment Options
+
+#### Option 1: Standalone Services (Recommended for New Users)
+
+Run the complete SpikeCanvas platform in your own lab using Docker Compose:
+
+```bash
+# 1. Clone repository
+git clone https://github.com/braingeneers/maxwell_ephys_pipeline.git
+cd maxwell_ephys_pipeline
+
+# 2. Configure environment
+cp .env.template .env
+nano .env  # Add your S3 bucket, credentials, and Kubernetes namespace
+
+# 3. Start all services
+docker-compose up -d
+
+# 4. Access dashboard
+open http://localhost:8050
+```
+
+This starts:
+- **Maxwell Dashboard** (Web UI at port 8050)
+- **Spike Sorting Listener** (Job orchestrator)
+- **Job Scanner** (Status monitor)
+- **MQTT Broker** (Message bus)
+- **Redis** (State persistence)
+
+**Complete Setup Guide**: See [STANDALONE_DEPLOYMENT.md](./STANDALONE_DEPLOYMENT.md) for detailed instructions, configuration options, and production deployment.
+
+**Quick Reference**: See [DOCKER_COMPOSE_README.md](./DOCKER_COMPOSE_README.md) for common commands and troubleshooting.
+
+#### Option 2: Use Braingeneers Infrastructure
+
+If you have access to the Braingeneers platform at UC Santa Cruz:
+
+```bash
+# Access the hosted dashboard
+open https://mxwdash.braingeneers.gi.ucsc.edu
+
+# Services are already running on the Braingeneers server
+# - MQTT broker: mqtt.braingeneers.gi.ucsc.edu
+# - S3 storage: s3.braingeneers.gi.ucsc.edu
+# - Kubernetes: Nautilus/NRP cluster
+```
+
+Contact braingeneers-admins-group@ucsc.edu for access credentials.
+
 ### Prerequisites
+
+**For Standalone Deployment:**
 - Docker and Docker Compose
-- Kubernetes cluster (for production deployment)
-- Access to S3 storage with electrophysiology data
-- Python 3.10+ (for local development)
+- Kubernetes cluster access (local or cloud)
+- S3-compatible storage (AWS S3, MinIO, Ceph, etc.)
+- 4GB+ RAM, 10GB disk space
+
+**For Braingeneers Platform:**
+- Account credentials
+- S3 access key
+- Kubernetes namespace access
 
 ### 1. Launch the Dashboard
 ```bash
@@ -145,25 +201,57 @@ docker-compose up -d
 open http://localhost:8050
 ```
 
-### 2. Process Data via Dashboard
+### Data Processing Workflows
+
+#### Using the Dashboard (Recommended)
+
 1. **Select Dataset**: Choose your electrophysiology recording from the UUID dropdown
-2. **Configure Pipeline**: Select processing steps (spike sorting, curation, analysis)
+2. **Configure Pipeline**: Select processing steps (spike sorting, curation, connectivity, visualization)
 3. **Set Parameters**: Customize processing parameters or use defaults
-4. **Submit Jobs**: Launch processing jobs and monitor progress
-5. **Analyze Results**: View interactive visualizations and download results
+4. **Submit Jobs**: Launch processing jobs on Kubernetes cluster
+5. **Monitor Progress**: Track job status in real-time
+6. **Analyze Results**: View interactive visualizations and download results
 
-### 3. Run Individual Algorithms
+The dashboard automatically:
+- Chains jobs in the correct sequence
+- Manages data flow between pipeline stages
+- Monitors job completion and errors
+- Provides access to all results
+
+#### Using Individual Algorithm Containers
+
+For custom workflows or integration with other systems:
+
 ```bash
-# Example: Run spike sorting on a specific dataset
-cd Algorithms/kilosort2_simplified
-docker run -v /data:/data surygeng/kilosort_docker:v0.2 \
-  python kilosort2_simplified.py /data/recording.raw.h5 /data/params.json
+# Example: Run spike sorting
+docker run -v /data:/data \
+  -e S3_BUCKET=my-bucket \
+  -e AWS_ACCESS_KEY_ID=$AWS_KEY \
+  -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET \
+  surygeng/kilosort_docker:v0.2 \
+  python kilosort2_simplified.py s3://bucket/path/recording.raw.h5
 
-# Example: Run connectivity analysis
-cd Algorithms/connectivity
-docker run -v /data:/data surygeng/connectivity:v0.1 \
-  python run_conn.py /data/sorted_data.zip /data/conn_params.json
+# Example: Run connectivity analysis  
+docker run -v /data:/data \
+  -e S3_BUCKET=my-bucket \
+  -e AWS_ACCESS_KEY_ID=$AWS_KEY \
+  -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET \
+  surygeng/connectivity:v0.1 \
+  python run_conn.py s3://bucket/path/sorted_data.zip
+
+# Example: Generate visualizations
+docker run -v /data:/data \
+  -e S3_BUCKET=my-bucket \
+  -e AWS_ACCESS_KEY_ID=$AWS_KEY \
+  -e AWS_SECRET_ACCESS_KEY=$AWS_SECRET \
+  surygeng/visualization:v0.1 \
+  python run_visualization.py s3://bucket/path/curated_data.zip
 ```
+
+Each algorithm:
+1. Downloads input data from S3
+2. Processes locally in container
+3. Uploads results back to S3
 
 ## Data Formats Supported
 
@@ -173,271 +261,54 @@ docker run -v /data:/data surygeng/connectivity:v0.1 \
 - **Connectivity Data**: Network matrices and connectivity metrics
 - **Visualization**: Interactive Plotly figures and static exports
 
-## Docker Compose Deployment
+## Deployment Options
 
-This section describes how to deploy the SpikeCanvas services (Dashboard, Listener, Scanner) using Docker Compose on your local server or institution infrastructure.
+### Standalone Deployment (For Your Own Lab)
 
-### Prerequisites
+Deploy the complete SpikeCanvas platform using Docker Compose. This gives you full control over all services and allows you to process data in your own infrastructure.
 
-1. **Docker and Docker Compose** installed on your server
-2. **S3-compatible storage** (AWS S3, MinIO, or compatible) with credentials
-3. **Kubernetes cluster** access for job orchestration (algorithm containers run as K8s jobs)
-4. **kubectl configured** with access to your Kubernetes cluster
-
-### Quick Start
-
-1. **Clone the repository**:
-   ```bash
-   git clone <repository-url>
-   cd maxwell_ephys_pipeline
-   ```
-
-2. **Create your configuration file**:
-   ```bash
-   cp .env.template .env
-   ```
-
-3. **Edit `.env` with your institution's settings**:
-   ```bash
-   vim .env
-   ```
-   
-   **Required configuration** (at minimum):
-   ```bash
-   # S3 Storage Configuration
-   S3_BUCKET=your-institution-bucket    # e.g., ucdavis-neural
-   S3_PREFIX=ephys                      # Base path prefix in your bucket
-   
-   # AWS Credentials (choose one method)
-   # Method 1: AWS Access Keys (not recommended for production)
-   AWS_ACCESS_KEY_ID=your-access-key
-   AWS_SECRET_ACCESS_KEY=your-secret-key
-   AWS_REGION=us-west-2
-   
-   # Method 2: AWS Profile (uses ~/.aws/credentials)
-   # AWS_PROFILE=your-profile-name
-   ```
-
-4. **Start the services**:
-   ```bash
-   docker-compose up -d
-   ```
-
-5. **Access the dashboard**:
-   - Open browser to `http://localhost:8050`
-   - Select your dataset UUID and configure processing pipeline
-
-### Configuration Reference
-
-The `.env` file controls all aspects of the pipeline deployment. See `.env.template` for complete documentation.
-
-#### Essential Settings
-
-**S3 Storage Configuration**:
-- `S3_BUCKET`: Your institution's S3 bucket name (required)
-- `S3_PREFIX`: Base path prefix, typically "ephys" (default: ephys)
-- `ENDPOINT_URL`: Custom S3 endpoint for non-AWS S3 (optional)
-- `S3_ENDPOINT`: Alternative S3 endpoint variable (optional)
-
-**AWS Credentials** (choose one approach):
-- **AWS Profile**: Set `AWS_PROFILE=profile-name`, requires `~/.aws/credentials`
-- **Access Keys**: Set `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`
-
-**Service Storage Paths**:
-- `SERVICE_ROOT`: Base path for service data (CSV files, job state)
-  - Default: `s3://<S3_BUCKET>/services/mqtt_job_listener`
-- `PARAMETER_BUCKET`: Parameter file storage location
-  - Default: `s3://<S3_BUCKET>/services/mqtt_job_listener/params`
-
-**Kubernetes Configuration**:
-- `NRP_NAMESPACE`: Kubernetes namespace for algorithm jobs (default: braingeneers)
-
-#### Advanced Settings
-
-See `.env.template` for additional configuration options:
-- Custom Docker images for algorithms
-- Resource limits (CPU, memory, GPU) for algorithm jobs
-- Alternative S3 endpoints for private cloud deployments
-- Additional bucket paths for integrated datasets
-
-### How Configuration Propagates
-
-Understanding the configuration flow helps troubleshoot deployment issues:
-
-1. **`.env` file** → Contains all configuration values
-2. **`docker-compose.yml`** → Loads `.env` and passes values to service containers
-3. **Service containers** → Dashboard, Listener, Scanner read env vars for S3 access
-4. **Listener spawns jobs** → Injects S3/AWS env vars into algorithm Kubernetes jobs
-5. **Algorithm containers** → Inherit S3 configuration, access your institution's bucket
-
-```
-.env file
-  ↓
-Docker Compose (dashboard, listener, scanner)
-  ↓
-Listener reads config
-  ↓
-Spawns Kubernetes job with injected env vars
-  ↓
-Algorithm container (kilosort2, connectivity, etc.)
-  ↓
-Reads/writes to your S3 bucket
-```
-
-### Data Organization
-
-Your S3 bucket should follow this structure:
-```
-s3://your-bucket/
-├── ephys/                           # S3_PREFIX (configurable)
-│   ├── 2024-01-15-e-12345/         # Session UUID
-│   │   ├── original/
-│   │   │   └── data/
-│   │   │       └── recording.raw.h5
-│   │   └── derived/
-│   │       ├── kilosort2/
-│   │       │   └── session_phy.zip
-│   │       ├── curation/
-│   │       │   └── session_acqm.zip
-│   │       ├── connectivity/
-│   │       │   └── session_conn.zip
-│   │       └── visualization/
-│   │           └── session_figure.zip
-│   └── ...
-└── services/                        # SERVICE_ROOT (configurable)
-    └── mqtt_job_listener/
-        ├── csvs/                    # Job state tracking
-        │   └── job_status.csv
-        └── params/                  # PARAMETER_BUCKET
-            ├── kilosort2/
-            ├── connectivity/
-            └── ...
-```
-
-### Deployment Examples
-
-#### UC Davis Example
+**Quick Start:**
 ```bash
-# .env configuration for UC Davis
-S3_BUCKET=ucdavis-neural-data
-S3_PREFIX=ephys
-AWS_PROFILE=ucdavis-prod
-NRP_NAMESPACE=ucdavis-neural-lab
-SERVICE_ROOT=s3://ucdavis-neural-data/services/mqtt_job_listener
-PARAMETER_BUCKET=s3://ucdavis-neural-data/services/mqtt_job_listener/params
+cp .env.template .env
+nano .env  # Configure S3 and Kubernetes
+docker-compose up -d
+open http://localhost:8050
 ```
 
-#### Private MinIO Deployment
-```bash
-# .env configuration for MinIO (private S3-compatible storage)
-S3_BUCKET=ephys-data
-S3_PREFIX=ephys
-ENDPOINT_URL=https://minio.myinstitution.edu
-S3_ENDPOINT=https://minio.myinstitution.edu
-AWS_ACCESS_KEY_ID=minio-access-key
-AWS_SECRET_ACCESS_KEY=minio-secret-key
-NRP_NAMESPACE=neural-processing
-```
+**Complete Documentation:**
+- **[STANDALONE_DEPLOYMENT.md](./STANDALONE_DEPLOYMENT.md)** - Comprehensive deployment guide covering:
+  - Detailed setup instructions
+  - Multiple S3 storage options (AWS S3, MinIO, Ceph)
+  - Kubernetes configuration
+  - Security hardening
+  - Production recommendations
+  - Troubleshooting guide
 
-### Service Management
+- **[DOCKER_COMPOSE_README.md](./DOCKER_COMPOSE_README.md)** - Quick reference for:
+  - Common commands
+  - Port configuration
+  - Service management
+  - Quick troubleshooting
 
-**View logs**:
-```bash
-# All services
-docker-compose logs -f
+**What You Get:**
+- Maxwell Dashboard (Web UI)
+- Spike Sorting Listener (Job orchestrator)
+- Job Scanner (Status monitor)
+- MQTT Broker (Message bus)
+- Redis (State persistence)
 
-# Specific service
-docker-compose logs -f dashboard
-docker-compose logs -f listener
-docker-compose logs -f scanner
-```
+All services run locally and communicate with your Kubernetes cluster for job execution.
 
-**Restart services**:
-```bash
-# All services
-docker-compose restart
+### Braingeneers Platform Deployment
 
-# Specific service
-docker-compose restart listener
-```
+If you're part of the Braingeneers collaboration, you can use the existing infrastructure:
 
-**Stop services**:
-```bash
-docker-compose down
-```
+- **Dashboard**: https://mxwdash.braingeneers.gi.ucsc.edu
+- **S3 Storage**: s3.braingeneers.gi.ucsc.edu
+- **MQTT Broker**: mqtt.braingeneers.gi.ucsc.edu
+- **Kubernetes**: Nautilus/NRP cluster
 
-**Update configuration**:
-1. Edit `.env` file
-2. Restart services: `docker-compose restart`
-3. Changes apply to all future algorithm jobs
-
-### Troubleshooting
-
-**Dashboard shows no UUIDs**:
-- Verify `S3_BUCKET` is set correctly in `.env`
-- Check AWS credentials are valid
-- Confirm data exists at `s3://<S3_BUCKET>/<S3_PREFIX>/`
-- View dashboard logs: `docker-compose logs dashboard`
-
-**Algorithm jobs fail to access S3**:
-- Listener injects env vars into jobs - check listener logs: `docker-compose logs listener`
-- Verify Kubernetes cluster has network access to S3
-- Verify keys are valid and have S3 permissions
-
-**Jobs not appearing in dashboard**:
-- Check job_scanner is running: `docker-compose ps scanner`
-- Verify `SERVICE_ROOT` or `CSV_BUCKET` points to correct location
-- View scanner logs: `docker-compose logs scanner`
-
-**kubectl not configured**:
-- Listener needs `~/.kube/config` to spawn Kubernetes jobs
-- Verify volume mount in `docker-compose.yml` maps your kubeconfig correctly
-- Test: `kubectl get pods -n <NRP_NAMESPACE>`
-
-### Security Best Practices
-
-1. **Restrict S3 permissions** to only necessary buckets and prefixes
-2. **Keep `.env` file secure** - add to `.gitignore`, use file permissions (chmod 600)
-3. **Rotate credentials regularly**
-4. **Use separate buckets** for different security zones (production vs. testing)
-
-### Kubernetes Job Permissions
-
-The Listener service spawns Kubernetes jobs for algorithm processing. Ensure your kubeconfig user has these permissions in the target namespace:
-
-```yaml
-# Required RBAC permissions
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: ephys-job-creator
-  namespace: <NRP_NAMESPACE>
-rules:
-- apiGroups: ["batch"]
-  resources: ["jobs"]
-  verbs: ["create", "get", "list", "watch", "delete"]
-- apiGroups: [""]
-  resources: ["pods", "pods/log"]
-  verbs: ["get", "list", "watch"]
-```
-
-### Migrating from Braingeneers Defaults
-
-If you're migrating from the default Braingeneers configuration:
-
-1. **Data migration**: Copy existing data from `s3://braingeneers/ephys/` to your bucket
-   ```bash
-   aws s3 sync s3://braingeneers/ephys/ s3://your-bucket/ephys/ --profile your-profile
-   ```
-
-2. **Update `.env`**: Configure your S3 bucket and credentials
-
-3. **Parameter files**: Copy parameter templates to your bucket
-   ```bash
-   aws s3 sync Services/parameters/ s3://your-bucket/services/mqtt_job_listener/params/
-   ```
-
-4. **Test with one dataset**: Process a single session to validate configuration
+Contact braingeneers-admins-group@ucsc.edu for access
 
 ## Configuration
 
