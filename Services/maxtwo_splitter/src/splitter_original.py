@@ -39,6 +39,23 @@ METADATA_KEYS = (
 )
 
 # ----------------------------------------------------------------------
+# Filename normalization helper
+# ----------------------------------------------------------------------
+def normalize_rec_name(rec_basename: str) -> str:
+    """Strip all trailing .raw.h5 or .h5 suffixes from a recording basename."""
+    rec_name = rec_basename
+
+    while rec_name.endswith(".raw.h5"):
+        rec_name = rec_name[:-len(".raw.h5")]
+
+    if rec_name.endswith(".h5"):
+        rec_name = rec_name[:-len(".h5")]
+    elif "." in rec_name:
+        rec_name = rec_name.rsplit(".", 1)[0]
+
+    return rec_name
+
+# ----------------------------------------------------------------------
 # Logging & HDF5 plugin helpers
 # ----------------------------------------------------------------------
 def setup_logging(log_file: str):
@@ -201,7 +218,7 @@ if __name__ == "__main__":
     s3_base_path = posixpath.dirname(s3_path)  # e.g. s3://bucket/…/original/data
 
     rec_basename = Path(s3_path).name            # e.g. M06359_D51_…raw.h5
-    rec_name     = rec_basename.split(".")[0]    # strip extension
+    rec_name     = normalize_rec_name(rec_basename)
 
     local_raw   = Path(LOCAL_WORKDIR) / rec_basename
     local_split = Path(LOCAL_WORKDIR) / SPLIT_SUBDIR
