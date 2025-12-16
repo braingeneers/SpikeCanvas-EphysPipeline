@@ -8,7 +8,7 @@ This application is a Kubernetes job scheduler that listens for specific MQTT ev
 
 To schedule a new job based on an MQTT message:
 
-1. Create a row in the CSV file hosted at `s3://braingeneers/services/jobs.csv` using the following column headers:
+1. Create a row in the CSV file hosted at `s3://braingeneers/services/mqtt_job_listener/jobs.csv` using the following column headers:
 
     - `job_name`: The name of your job. This should be unique.
     - `mqtt_topic`: The MQTT topic that triggers the job.
