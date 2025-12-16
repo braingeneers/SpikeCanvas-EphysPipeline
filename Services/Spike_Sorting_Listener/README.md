@@ -16,7 +16,7 @@ To schedule a new job based on an MQTT message:
     - `cpu_request`, `memory_request`, `gpu`, `disk_request`: Hardware resources to request for the job.
     - `cpu_limit`, `memory_limit`, `disk_limit`: Maximum hardware resources for the job.
 
-2. Upload the updated CSV file back to `s3://braingeneers/services/jobs.csv`.
+2. Upload the updated CSV file back to `s3://braingeneers/services/mqtt_job_listener/jobs.csv`.
 
 When the MQTT Job Listener receives a message on the MQTT topic specified in the `mqtt_topic` column, it will schedule the corresponding Kubernetes job.
 
