@@ -16,4 +16,4 @@ WORKDIR /app
 # run
 CMD ["python", "mqtt_listener.py"]
 
-# surygeng/spike_sorting_listener:v0.1
+# braingeneers/spike_sorting_listener:v0.2
