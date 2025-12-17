@@ -310,7 +310,7 @@ def get_splitter_config() -> dict:
         "memory_request": 48,  # Increased from 32 for better caching  
         "disk_request": 400,   # Keep same - needed for large 25GB+ files
         "GPU": 0,
-        "image": "surygeng/maxtwo_splitter:v0.2"  # Updated to optimized version
+        "image": "braingeneers/maxtwo_splitter:v0.3"  # Updated to optimized version
     }
     logging.info(f"Created optimized splitter config: {config}")
     return config
