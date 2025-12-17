@@ -33,6 +33,7 @@ TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/ephys-data-pipeline"
 LOG_FILE_NAME = "listener.log"
 LOG_PATH = "s3://braingeneers/services/mqtt_job_listener/" + LOG_FILE_NAME
 DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
+SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.3"
 
 # setup logging
 stream_handler = logging.StreamHandler()
@@ -307,10 +308,10 @@ def get_splitter_config() -> dict:
     config = {
         "args": "./start_splitter.sh",  # Container now has optimized version as default
         "cpu_request": 6,   # Increased from 4 for parallel processing
-        "memory_request": 48,  # Increased from 32 for better caching  
+        "memory_request": 48,  # Increased from 32 for better caching
         "disk_request": 400,   # Keep same - needed for large 25GB+ files
         "GPU": 0,
-        "image": "braingeneers/maxtwo_splitter:v0.3"  # Updated to optimized version
+        "image": SPLITTER_IMAGE  # Updated to optimized version
     }
     logging.info(f"Created optimized splitter config: {config}")
     return config

@@ -1,4 +1,4 @@
- {
+{
     "surygeng/kilosort_docker:v0.2": "Kilosort2",
     "surygeng/connectivity:v0.1": "Functional Connectivity Analysis",
     "surygeng/ephys_pipeline:v0.1": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
