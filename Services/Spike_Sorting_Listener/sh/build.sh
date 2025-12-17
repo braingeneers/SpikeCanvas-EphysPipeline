@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ -z "${TAG:-}" ]]; then
+  echo "Error: TAG environment variable is not set. Please set TAG, for example TAG=braingeneers/spike_sorting_listener:v0.1, before building." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-DEFAULT_TAG="braingeneers/spike_sorting_listener:latest"
-TAG="${TAG:-${DEFAULT_TAG}}"
 
 echo "Building spike_sorting_listener image: ${TAG}" 
 docker build -t "${TAG}" -f "${PROJECT_ROOT}/docker/Dockerfile" "${PROJECT_ROOT}"
