@@ -78,7 +78,16 @@ fi
 # 2. Target paths
 ###############################################################################
 TARGET_DIR="/data"
+APP_DATA_DIR="/app/data"
+
 mkdir -p "${TARGET_DIR}"
+
+# Keep downloads on the ephemeral /data volume but also expose them under
+# /app/data so they're easy to find when the working directory is /app.
+if [ ! -e "${APP_DATA_DIR}" ]; then
+    ln -s "${TARGET_DIR}" "${APP_DATA_DIR}"
+fi
+
 FILE_NAME="$(basename "${S3_URI}")"
 TARGET_PATH="${TARGET_DIR}/${FILE_NAME}"
 
