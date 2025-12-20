@@ -58,8 +58,9 @@ aws configure set default.max_attempts 5              # Reduced from 10
 aws configure set default.cli_read_timeout 0
 aws configure set default.cli_connect_timeout 30      # Reduced from 60
 
-# Use fastest available checksum algorithm (or disable for speed)
-aws configure set default.s3.payload_signing_enabled false  # Disable signing for speed on internal network
+# Keep payload signing enabled for data integrity
+# (disabling caused XAmzContentSHA256Mismatch on multipart uploads)
+aws configure set default.s3.payload_signing_enabled true
 
 echo "=== OPTIMIZED SPLITTER STARTING ==="
 echo "Target: ${S3_URI}"
