@@ -284,8 +284,7 @@ upload_file() {
     local file="$1"
     local dest="$2"
     local base="$3"
-    local size="$4"
-    local file_num="$5"
+    local file_num="$4"
     
     local retry_count=0
     local success=0
@@ -293,8 +292,7 @@ upload_file() {
     echo "[$file_num] Starting upload: $base"
     
     while [ $retry_count -lt $MAX_RETRIES ]; do
-        if pv -s "${size}" --name "[$file_num] $base" --eta --rate --bytes < "${file}" \
-           | aws --endpoint "${ENDPOINT}" s3 cp - "${dest}"; then
+        if aws --endpoint "${ENDPOINT}" s3 cp "${file}" "${dest}"; then
             success=1
             echo "[$file_num] SUCCESS: $base uploaded"
             echo "success" > "/tmp/upload_${file_num}.status"
@@ -333,7 +331,6 @@ for file in "${files_to_upload[@]}"; do
     file_num=$((file_num + 1))
     base=$(basename "${file}")
     dest="${S3_SPLIT_DIR}/${base}"
-    size=$(stat --printf="%s" "${file}")
     
     # Wait if we have too many active uploads
     while [ $active_uploads -ge $PARALLEL_UPLOADS ]; do
@@ -349,7 +346,7 @@ for file in "${files_to_upload[@]}"; do
     done
     
     # Start upload in background
-    upload_file "$file" "$dest" "$base" "$size" "$file_num" &
+    upload_file "$file" "$dest" "$base" "$file_num" &
     upload_pid=$!
     upload_pids+=($upload_pid)
     active_uploads=$((active_uploads + 1))
