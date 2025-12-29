@@ -119,30 +119,25 @@ finally:
 }
 
 ###############################################################################
-# 1. HIGH-PERFORMANCE AWS CLI configuration for 6 CPU / 48GB
+# 1. AWS CLI configuration
 ###############################################################################
-# Utilize the requested resources efficiently (6 CPU, 48GB memory)
-aws configure set default.s3.max_concurrent_requests 16   # Higher concurrency for 6 CPUs
-aws configure set default.s3.multipart_chunksize      64MB # Larger chunks for 48GB memory
-aws configure set default.s3.multipart_threshold      256MB # Start multipart sooner
-aws configure set default.s3.connect_timeout          60
-aws configure set default.s3.read_timeout             300   # Reduced from 900
-aws configure set default.s3.max_bandwidth            1GB/s # Remove bandwidth limiting
-
-# Enhanced retry configuration for AWS CLI
-aws configure set default.retry_mode adaptive
-aws configure set default.max_attempts 5              # Reduced from 10
-aws configure set default.cli_read_timeout 0
-aws configure set default.cli_connect_timeout 30      # Reduced from 60
-
-# Keep payload signing enabled for data integrity
-# (disabling caused XAmzContentSHA256Mismatch on multipart uploads)
-aws configure set default.s3.payload_signing_enabled true
+# Custom AWS CLI tuning (commented out to keep behavior closer to defaults).
+# Uncomment if future tuning is required for Ceph/S3 performance.
+# aws configure set default.s3.max_concurrent_requests 16
+# aws configure set default.s3.multipart_chunksize      64MB
+# aws configure set default.s3.multipart_threshold      256MB
+# aws configure set default.s3.connect_timeout          60
+# aws configure set default.s3.read_timeout             300
+# aws configure set default.s3.max_bandwidth            1GB/s
+# aws configure set default.retry_mode adaptive
+# aws configure set default.max_attempts 5
+# aws configure set default.cli_read_timeout 0
+# aws configure set default.cli_connect_timeout 30
+# aws configure set default.s3.payload_signing_enabled true
 
 echo "=== OPTIMIZED SPLITTER STARTING ==="
 echo "Target: ${S3_URI}"
-echo "AWS CLI optimized for maximum throughput"
-echo "Parallel upload jobs: ${PARALLEL_UPLOADS}"
+echo "AWS CLI using default configuration"
 
 # Quick connectivity test (minimal time spent)
 echo "Testing S3 connectivity..."
@@ -263,7 +258,7 @@ process_time=$(($(date +%s) - process_start))
 echo "Processing completed in ${process_time}s"
 
 ###############################################################################
-# 6. PARALLEL upload optimization
+# 6. Upload phase (serial uploads)
 ###############################################################################
 echo "=== UPLOAD PHASE ==="
 upload_start=$(date +%s)
@@ -272,12 +267,7 @@ S3_SPLIT_PREFIX="${S3_URI/original\/data/original\/split}"
 S3_SPLIT_DIR="$(dirname "${S3_SPLIT_PREFIX}")"
 
 echo "Uploading split files from ${TARGET_DIR}/split_output to ${S3_SPLIT_DIR}/"
-echo "Using parallel uploads (${PARALLEL_UPLOADS} concurrent)"
-
-# Start background CPU activity during upload
-touch /tmp/io_in_progress
-keep_cpu_active "upload" &
-CPU_PID=$!
+echo "Using serial uploads (aws CLI handles multipart concurrency)"
 
 # Function to upload a single file with retry
 upload_file() {
@@ -292,10 +282,10 @@ upload_file() {
     echo "[$file_num] Starting upload: $base"
     
     while [ $retry_count -lt $MAX_RETRIES ]; do
+        echo "[$file_num] aws --endpoint \"${ENDPOINT}\" s3 cp \"${file}\" \"${dest}\""
         if aws --endpoint "${ENDPOINT}" s3 cp "${file}" "${dest}"; then
             success=1
             echo "[$file_num] SUCCESS: $base uploaded"
-            echo "success" > "/tmp/upload_${file_num}.status"
             return 0
         else
             retry_count=$((retry_count + 1))
@@ -308,7 +298,6 @@ upload_file() {
     done
     
     echo "[$file_num] FAILED: Upload failed permanently for $base"
-    echo "failed" > "/tmp/upload_${file_num}.status"
     return 1
 }
 
@@ -317,10 +306,10 @@ files_to_upload=("${TARGET_DIR}/split_output"/*.raw.h5)
 total_files=${#files_to_upload[@]}
 echo "Found ${total_files} files to upload"
 
-# Upload files in parallel batches
+# Upload files serially
 file_num=0
-upload_pids=()
-active_uploads=0
+success_count=0
+failed_count=0
 
 for file in "${files_to_upload[@]}"; do
     if [ ! -f "$file" ]; then
@@ -332,54 +321,8 @@ for file in "${files_to_upload[@]}"; do
     base=$(basename "${file}")
     dest="${S3_SPLIT_DIR}/${base}"
     
-    # Wait if we have too many active uploads
-    while [ $active_uploads -ge $PARALLEL_UPLOADS ]; do
-        sleep 1
-        # Check for completed uploads
-        for pid in "${upload_pids[@]}"; do
-            if ! kill -0 $pid 2>/dev/null; then
-                active_uploads=$((active_uploads - 1))
-                # Remove completed PID from array
-                upload_pids=(${upload_pids[@]/$pid})
-            fi
-        done
-    done
-    
-    # Start upload in background
-    upload_file "$file" "$dest" "$base" "$file_num" &
-    upload_pid=$!
-    upload_pids+=($upload_pid)
-    active_uploads=$((active_uploads + 1))
-    
-    echo "Started upload $file_num/$total_files: $base (PID: $upload_pid)"
-    
-    # Small delay to stagger starts
-    sleep 0.5
-done
-
-# Wait for all uploads to complete
-echo "Waiting for all uploads to complete..."
-for pid in "${upload_pids[@]}"; do
-    wait $pid
-done
-
-# Stop background CPU activity
-rm -f /tmp/io_in_progress
-wait $CPU_PID 2>/dev/null || true
-
-# Check upload results
-success_count=0
-failed_count=0
-
-for i in $(seq 1 $total_files); do
-    if [ -f "/tmp/upload_${i}.status" ]; then
-        status=$(cat "/tmp/upload_${i}.status")
-        if [ "$status" = "success" ]; then
-            success_count=$((success_count + 1))
-        else
-            failed_count=$((failed_count + 1))
-        fi
-        rm -f "/tmp/upload_${i}.status"
+    if upload_file "$file" "$dest" "$base" "$file_num"; then
+        success_count=$((success_count + 1))
     else
         failed_count=$((failed_count + 1))
     fi
