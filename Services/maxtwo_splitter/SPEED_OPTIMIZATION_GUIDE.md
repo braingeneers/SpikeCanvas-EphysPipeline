@@ -10,7 +10,7 @@ Based on your observation that splitter jobs are taking >2 hours, the bottleneck
 
 ## Implemented Optimizations
 
-### 1. Optimized Shell Script (`start_splitter_optimized.sh`)
+### 1. Optimized Shell Script (`start_splitter.sh`)
 
 **Key Improvements:**
 - **Parallel Uploads**: Upload 3 files simultaneously instead of serially
@@ -50,25 +50,24 @@ ephemeral-storage: "100Gi"  # Faster local disk
 
 ### Step 1: Update Docker Image
 
-Add optimized scripts to the existing Docker image:
+Ensure the optimized scripts are included in the Docker image:
 
 ```dockerfile
 # Add to existing Dockerfile
-COPY src/start_splitter_optimized.sh /app/
+COPY src/start_splitter.sh /app/
 COPY src/splitter_optimized.py /app/
-RUN chmod +x /app/start_splitter_optimized.sh
+RUN chmod +x /app/start_splitter.sh
 
 # Install additional optimization tools
 RUN apt-get update && apt-get install -y \
     bc \
-    parallel \
     && rm -rf /var/lib/apt/lists/*
 ```
 
 ### Step 2: Update Configuration
 
 The configuration has been updated to use:
-- `start_splitter_optimized.sh` as the entry point
+- `start_splitter.sh` as the entry point
 - 6 CPU cores (50% increase)
 - 48GB RAM (50% increase)
 - 100GB ephemeral storage
