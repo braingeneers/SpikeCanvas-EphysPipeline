@@ -120,30 +120,25 @@ finally:
 }
 
 ###############################################################################
-# 1. HIGH-PERFORMANCE AWS CLI configuration for 6 CPU / 48GB
+# 1. AWS CLI configuration
 ###############################################################################
-# Utilize the requested resources efficiently (6 CPU, 48GB memory)
-aws configure set default.s3.max_concurrent_requests 16   # Higher concurrency for 6 CPUs
-aws configure set default.s3.multipart_chunksize      64MB # Larger chunks for 48GB memory
-aws configure set default.s3.multipart_threshold      256MB # Start multipart sooner
-aws configure set default.s3.connect_timeout          60
-aws configure set default.s3.read_timeout             300   # Reduced from 900
-aws configure set default.s3.max_bandwidth            1GB/s # Remove bandwidth limiting
-
-# Enhanced retry configuration for AWS CLI
-aws configure set default.retry_mode adaptive
-aws configure set default.max_attempts 5              # Reduced from 10
-aws configure set default.cli_read_timeout 0
-aws configure set default.cli_connect_timeout 30      # Reduced from 60
-
-# Keep payload signing enabled for data integrity
-# (disabling caused XAmzContentSHA256Mismatch on multipart uploads)
-aws configure set default.s3.payload_signing_enabled true
+# Custom AWS CLI tuning (commented out to keep behavior closer to defaults).
+# Uncomment if future tuning is required for Ceph/S3 performance.
+# aws configure set default.s3.max_concurrent_requests 16
+# aws configure set default.s3.multipart_chunksize      64MB
+# aws configure set default.s3.multipart_threshold      256MB
+# aws configure set default.s3.connect_timeout          60
+# aws configure set default.s3.read_timeout             300
+# aws configure set default.s3.max_bandwidth            1GB/s
+# aws configure set default.retry_mode adaptive
+# aws configure set default.max_attempts 5
+# aws configure set default.cli_read_timeout 0
+# aws configure set default.cli_connect_timeout 30
+# aws configure set default.s3.payload_signing_enabled true
 
 echo "=== OPTIMIZED SPLITTER STARTING ==="
 echo "Target: ${S3_URI}"
-echo "AWS CLI optimized for maximum throughput"
-echo "Parallel upload jobs: ${PARALLEL_UPLOADS}"
+echo "AWS CLI using default configuration"
 
 # Quick connectivity test (minimal time spent)
 echo "Testing S3 connectivity..."
