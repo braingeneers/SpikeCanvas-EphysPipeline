@@ -51,6 +51,22 @@ METADATA_KEYS = (
     "mxw_version", "notes", "version", "wellplate",
 )
 
+def normalize_rec_name(rec_basename: str) -> str:
+    """Strip all trailing .raw.h5 or .h5 suffixes from a recording basename."""
+    rec_name = rec_basename
+
+    # Remove every trailing ".raw.h5" that may have been appended multiple times
+    while rec_name.endswith(".raw.h5"):
+        rec_name = rec_name[:-len(".raw.h5")]
+
+    # Handle any remaining single .h5 or other extension
+    if rec_name.endswith(".h5"):
+        rec_name = rec_name[:-len(".h5")]
+    elif "." in rec_name:
+        rec_name = rec_name.rsplit(".", 1)[0]
+
+    return rec_name
+
 def setup_logging(log_file: str):
     """Enhanced logging with performance metrics."""
     stream_handler = logging.StreamHandler()
@@ -388,14 +404,7 @@ def main():
     s3_base_path = posixpath.dirname(s3_path)
     
     rec_basename = Path(s3_path).name
-    # Handle filenames with multiple dots - extract everything before the extension
-    if rec_basename.endswith(".raw.h5"):
-        rec_name = rec_basename[:-7]  # Remove ".raw.h5" (7 characters)
-    elif rec_basename.endswith(".h5"):
-        rec_name = rec_basename[:-3]  # Remove ".h5" (3 characters)  
-    else:
-        # Fallback for other extensions
-        rec_name = rec_basename.rsplit(".", 1)[0]
+    rec_name = normalize_rec_name(rec_basename)
     
     local_raw = Path(LOCAL_WORKDIR) / rec_basename
     local_split = Path(LOCAL_WORKDIR) / SPLIT_SUBDIR

@@ -8,6 +8,8 @@
 # 5. Progress monitoring with ETA calculations
 
 set -euo pipefail
+echo "Running start_splitter.sh v0.40"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ###############################################################################
 # 0. Arguments and optimized retry configuration
@@ -17,7 +19,8 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 S3_URI="$1"
-ENDPOINT="https://s3.braingeneers.gi.ucsc.edu"
+# ENDPOINT="https://s3.braingeneers.gi.ucsc.edu"
+ENDPOINT="http://rook-ceph-rgw-nautiluss3.rook"  # Internal endpoint for NRP cluster
 
 # NRP-compliant configuration to utilize 6 CPU cores and 48GB memory efficiently 
 MAX_RETRIES=3          # Reduced from 5 - fail faster
@@ -47,51 +50,7 @@ keep_cpu_active() {
             # SAFE memory utilization - only allocate once per cycle
             if [ ! -f "/tmp/memory_allocated" ]; then
                 echo "Allocating SAFE memory for NRP compliance: target 8-10GB of 48GB"
-                python3 -c "
-import time
-import numpy as np
-import gc
-import os
-
-try:
-    # SAFE allocation: only 8-10GB total (well under 48GB limit)
-    arrays = []
-    
-    # Create 4 arrays totaling ~8GB (safe for 48GB limit)
-    for i in range(4):
-        # Each array ~2GB (4 * 2GB = 8GB total)
-        size_elements = int(2.0 * 1024 * 1024 * 1024 / 8)  # 2GB in float64 elements
-        arr = np.random.random(size=size_elements).astype(np.float64)
-        arrays.append(arr)
-        
-        # Do computation to ensure allocation
-        mean_val = np.mean(arr[::10000])  # Sample for efficiency
-        print(f'SAFE Array {i+1}: {arr.nbytes/1024/1024/1024:.1f}GB allocated')
-        time.sleep(1)
-    
-    # Mark memory as allocated
-    with open('/tmp/memory_allocated', 'w') as f:
-        f.write('allocated')
-    
-    # Light computation cycle (reduced frequency)
-    for cycle in range(3):  # Reduced cycles
-        for i, arr in enumerate(arrays):
-            _ = np.sum(arr[::50000])  # Light computation
-        time.sleep(5)
-        print(f'SAFE memory cycle {cycle+1}/3 complete')
-    
-    print('SAFE memory allocation cycle complete')
-    
-except Exception as e:
-    print(f'SAFE memory allocation error: {e}')
-finally:
-    # Always clean up
-    try:
-        del arrays
-        gc.collect()
-    except:
-        pass
-" 2>/dev/null &
+                python3 "${SCRIPT_DIR}/nrp_memory_utilization.py" 2>/dev/null &
             fi
             
             # Wait before next cycle
@@ -112,36 +71,29 @@ finally:
     # Clean up memory allocation flag
     rm -f /tmp/memory_allocated 2>/dev/null || true
     
-    # Force garbage collection
-    python3 -c "import gc; gc.collect()" 2>/dev/null || true
-    killall -9 dd gzip find openssl python3 2>/dev/null || true
     echo "Background resource utilization stopped for ${operation_name}"
 }
 
 ###############################################################################
-# 1. HIGH-PERFORMANCE AWS CLI configuration for 6 CPU / 48GB
+# 1. AWS CLI configuration
 ###############################################################################
-# Utilize the requested resources efficiently (6 CPU, 48GB memory)
-aws configure set default.s3.max_concurrent_requests 16   # Higher concurrency for 6 CPUs
-aws configure set default.s3.multipart_chunksize      64MB # Larger chunks for 48GB memory
-aws configure set default.s3.multipart_threshold      256MB # Start multipart sooner
-aws configure set default.s3.connect_timeout          60
-aws configure set default.s3.read_timeout             300   # Reduced from 900
-aws configure set default.s3.max_bandwidth            1GB/s # Remove bandwidth limiting
-
-# Enhanced retry configuration for AWS CLI
-aws configure set default.retry_mode adaptive
-aws configure set default.max_attempts 5              # Reduced from 10
-aws configure set default.cli_read_timeout 0
-aws configure set default.cli_connect_timeout 30      # Reduced from 60
-
-# Use fastest available checksum algorithm (or disable for speed)
-aws configure set default.s3.payload_signing_enabled false  # Disable signing for speed on internal network
+# Custom AWS CLI tuning (commented out to keep behavior closer to defaults).
+# Uncomment if future tuning is required for Ceph/S3 performance.
+# aws configure set default.s3.max_concurrent_requests 16
+# aws configure set default.s3.multipart_chunksize      64MB
+# aws configure set default.s3.multipart_threshold      256MB
+# aws configure set default.s3.connect_timeout          60
+# aws configure set default.s3.read_timeout             300
+# aws configure set default.s3.max_bandwidth            1GB/s
+# aws configure set default.retry_mode adaptive
+# aws configure set default.max_attempts 5
+# aws configure set default.cli_read_timeout 0
+# aws configure set default.cli_connect_timeout 30
+# aws configure set default.s3.payload_signing_enabled true
 
 echo "=== OPTIMIZED SPLITTER STARTING ==="
 echo "Target: ${S3_URI}"
-echo "AWS CLI optimized for maximum throughput"
-echo "Parallel upload jobs: ${PARALLEL_UPLOADS}"
+echo "AWS CLI using default configuration"
 
 # Quick connectivity test (minimal time spent)
 echo "Testing S3 connectivity..."
@@ -155,7 +107,16 @@ fi
 # 2. Target paths
 ###############################################################################
 TARGET_DIR="/data"
+APP_DATA_DIR="/app/data"
+
 mkdir -p "${TARGET_DIR}"
+
+# Keep downloads on the ephemeral /data volume but also expose them under
+# /app/data so they're easy to find when the working directory is /app.
+if [ ! -e "${APP_DATA_DIR}" ]; then
+    ln -s "${TARGET_DIR}" "${APP_DATA_DIR}"
+fi
+
 FILE_NAME="$(basename "${S3_URI}")"
 TARGET_PATH="${TARGET_DIR}/${FILE_NAME}"
 
@@ -253,7 +214,7 @@ process_time=$(($(date +%s) - process_start))
 echo "Processing completed in ${process_time}s"
 
 ###############################################################################
-# 6. PARALLEL upload optimization
+# 6. Upload phase (serial uploads)
 ###############################################################################
 echo "=== UPLOAD PHASE ==="
 upload_start=$(date +%s)
@@ -262,20 +223,14 @@ S3_SPLIT_PREFIX="${S3_URI/original\/data/original\/split}"
 S3_SPLIT_DIR="$(dirname "${S3_SPLIT_PREFIX}")"
 
 echo "Uploading split files from ${TARGET_DIR}/split_output to ${S3_SPLIT_DIR}/"
-echo "Using parallel uploads (${PARALLEL_UPLOADS} concurrent)"
-
-# Start background CPU activity during upload
-touch /tmp/io_in_progress
-keep_cpu_active "upload" &
-CPU_PID=$!
+echo "Using serial uploads (aws CLI handles multipart concurrency)"
 
 # Function to upload a single file with retry
 upload_file() {
     local file="$1"
     local dest="$2"
     local base="$3"
-    local size="$4"
-    local file_num="$5"
+    local file_num="$4"
     
     local retry_count=0
     local success=0
@@ -283,11 +238,10 @@ upload_file() {
     echo "[$file_num] Starting upload: $base"
     
     while [ $retry_count -lt $MAX_RETRIES ]; do
-        if pv -s "${size}" --name "[$file_num] $base" --eta --rate --bytes < "${file}" \
-           | aws --endpoint "${ENDPOINT}" s3 cp - "${dest}"; then
+        echo "[$file_num] aws --endpoint \"${ENDPOINT}\" s3 cp \"${file}\" \"${dest}\""
+        if aws --endpoint "${ENDPOINT}" s3 cp "${file}" "${dest}"; then
             success=1
             echo "[$file_num] SUCCESS: $base uploaded"
-            echo "success" > "/tmp/upload_${file_num}.status"
             return 0
         else
             retry_count=$((retry_count + 1))
@@ -300,7 +254,6 @@ upload_file() {
     done
     
     echo "[$file_num] FAILED: Upload failed permanently for $base"
-    echo "failed" > "/tmp/upload_${file_num}.status"
     return 1
 }
 
@@ -309,10 +262,10 @@ files_to_upload=("${TARGET_DIR}/split_output"/*.raw.h5)
 total_files=${#files_to_upload[@]}
 echo "Found ${total_files} files to upload"
 
-# Upload files in parallel batches
+# Upload files serially
 file_num=0
-upload_pids=()
-active_uploads=0
+success_count=0
+failed_count=0
 
 for file in "${files_to_upload[@]}"; do
     if [ ! -f "$file" ]; then
@@ -323,56 +276,9 @@ for file in "${files_to_upload[@]}"; do
     file_num=$((file_num + 1))
     base=$(basename "${file}")
     dest="${S3_SPLIT_DIR}/${base}"
-    size=$(stat --printf="%s" "${file}")
     
-    # Wait if we have too many active uploads
-    while [ $active_uploads -ge $PARALLEL_UPLOADS ]; do
-        sleep 1
-        # Check for completed uploads
-        for pid in "${upload_pids[@]}"; do
-            if ! kill -0 $pid 2>/dev/null; then
-                active_uploads=$((active_uploads - 1))
-                # Remove completed PID from array
-                upload_pids=(${upload_pids[@]/$pid})
-            fi
-        done
-    done
-    
-    # Start upload in background
-    upload_file "$file" "$dest" "$base" "$size" "$file_num" &
-    upload_pid=$!
-    upload_pids+=($upload_pid)
-    active_uploads=$((active_uploads + 1))
-    
-    echo "Started upload $file_num/$total_files: $base (PID: $upload_pid)"
-    
-    # Small delay to stagger starts
-    sleep 0.5
-done
-
-# Wait for all uploads to complete
-echo "Waiting for all uploads to complete..."
-for pid in "${upload_pids[@]}"; do
-    wait $pid
-done
-
-# Stop background CPU activity
-rm -f /tmp/io_in_progress
-wait $CPU_PID 2>/dev/null || true
-
-# Check upload results
-success_count=0
-failed_count=0
-
-for i in $(seq 1 $total_files); do
-    if [ -f "/tmp/upload_${i}.status" ]; then
-        status=$(cat "/tmp/upload_${i}.status")
-        if [ "$status" = "success" ]; then
-            success_count=$((success_count + 1))
-        else
-            failed_count=$((failed_count + 1))
-        fi
-        rm -f "/tmp/upload_${i}.status"
+    if upload_file "$file" "$dest" "$base" "$file_num"; then
+        success_count=$((success_count + 1))
     else
         failed_count=$((failed_count + 1))
     fi

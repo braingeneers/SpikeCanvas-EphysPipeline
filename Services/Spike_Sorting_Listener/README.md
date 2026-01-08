@@ -2,48 +2,23 @@
 
 ## Introduction
 
-This application is a Kubernetes job scheduler that listens for specific MQTT events. When an event occurs, it triggers the Kubernetes job specified for that event. The application is designed to be flexible, allowing users to add new jobs or modify existing ones by updating a CSV file hosted on Amazon S3.
+This service listens for experiment metadata on MQTT and launches the spike sorting pipeline on Kubernetes. The original version of this document described a legacy "jobs.csv" file that lived in S3; that mechanism is no longer used by the current codebase.
 
-## How to Schedule a New Job
+## How jobs are scheduled today
 
-To schedule a new job based on an MQTT message:
+* The listener subscribes to `experiments/upload` and related telemetry topics. When an upload message arrives, it walks the embedded `ephys_experiments` metadata and schedules spike-sorting work for each recording. MaxTwo recordings fan out into splitter + sorter jobs when needed; other formats go straight to sorting.
+* Job resource requirements (CPU, memory, disk, GPU, args, etc.) now come from JSON templates that live with the source: `sorting_job_info.json` for sorter pods and `get_splitter_config()` inside the listener for MaxTwo splitting. The code formats Kubernetes-safe job names, builds the pod spec, and submits jobs via the `Kube` helper rather than reading a CSV from S3.
 
-1. Create a row in the CSV file hosted at `s3://braingeneers/services/mqtt_job_listener/jobs.csv` using the following column headers:
+The only remaining CSV handling in the code is for pipeline coordination files passed explicitly via MQTT (`services/csv_job`), not for defining job types. The S3 `jobs.csv` referenced by the old documentation is not used.
 
-    - `job_name`: The name of your job. This should be unique.
-    - `mqtt_topic`: The MQTT topic that triggers the job.
-    - `image`: The docker image to be used.
-    - `cpu_request`, `memory_request`, `gpu`, `disk_request`: Hardware resources to request for the job.
-    - `cpu_limit`, `memory_limit`, `disk_limit`: Maximum hardware resources for the job.
+## Software architecture
 
-2. Upload the updated CSV file back to `s3://braingeneers/services/mqtt_job_listener/jobs.csv`.
+The service is implemented in Python and centers on two helpers:
 
-When the MQTT Job Listener receives a message on the MQTT topic specified in the `mqtt_topic` column, it will schedule the corresponding Kubernetes job.
+* `MQTTJobListener` parses incoming messages and decides whether to launch sorting directly or trigger a CSV-driven job update for pipeline bookkeeping.
+* `Kube` (in `k8s_kilosort2.py`) constructs and submits Kubernetes `Job` objects with the requested resources and environment needed to access Braingeneers S3.
 
-## How to Chain Jobs
-
-You can chain jobs together such that the completion of one job triggers the next job. This is done by publishing an MQTT message upon job completion, which in turn can be used to trigger another job.
-
-The MQTT Job Listener automatically sends a message on the `services/mqtt_job_listener/job_complete/{job_name}` topic when a job completes. To chain a job to this completion event, simply set the `mqtt_topic` for the next job to the appropriate job completion topic.
-
-## Software Architecture
-
-The MQTT Job Listener is implemented in Python and is divided into two primary classes:
-
-- `K8sJobCreator`: Responsible for creating and managing Kubernetes jobs.
-- `MQTTJobListener`: Listens for MQTT messages and triggers the corresponding Kubernetes jobs.
-
-```mermaid
-graph TD;
-A(MQTTJobListener) --> B[Read jobs.csv];
-A --> C[Subscribe to MQTT topics];
-C --> D[On MQTT message];
-D --> E{Check job status};
-E --> F[Job completed];
-F --> G[Send MQTT completion message];
-F --> H[Delete job];
-F --> I[Log to S3];
-```
+Logging is pushed to S3 and Slack notifications are emitted for job lifecycle events.
 
 ## Administration and Maintenance
 
@@ -53,14 +28,12 @@ The application runs as a Docker process on our server. It's included in the sta
 
 To update the MQTT Job Listener, modify the source code and rebuild the Docker image. The updated image should then be deployed via the Docker compose script.
 
-### Error Handling
+### Error handling
 
 Errors and exceptions during job execution are logged and can be inspected for troubleshooting. It's important to regularly check these logs to ensure the application is functioning correctly.
 
-## Conclusion
+## Where Kubernetes job manifests live now
 
-The MQTT Job Listener provides a robust, flexible way to automate Kubernetes job scheduling based on MQTT events. By updating a simple CSV file, you can easily configure and chain together complex job sequences to automate your workflow.
+Kubernetes manifests for the underlying algorithms live alongside the code for each stage of the pipeline under `Algorithms/*/k8s/`. For example, the Kilosort2 job template is in `Algorithms/kilosort2_simplified/run_kilosort2.yaml` and LFP, connectivity, and visualization jobs have similar manifests under their respective `k8s` directories.
 
-Please review the [Mission_Control repository](https://github.com/Braingeneers/Mission_Control) for more detailed administrative instructions and contact the Braingeneers team for any additional assistance.
-
-Remember, this documentation is for adding a job to be scheduled based on an MQTT message. In case of any updates or modifications, you may need to refer to this document. Administrative and software architecture details are included at the end of the document for your reference.
+Please review the Mission Control deployment for image packaging, but use this repository for the authoritative job definitions.
