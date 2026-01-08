@@ -8,7 +8,7 @@
 # 5. Progress monitoring with ETA calculations
 
 set -euo pipefail
-echo "Running start_splitter.sh v0.39"
+echo "Running start_splitter.sh v0.40"
 
 ###############################################################################
 # 0. Arguments and optimized retry configuration
@@ -18,7 +18,8 @@ if [[ $# -ne 1 ]]; then
   exit 1
 fi
 S3_URI="$1"
-ENDPOINT="https://s3.braingeneers.gi.ucsc.edu"
+# ENDPOINT="https://s3.braingeneers.gi.ucsc.edu"
+ENDPOINT="http://rook-ceph-rgw-nautiluss3.rook"  # Internal endpoint for NRP cluster
 
 # NRP-compliant configuration to utilize 6 CPU cores and 48GB memory efficiently 
 MAX_RETRIES=3          # Reduced from 5 - fail faster
