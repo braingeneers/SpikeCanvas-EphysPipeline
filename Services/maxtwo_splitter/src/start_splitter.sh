@@ -9,6 +9,7 @@
 
 set -euo pipefail
 echo "Running start_splitter.sh v0.40"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ###############################################################################
 # 0. Arguments and optimized retry configuration
@@ -49,51 +50,7 @@ keep_cpu_active() {
             # SAFE memory utilization - only allocate once per cycle
             if [ ! -f "/tmp/memory_allocated" ]; then
                 echo "Allocating SAFE memory for NRP compliance: target 8-10GB of 48GB"
-                python3 -c "
-import time
-import numpy as np
-import gc
-import os
-
-try:
-    # SAFE allocation: only 8-10GB total (well under 48GB limit)
-    arrays = []
-    
-    # Create 4 arrays totaling ~8GB (safe for 48GB limit)
-    for i in range(4):
-        # Each array ~2GB (4 * 2GB = 8GB total)
-        size_elements = int(2.0 * 1024 * 1024 * 1024 / 8)  # 2GB in float64 elements
-        arr = np.random.random(size=size_elements).astype(np.float64)
-        arrays.append(arr)
-        
-        # Do computation to ensure allocation
-        mean_val = np.mean(arr[::10000])  # Sample for efficiency
-        print(f'SAFE Array {i+1}: {arr.nbytes/1024/1024/1024:.1f}GB allocated')
-        time.sleep(1)
-    
-    # Mark memory as allocated
-    with open('/tmp/memory_allocated', 'w') as f:
-        f.write('allocated')
-    
-    # Light computation cycle (reduced frequency)
-    for cycle in range(3):  # Reduced cycles
-        for i, arr in enumerate(arrays):
-            _ = np.sum(arr[::50000])  # Light computation
-        time.sleep(5)
-        print(f'SAFE memory cycle {cycle+1}/3 complete')
-    
-    print('SAFE memory allocation cycle complete')
-    
-except Exception as e:
-    print(f'SAFE memory allocation error: {e}')
-finally:
-    # Always clean up
-    try:
-        del arrays
-        gc.collect()
-    except:
-        pass
-" 2>/dev/null &
+                python3 "${SCRIPT_DIR}/nrp_memory_utilization.py" 2>/dev/null &
             fi
             
             # Wait before next cycle
@@ -114,9 +71,6 @@ finally:
     # Clean up memory allocation flag
     rm -f /tmp/memory_allocated 2>/dev/null || true
     
-    # Force garbage collection
-    python3 -c "import gc; gc.collect()" 2>/dev/null || true
-    killall -9 dd gzip find openssl python3 2>/dev/null || true
     echo "Background resource utilization stopped for ${operation_name}"
 }
 
