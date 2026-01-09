@@ -8,7 +8,7 @@
 # 5. Progress monitoring with ETA calculations
 
 set -euo pipefail
-echo "Running start_splitter.sh v0.40"
+echo "Running start_splitter.sh v0.41"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ###############################################################################
@@ -21,6 +21,61 @@ fi
 S3_URI="$1"
 # ENDPOINT="https://s3.braingeneers.gi.ucsc.edu"
 ENDPOINT="http://rook-ceph-rgw-nautiluss3.rook"  # Internal endpoint for NRP cluster
+
+###############################################################################
+# 0.5. Skip non-MaxTwo datasets early (avoid heavy downloads)
+###############################################################################
+REC_ROOT=$(echo "$S3_URI" | awk -F '/original/(data|split)/|/shared/' '{print $1}')
+DATASET=$(echo "$S3_URI" | awk -F '/original/(data|split)/|/shared/' '{print $2}')
+DATA_NAME_FULL=$(echo "${DATASET}" | awk -F '.raw.h5|.h5|.nwb' '{print $1}')
+
+if [[ "${DATA_NAME_FULL}" == *"/"* ]]; then
+    DATA_NAME=$(echo "${DATA_NAME_FULL}" | awk -F '/' '{print $2}')
+else
+    DATA_NAME="${DATA_NAME_FULL}"
+fi
+
+BASE_EXPERIMENT=$(echo "${DATA_NAME}" | sed -E 's/_well[0-9]{3}$//')
+META_ROOT="${REC_ROOT}"
+
+if [[ "${META_ROOT}" == s3://braingeneersdev/* ]]; then
+    META_ROOT="s3://braingeneers/${META_ROOT#s3://braingeneersdev/}"
+fi
+
+META_PATH="${META_ROOT}/metadata.json"
+META_LOCAL="/tmp/metadata.json"
+DATA_FORMAT=""
+
+if aws --endpoint "${ENDPOINT}" s3 cp "${META_PATH}" "${META_LOCAL}" >/dev/null 2>&1; then
+    DATA_FORMAT=$(BASE_EXPERIMENT="${BASE_EXPERIMENT}" python3 - <<'PY'
+import json
+import os
+
+meta_path = "/tmp/metadata.json"
+experiment = os.environ.get("BASE_EXPERIMENT", "")
+data_format = ""
+
+try:
+    with open(meta_path, "r") as f:
+        metadata = json.load(f)
+    data_format = metadata.get("ephys_experiments", {}).get(experiment, {}).get("data_format", "")
+    if isinstance(data_format, str):
+        data_format = data_format.lower()
+except Exception:
+    data_format = ""
+
+print(data_format)
+PY
+    )
+else
+    echo "Metadata not found at ${META_PATH}. Skipping MaxTwo splitter."
+    exit 0
+fi
+
+if [[ "${DATA_FORMAT}" != "maxtwo" ]]; then
+    echo "Data format is '${DATA_FORMAT:-unknown}', not MaxTwo. Exiting splitter."
+    exit 0
+fi
 
 # NRP-compliant configuration to utilize 6 CPU cores and 48GB memory efficiently 
 MAX_RETRIES=3          # Reduced from 5 - fail faster
@@ -220,6 +275,9 @@ echo "=== UPLOAD PHASE ==="
 upload_start=$(date +%s)
 
 S3_SPLIT_PREFIX="${S3_URI/original\/data/original\/split}"
+if [[ "${S3_SPLIT_PREFIX}" == s3://braingeneers/* ]]; then
+    S3_SPLIT_PREFIX="s3://braingeneersdev/${S3_SPLIT_PREFIX#s3://braingeneers/}"
+fi
 S3_SPLIT_DIR="$(dirname "${S3_SPLIT_PREFIX}")"
 
 echo "Uploading split files from ${TARGET_DIR}/split_output to ${S3_SPLIT_DIR}/"

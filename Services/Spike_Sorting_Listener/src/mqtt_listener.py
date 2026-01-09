@@ -15,7 +15,6 @@ import posixpath
 import zipfile
 import json
 from job_utils import JOB_PREFIX, format_job_name
-from splitter_fanout import spawn_splitter_fanout
 
 # Import shared utilities
 try:
@@ -33,7 +32,7 @@ TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/ephys-data-pipeline"
 LOG_FILE_NAME = "listener.log"
 LOG_PATH = "s3://braingeneers/services/mqtt_job_listener/" + LOG_FILE_NAME
 DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
-SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.40"
+SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.41"
 
 # setup logging
 stream_handler = logging.StreamHandler()
@@ -117,15 +116,7 @@ class JobMessage:
                                 logging.info(f"Missing results for wells: {', '.join(missing_wells)}")
                             else:
                                 logging.info(f"Overwrite flag set to {overwrite}")
-                            # Use splitter fanout for MaxTwo recordings
-                            logging.info("Getting splitter configuration...")
-                            try:
-                                splitter_cfg = get_splitter_config()
-                                logging.info(f"Splitter config loaded: {splitter_cfg}")
-                            except Exception as cfg_err:
-                                logging.error(f"Error loading splitter config: {cfg_err}")
-                                raise
-                            
+
                             logging.info("Getting sorter template...")
                             try:
                                 sorter_tpl = get_sorter_template()
@@ -134,14 +125,12 @@ class JobMessage:
                                 logging.error(f"Error loading sorter template: {tpl_err}")
                                 raise
                             
-                            logging.info(f"Starting MaxTwo splitter fanout for {uuid}, {exp}")
+                            logging.info(f"Launching MaxTwo sorter jobs for {uuid}, {exp}")
                             try:
-                                # the exp here should be the complete name including extension
-                                full_exp = path.split("/")[-1]
-                                spawn_splitter_fanout(uuid, full_exp, splitter_cfg, sorter_tpl)
-                                logging.info(f"Successfully started MaxTwo pipeline for {full_exp}")
+                                launch_maxtwo_sorters(uuid, exp, file_path, sorter_tpl)
+                                logging.info(f"Successfully launched MaxTwo sorter jobs for {exp}")
                             except Exception as fanout_err:
-                                logging.error(f"Error starting MaxTwo fanout for {full_exp}: {fanout_err}")
+                                logging.error(f"Error launching MaxTwo sorters for {exp}: {fanout_err}")
                                 raise
                         else:
                             logging.info(f"All MaxTwo well results exist. Moving on to next experiment...")
@@ -299,7 +288,9 @@ def is_maxtwo_recording(data_format: str, file_path: str) -> bool:
     Returns:
         True if this is a MaxTwo recording that needs splitting
     """
-    return (data_format == "maxtwo" and 
+    if not data_format:
+        return False
+    return (str(data_format).lower() == "maxtwo" and 
             (file_path.endswith(".raw.h5") or file_path.endswith(".h5")))   
 
 
@@ -398,6 +389,7 @@ def create_sort(experiment, file_path):
         job_info = json.load(f)
 
     job_info["file_path"] = file_path
+    job_info["with_maxtwo_splitter"] = True
     job_name = format_job_name(experiment)
     resp = create_kube_job(job_name, job_info)
     # if resp == -1:
@@ -408,6 +400,33 @@ def create_sort(experiment, file_path):
     #     # send message to slack
     #     message_slack(job_name, job_info, message_text="Job created")
     #     logging.info(f"Job {job_name} created")
+
+
+def _build_maxtwo_split_path(file_path: str, well_index: int) -> str:
+    split_path = file_path.replace("/original/data/", "/original/split/")
+    suffix = f"_well{well_index:03d}"
+    if split_path.endswith(".raw.h5"):
+        return split_path[:-len(".raw.h5")] + f"{suffix}.raw.h5"
+    if split_path.endswith(".h5"):
+        return split_path[:-len(".h5")] + f"{suffix}.h5"
+    return split_path + suffix
+
+
+def launch_maxtwo_sorters(uuid: str, experiment: str, file_path: str, sorter_tpl: dict):
+    base_exp = experiment.replace(".raw.h5", "").replace(".h5", "")
+    for i in range(6):
+        well = f"well{i:03d}"
+        raw_path = _build_maxtwo_split_path(file_path, i)
+
+        info = sorter_tpl.copy()
+        info["file_path"] = raw_path
+        info["uuid"] = uuid
+        info["experiment"] = f"{base_exp}_{well}"
+        info["with_maxtwo_splitter"] = True
+
+        job_name = format_job_name(f"{base_exp}-{well}", prefix=JOB_PREFIX)
+        logging.info(f"Creating sorter job {job_name} for {raw_path}")
+        create_kube_job(job_name, info)
 
 
 def start_listening():

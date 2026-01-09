@@ -20,6 +20,12 @@ else
     DATA_NAME=${DATA_NAME_FULL}
 fi
 
+BASE_EXPERIMENT=$(echo "${DATA_NAME}" | sed -E 's/_well[0-9]{3}$//')
+META_REC_TIME="${REC_TIME}"
+if [[ "${META_REC_TIME}" == s3://braingeneersdev/* ]]; then
+    META_REC_TIME="s3://braingeneers/${META_REC_TIME#s3://braingeneersdev/}"
+fi
+
 # Function to maintain NRP-compliant CPU utilization during I/O operations
 keep_cpu_active() {
     local operation_name="$1"
@@ -98,11 +104,41 @@ touch /tmp/io_in_progress
 keep_cpu_active "metadata_download" &
 CPU_PID1=$!
 
-aws --endpoint $ENDPOINT_URL s3 cp ${REC_TIME}/metadata.json /project/SpikeSorting/metadata.json
+aws --endpoint $ENDPOINT_URL s3 cp ${META_REC_TIME}/metadata.json /project/SpikeSorting/metadata.json
 
 # download raw data to local
-echo "Downloading raw data file: $1"
-aws --endpoint $ENDPOINT_URL s3 cp $1 /project/SpikeSorting/Trace
+DATA_FORMAT=""
+if [[ -f /project/SpikeSorting/metadata.json ]]; then
+    DATA_FORMAT=$(BASE_EXPERIMENT="${BASE_EXPERIMENT}" python3 - <<'PY'
+import json
+import os
+
+meta_path = "/project/SpikeSorting/metadata.json"
+experiment = os.environ.get("BASE_EXPERIMENT", "")
+data_format = ""
+
+try:
+    with open(meta_path, "r") as f:
+        metadata = json.load(f)
+    data_format = metadata.get("ephys_experiments", {}).get(experiment, {}).get("data_format", "")
+    if isinstance(data_format, str):
+        data_format = data_format.lower()
+except Exception:
+    data_format = ""
+
+print(data_format)
+PY
+    )
+fi
+
+RAW_S3_PATH="$1"
+if [[ "${DATA_FORMAT}" == "maxtwo" ]]; then
+    RAW_S3_PATH="${RAW_S3_PATH/s3:\/\/braingeneers\//s3:\/\/braingeneersdev/}"
+    echo "MaxTwo dataset detected, using cache path: ${RAW_S3_PATH}"
+fi
+
+echo "Downloading raw data file: ${RAW_S3_PATH}"
+aws --endpoint $ENDPOINT_URL s3 cp ${RAW_S3_PATH} /project/SpikeSorting/Trace
 
 rm -f /tmp/io_in_progress 2>/dev/null || true
 wait $CPU_PID1 2>/dev/null || true
@@ -203,5 +239,3 @@ rm -f /tmp/io_in_progress 2>/dev/null || true
 wait $CPU_PID2 2>/dev/null || true
 
 echo "Kilosort2 pipeline completed with NRP-compliant resource utilization."
-
-
