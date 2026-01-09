@@ -15,7 +15,6 @@ import time
 import logging
 from dateutil.tz import gettz
 
-# TODO: change print to logging
 # Patch for JWT/shadows database issue in braingeneerspy
 # The MessageBroker tries to access jwt_service_account_token property which triggers
 # shadows database access even though it is not needed for MQTT messaging.
