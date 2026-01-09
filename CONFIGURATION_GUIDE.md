@@ -42,7 +42,7 @@ Access your institution's S3 bucket
 ### Step 1: Create Configuration File
 
 ```bash
-cd maxwell_ephys_pipeline
+cd SpikeCanvas-EphysPipeline
 cp .env.template .env
 ```
 

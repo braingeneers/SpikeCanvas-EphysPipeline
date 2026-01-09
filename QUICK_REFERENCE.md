@@ -300,7 +300,7 @@ docker-compose exec dashboard printenv | grep S3_BUCKET
 1. **Check logs**: `docker-compose logs`
 2. **Review docs**: See links above
 3. **Run health checks**: See Health Checks section
-4. **Open issue**: https://github.com/braingeneers/maxwell_ephys_pipeline/issues
+4. **Open issue**: https://github.com/braingeneers/SpikeCanvas-EphysPipeline/issues
 
 ---
 
@@ -348,7 +348,7 @@ docker stats
 ---
 
 **Version**: 1.0 | **Last Updated**: January 2025  
-**Repository**: https://github.com/braingeneers/maxwell_ephys_pipeline
+**Repository**: https://github.com/braingeneers/SpikeCanvas-EphysPipeline
 
 ---
 

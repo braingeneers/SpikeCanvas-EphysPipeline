@@ -134,8 +134,8 @@ Run the complete SpikeCanvas platform in your own lab using Docker Compose:
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/braingeneers/maxwell_ephys_pipeline.git
-cd maxwell_ephys_pipeline
+git clone https://github.com/braingeneers/SpikeCanvas-EphysPipeline.git
+cd SpikeCanvas-EphysPipeline
 
 # 2. Configure environment
 cp .env.template .env

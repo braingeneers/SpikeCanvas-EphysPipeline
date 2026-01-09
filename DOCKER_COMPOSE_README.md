@@ -127,7 +127,7 @@ docker-compose restart mqtt
 1. Check logs: `docker-compose logs -f [service]`
 2. View configuration: `docker-compose config`
 3. See [STANDALONE_DEPLOYMENT.md](./STANDALONE_DEPLOYMENT.md)
-4. GitHub Issues: https://github.com/braingeneers/maxwell_ephys_pipeline/issues
+4. GitHub Issues: https://github.com/braingeneers/SpikeCanvas-EphysPipeline/issues
 
 ## Next Steps
 

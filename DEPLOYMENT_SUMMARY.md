@@ -186,8 +186,8 @@ S3_ENDPOINT=storage.university.edu
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/braingeneers/maxwell_ephys_pipeline.git
-cd maxwell_ephys_pipeline
+git clone https://github.com/braingeneers/SpikeCanvas-EphysPipeline.git
+cd SpikeCanvas-EphysPipeline
 
 # 2. Configure environment
 cp .env.template .env
@@ -323,5 +323,5 @@ Your standalone deployment is successful when:
 
 **Created**: January 2025  
 **Version**: 1.0  
-**Repository**: https://github.com/braingeneers/maxwell_ephys_pipeline  
+**Repository**: https://github.com/braingeneers/SpikeCanvas-EphysPipeline  
 **Branch**: beta

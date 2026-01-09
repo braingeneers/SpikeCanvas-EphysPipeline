@@ -39,8 +39,8 @@ Before starting, gather the following information:
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/braingeneers/EphysPipeline.git
-cd EphysPipeline
+git clone https://github.com/braingeneers/SpikeCanvas-EphysPipeline.git
+cd SpikeCanvas-EphysPipeline
 ```
 
 ### Step 2: Run Configuration Script
@@ -360,7 +360,7 @@ cat .gitignore | grep .env
 
 ## Getting Help
 
-- **Questions and Bug Reports:** [GitHub Issues](https://github.com/braingeneers/EphysPipeline/issues)
+- **Questions and Bug Reports:** [GitHub Issues](https://github.com/braingeneers/SpikeCanvas-EphysPipeline/issues)
 
 
 ---

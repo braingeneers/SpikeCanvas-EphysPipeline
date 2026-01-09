@@ -68,8 +68,8 @@ The SpikeCanvas services provide a complete web-based interface for managing ele
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/braingeneers/maxwell_ephys_pipeline.git
-cd maxwell_ephys_pipeline
+git clone https://github.com/braingeneers/SpikeCanvas-EphysPipeline.git
+cd SpikeCanvas-EphysPipeline
 ```
 
 ### 2. Configure Environment
@@ -600,8 +600,8 @@ docker-compose config
 1. Check logs: `docker-compose logs -f [service]`
 2. Verify configuration: `docker-compose config`
 3. Test components individually (see Testing section)
-4. Check GitHub Issues: https://github.com/braingeneers/maxwell_ephys_pipeline/issues
-5. Consult documentation: https://github.com/braingeneers/maxwell_ephys_pipeline
+4. Check GitHub Issues: https://github.com/braingeneers/SpikeCanvas-EphysPipeline/issues
+5. Consult documentation: https://github.com/braingeneers/SpikeCanvas-EphysPipeline
 
 ## Production Deployment
 
@@ -873,7 +873,7 @@ docker-compose exec mqtt mosquitto_sub -h localhost -t '#' -v > mqtt_backup.txt
 
 ## Additional Resources
 
-- **Documentation**: https://github.com/braingeneers/maxwell_ephys_pipeline
+- **Documentation**: https://github.com/braingeneers/SpikeCanvas-EphysPipeline
 - **Paper**: [Multiscale Cloud-Based Pipeline for Neuronal Electrophysiology Analysis](https://www.biorxiv.org/content/10.1101/2024.11.14.623530v2)
 - **Docker Documentation**: https://docs.docker.com/
 - **Kubernetes Documentation**: https://kubernetes.io/docs/
@@ -883,7 +883,7 @@ docker-compose exec mqtt mosquitto_sub -h localhost -t '#' -v > mqtt_backup.txt
 ## Support
 
 For issues, questions, or contributions:
-- **GitHub Issues**: https://github.com/braingeneers/maxwell_ephys_pipeline/issues
+- **GitHub Issues**: https://github.com/braingeneers/SpikeCanvas-EphysPipeline/issues
 - **Email**: braingeneers-admins-group@ucsc.edu (for Braingeneers users)
 
 ---

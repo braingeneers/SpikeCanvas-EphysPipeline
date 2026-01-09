@@ -427,7 +427,7 @@ If you encounter issues not covered by this checklist:
 2. **Check documentation**: [STANDALONE_DEPLOYMENT.md](./STANDALONE_DEPLOYMENT.md)
 3. **Consult troubleshooting guide**: [STANDALONE_DEPLOYMENT.md](./STANDALONE_DEPLOYMENT.md#troubleshooting)
 4. **MQTT guide**: [mosquitto/config/README.md](./mosquitto/config/README.md)
-5. **Open an issue**: https://github.com/braingeneers/maxwell_ephys_pipeline/issues
+5. **Open an issue**: https://github.com/braingeneers/SpikeCanvas-EphysPipeline/issues
 
 ## Next Steps
 

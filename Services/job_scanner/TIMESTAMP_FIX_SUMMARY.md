@@ -27,7 +27,7 @@ if pod.status.conditions is not None:
 
 ### 1. Created Robust Timestamp Extraction Function
 
-**File**: `/maxwell_ephys_pipeline/job_scanner/src/scan_pod.py`
+**File**: `/SpikeCanvas-EphysPipeline/job_scanner/src/scan_pod.py`
 
 Added a new method `get_pod_completion_time()` to the `edpScanner` class:
 
@@ -61,7 +61,7 @@ def get_pod_completion_time(self, pod):
 
 ### 2. Updated Job Scanner Logic
 
-**File**: `/maxwell_ephys_pipeline/job_scanner/src/scan_pod.py`
+**File**: `/SpikeCanvas-EphysPipeline/job_scanner/src/scan_pod.py`
 
 Replaced the buggy hardcoded logic:
 
@@ -77,7 +77,7 @@ if sts in FINISH_FLAGS:
 
 ### 3. Updated MaxWell Dashboard Status Page
 
-**File**: `/maxwell_ephys_pipeline/MaxWell_Dashboard/src/utils.py`
+**File**: `/SpikeCanvas-EphysPipeline/MaxWell_Dashboard/src/utils.py`
 
 Added the same robust function to the utilities module:
 
@@ -93,7 +93,7 @@ def get_pod_completion_time(pod):
     # ... same implementation as above
 ```
 
-**File**: `/maxwell_ephys_pipeline/MaxWell_Dashboard/src/pages/status.py`
+**File**: `/SpikeCanvas-EphysPipeline/MaxWell_Dashboard/src/pages/status.py`
 
 Updated the status page to use the new function:
 
@@ -121,7 +121,7 @@ if sts in FINISH_FLAGS:
 
 ## Testing
 
-Created comprehensive test suite in `/maxwell_ephys_pipeline/job_scanner/test/test_timestamp_fix.py` that demonstrates:
+Created comprehensive test suite in `/SpikeCanvas-EphysPipeline/job_scanner/test/test_timestamp_fix.py` that demonstrates:
 
 - **Test Case 1**: Normal pod with multiple conditions - shows old vs new behavior
 - **Test Case 2**: Pod with different condition order - demonstrates order independence  
@@ -130,17 +130,17 @@ Created comprehensive test suite in `/maxwell_ephys_pipeline/job_scanner/test/te
 
 ## Files Modified
 
-1. `/maxwell_ephys_pipeline/job_scanner/src/scan_pod.py`
+1. `/SpikeCanvas-EphysPipeline/job_scanner/src/scan_pod.py`
    - Added `get_pod_completion_time()` method
    - Updated timestamp extraction logic in finished jobs handling
 
-2. `/maxwell_ephys_pipeline/MaxWell_Dashboard/src/utils.py`
+2. `/SpikeCanvas-EphysPipeline/MaxWell_Dashboard/src/utils.py`
    - Added `get_pod_completion_time()` utility function
 
-3. `/maxwell_ephys_pipeline/MaxWell_Dashboard/src/pages/status.py`
+3. `/SpikeCanvas-EphysPipeline/MaxWell_Dashboard/src/pages/status.py`
    - Updated to use new robust timestamp extraction
 
-4. `/maxwell_ephys_pipeline/job_scanner/test/test_timestamp_fix.py` (NEW)
+4. `/SpikeCanvas-EphysPipeline/job_scanner/test/test_timestamp_fix.py` (NEW)
    - Comprehensive test suite demonstrating the fix
 
 ## Validation
