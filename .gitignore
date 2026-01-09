@@ -55,3 +55,15 @@ pipeline_paper_hippo_slice/
 /validate_nrp_utilization_compliance.sh
 /validate_nrp_utilization_strategy.sh
 /migrate_to_new_structure.py
+
+# Docker Compose runtime files
+.env
+mosquitto/data/
+mosquitto/log/
+listener-logs/
+redis-data/
+*-data/
+
+# Docker volumes and temporary files
+*.log
+.DS_Store
