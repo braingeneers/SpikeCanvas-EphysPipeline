@@ -251,9 +251,8 @@ aws s3 ls --endpoint-url=https://your-s3-endpoint s3://bucket-name/ephys/
 You should see a list of UUIDs (experiment folders).
 
 ### Test 2: Test Dashboard Connection
-TODO: the dashboard setting seems incorrect. Double check it. the browser address should not be localhost.  
-1. Start the dashboard: `docker-compose up`
-2. Open browser: `http://localhost:8050`
+1. Start the dashboard: `docker-compose up -d`
+2. Open browser: `http://localhost:8050` (or `http://<server-ip>:8050` if running remotely)
 3. Check if UUIDs appear in the dropdown
 4. If you see UUIDs, your configuration is correct!
 
@@ -285,11 +284,8 @@ vim .env
 ```
 
 After editing, restart the services:
-
-TODO: Correct the following commands
 ```bash
-docker-compose rm -sf service 
-docker-compose up -d service 
+docker-compose up -d
 ```
 
 ## Troubleshooting
