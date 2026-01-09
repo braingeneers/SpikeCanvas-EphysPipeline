@@ -31,9 +31,20 @@ LOCAL_CSV = "csv/"
 TOPIC = ["services/csv_job", "experiments/upload", "telemetry/+/log/experiments/upload"]
 TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/ephys-data-pipeline"
 LOG_FILE_NAME = "listener.log"
-LOG_PATH = "s3://braingeneers/services/mqtt_job_listener/" + LOG_FILE_NAME
-DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
-SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.40"
+# Service buckets (allow override). SERVICE_BUCKET should be full s3://bucket/prefix/services/<listener> root.
+SERVICE_BUCKET = os.getenv("SERVICE_BUCKET", "s3://braingeneers/services/mqtt_job_listener")
+PARAMETER_BUCKET = os.getenv("PARAMETER_BUCKET", f"{SERVICE_BUCKET}/params")
+LOG_PATH = f"{SERVICE_BUCKET}/{LOG_FILE_NAME}"
+try:
+    from k8s_config import load_s3_settings
+    _s3 = load_s3_settings()
+    DEFAULT_S3_BUCKET = _s3["root"]  # e.g. s3://<bucket>/<prefix>/
+except Exception:
+    # Environment fallback; allow overriding bucket/prefix separately
+    _fallback_bucket = os.getenv("S3_BUCKET", "braingeneers")
+    _fallback_prefix = os.getenv("S3_PREFIX", "ephys")
+    DEFAULT_S3_BUCKET = f"s3://{_fallback_bucket}/{_fallback_prefix.rstrip('/')}/"
+SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.41"
 
 # setup logging
 stream_handler = logging.StreamHandler()
@@ -355,16 +366,28 @@ def create_kube_job(job_name, job_info):
 
 
 def s3_basepath(UUID):
-    if not isinstance(UUID, str):
-        UUID = str(UUID)
-    match = re.search(r'-[a-z]*-', UUID).group(0)
-    if "-e-" in match:
-        s3_basepath_ = 's3://braingeneers/ephys/'
-    elif "-f-" in match:
-        s3_basepath_ = 's3://braingeneers/fluidics/'
-    else:
-        s3_basepath_ = 's3://braingeneers/integrated/'
-    return s3_basepath_
+        """Return base S3 path for a UUID.
+
+        Classification based on pattern in UUID:
+            - ephys ("-e-") uses dynamic DEFAULT_S3_BUCKET (bucket/prefix)
+            - fluidics ("-f-") uses FLUIDICS_BUCKET (env override)
+            - else uses INTEGRATED_BUCKET (env override)
+
+        Environment overrides:
+            FLUIDICS_BUCKET (default braingeneers/fluidics)
+            INTEGRATED_BUCKET (default braingeneers/integrated)
+        """
+        if not isinstance(UUID, str):
+                UUID = str(UUID)
+        match = re.search(r'-[a-z]*-', UUID).group(0)
+        fluidics_root = os.getenv("FLUIDICS_BUCKET", "s3://braingeneers/fluidics/")
+        integrated_root = os.getenv("INTEGRATED_BUCKET", "s3://braingeneers/integrated/")
+        if "-e-" in match:
+                return DEFAULT_S3_BUCKET
+        elif "-f-" in match:
+                return fluidics_root if fluidics_root.endswith('/') else fluidics_root + '/'
+        else:
+                return integrated_root if integrated_root.endswith('/') else integrated_root + '/'
 
 
 def write_log(local_file, s3_file):

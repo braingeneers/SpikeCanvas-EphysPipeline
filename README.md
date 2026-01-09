@@ -1,45 +1,125 @@
-# EphysPipeline
+# EphysPipeline (Maxwell Electrophysiology Pipeline)
+
+EphysPipeline is the Braingeneers/Maxwell electrophysiology workflow: containerized algorithms, Kubernetes job orchestration, and the SpikeCanvas dashboard for end-to-end processing from raw recordings to curated analyses and visualizations.
+
+## Objectives
+- Provide a repeatable, scalable pipeline from raw data to curated outputs and figures.
+- Run algorithm stages as containerized batch jobs on Kubernetes with S3-backed storage.
+- Offer a dashboard for dataset selection, job submission, parameter management, and monitoring.
+- Support institution-specific S3 deployments via a centralized configuration layer.
+- Keep algorithms consistent via a shared path contract and helper utilities.
 
 ## Overview
-EphysPipeline collects the algorithms and services used to run the Braingeneers electrophysiology workflow, from Kubernetes-hosted batch jobs to a full-featured web dashboard. The SpikeCanvas dashboard provides the user-facing entry point for dataset selection, job creation, parameter management, and monitoring across spike sorting, connectivity, and LFP tasks.【F:Services/MaxWell_Dashboard/README.md†L1-L66】
+This repository contains the source code and services described in the preprint "Multiscale Cloud-Based Pipeline for Neuronal Electrophysiology Analysis and Visualization" (bioRxiv, 2024): https://www.biorxiv.org/content/10.1101/2024.11.14.623530v2.
 
-This repository contains the source code and supporting services described in the preprint “Multiscale Cloud-Based Pipeline for Neuronal Electrophysiology Analysis and Visualization” (bioRxiv, 2024). Read the paper at https://www.biorxiv.org/content/10.1101/2024.11.14.623530v2.
+SpikeCanvas is the user-facing entry point for selecting datasets, creating jobs, and monitoring spike sorting, connectivity, curation, visualization, and LFP tasks.
 
 ## Repository layout
-### Algorithms
+```
+EphysPipeline/
+|-- Algorithms/               # Core processing algorithms
+|   |-- connectivity/         # Functional connectivity analysis
+|   |-- kilosort2_simplified/ # Spike sorting with Kilosort2
+|   |-- local_field_potential/ # LFP analysis and filtering
+|   |-- si_curation_docker/   # Quality control and curation
+|   `-- visualization/        # Data visualization tools
+|-- Services/                 # Platform services and interfaces
+|   |-- MaxWell_Dashboard/    # SpikeCanvas web dashboard
+|   |-- Spike_Sorting_Listener/ # Job orchestration service
+|   |-- job_scanner/          # Job monitoring and status tracking
+|   |-- maxtwo_splitter/      # Data preprocessing and splitting
+|   `-- parameters/           # Configuration templates
+|-- performance/              # Benchmarking and optimization tools
+`-- docker-compose.yml         # Local services stack
+```
+
+## Algorithms
 All algorithms follow the same three-step workflow:
-1. **Load data from S3** – Download input data (raw recordings, spike-sorting results, or intermediate outputs)
-2. **Process** – Apply the algorithm-specific computation (spike sorting, connectivity analysis, LFP filtering, curation, or visualization)
-3. **Save results to S3** – Upload processed outputs back to S3 storage for downstream use or visualization
+1. Load data from S3
+2. Process the data
+3. Save results back to S3
 
-Individual algorithm implementations:
-- **Kilosort2 simplified** – automation script that builds the spike-sorting Docker image and launches the accompanying Kubernetes job defined in `run_kilosort2.yaml`. Use it as a reference for running the simplified Kilosort2 pipeline in cluster environments.【F:Algorithms/kilosort2_simplified/run.sh†L1-L10】
-- **Connectivity analysis** – `src/run_conn.py` downloads spike-sorting results from S3, applies default cross-correlogram parameters, and writes connectivity outputs back to storage, logging progress throughout the job.【F:Algorithms/connectivity/src/run_conn.py†L14-L119】
-- **Local field potential (LFP)** – `src/run_lfp.py` loads Maxwell HDF5 recordings from S3, parses JSON parameter files to pick start/end windows, applies filtering/downsampling, and saves the processed segment back to derived storage paths.【F:Algorithms/local_field_potential/src/run_lfp.py†L128-L199】
-- **SpikeInterface auto-curation** – `src/si_curation.py` runs a SpikeInterface-based quality-metric pass (SNR, ISI violations, firing rate, redundant units) with tunable defaults to prune low-quality units and persist cleaned waveforms.【F:Algorithms/si_curation_docker/src/si_curation.py†L30-L109】 Redundant-unit curation is currently disabled, so only the other metrics are applied.
-- **Visualization jobs** – `src/viz.py` downloads curated or raw spike data from S3, converts it into spike trains, generates Plotly summaries plus single-unit plots, and re-uploads the packaged HTML/JSON artifacts.【F:Algorithms/visualization/src/viz.py†L28-L101】
+Key implementations:
+- `Algorithms/kilosort2_simplified/`: spike sorting automation and Kilosort2 job launcher.
+- `Algorithms/connectivity/`: connectivity analysis on spike sorting outputs.
+- `Algorithms/local_field_potential/`: LFP filtering, windowing, and downsampling.
+- `Algorithms/si_curation_docker/`: SpikeInterface-based quality metrics and auto-curation.
+- `Algorithms/visualization/`: Plotly summaries and single-unit visualization bundles.
 
-### Services
-- **SpikeCanvas dashboard (MaxWell_Dashboard)** – Dash-based web UI for selecting datasets by UUID, queuing pipeline jobs (spike sorting, auto-curation, visualization, functional connectivity, LFP subbands), adjusting parameter files, and exporting batches of jobs for execution.【F:Services/MaxWell_Dashboard/README.md†L1-L66】 The `start_dashboard.sh` script checks Python dependencies, sets `PYTHONPATH`, and runs `app.py` so the dashboard is reachable on port 8050.【F:Services/MaxWell_Dashboard/start_dashboard.sh†L3-L60】
-- **MQTT job listener** – Schedules Kubernetes jobs in response to MQTT topics defined in an S3-hosted CSV, with built-in chaining so one job’s completion event can trigger the next.【F:Services/Spike_Sorting_Listener/README.md†L5-L35】【F:Services/Spike_Sorting_Listener/README.md†L23-L46】
-- **Job scanner** – Notes on the job-scanner service describe how completion timestamps are derived from Kubernetes pod conditions to avoid start/end times being reported as identical, improving dashboard status accuracy.【F:Services/job_scanner/TIMESTAMP_FIX_SUMMARY.md†L1-L120】
-- **MaxTwo splitter** – Optimization guide for the splitter service, detailing parallel uploads, multiprocessing, and resource tuning to reduce end-to-end runtime from hours to under an hour for large recordings.【F:Services/maxtwo_splitter/SPEED_OPTIMIZATION_GUIDE.md†L1-L103】
-- **Parameter presets** – JSON defaults for pipeline components (e.g., connectivity, curation, LFP) live under `Services/parameters/`, providing starting values such as cross-correlogram bin sizes and auto-curation thresholds.【F:Services/parameters/connectivity/params_default.json†L1-L4】【F:Services/parameters/curation/params_default.json†L1-L1】【F:Services/parameters/lfp/params_default.json†L1-L4】
-- **Mission Control deployment** – The operational instances of these services are orchestrated from the [braingeneers/mission_control](https://github.com/braingeneers/mission_control) repository, which provides Docker Compose configurations for launching the dashboard, listeners, and supporting components as a cohesive stack.
-
-### Performance
-- **speed_test** – Utilities for stress-testing Kubernetes batch throughput, including a script that times launching and tracking 100 spike-sorting jobs and logs completion status to JSON for later analysis.【F:performance/speed_test/test.py†L1-L111】
+## Services
+- `Services/MaxWell_Dashboard/`: SpikeCanvas dashboard (Dash web UI) for job submission and monitoring.
+- `Services/Spike_Sorting_Listener/`: MQTT-driven job listener that schedules Kubernetes jobs and supports chaining.
+- `Services/job_scanner/`: job completion monitoring and status reporting.
+- `Services/maxtwo_splitter/`: preprocessing/splitting utilities and optimization guidance.
+- `Services/parameters/`: JSON parameter defaults for connectivity, curation, LFP, and related stages.
+- Operational deployments are typically orchestrated from https://github.com/braingeneers/mission_control.
 
 ## Quick start
-1. Install Python with Dash and the other listed dependencies, then run the dashboard launcher:
-   ```bash
-   cd Services/MaxWell_Dashboard
-   ./start_dashboard.sh
-   ```
-   The script will verify or install required packages, set `PYTHONPATH`, and start the Dash app on `http://127.0.0.1:8050/`. Stop the server with `Ctrl+C` when finished.【F:Services/MaxWell_Dashboard/start_dashboard.sh†L3-L60】
-   Authorized users can also access the hosted dashboard at https://mxwdash.braingeneers.gi.ucsc.edu; request access in the `#braingeneers-helpdesk` Slack channel to be added.
-2. Use the Job Center to submit spike sorting, connectivity, curation, visualization, or LFP jobs, and monitor their status in the dashboard’s Status Monitor page.【F:Services/MaxWell_Dashboard/README.md†L36-L66】 Job definitions can also be triggered programmatically through the MQTT job listener for automated workflows.【F:Services/Spike_Sorting_Listener/README.md†L5-L35】
-3. For production deployments, use the Docker Compose stack in the mission control repository to bring up the dashboard and listeners together, ensuring consistent configuration across services.
+### Run the dashboard locally (Python)
+```bash
+cd Services/MaxWell_Dashboard
+./start_dashboard.sh
+```
+The dashboard runs at `http://127.0.0.1:8050/`. Hosted access is available at https://mxwdash.braingeneers.gi.ucsc.edu (request access in `#braingeneers-helpdesk`).
 
-## Parameter management
-Reusable parameter JSON files reside in `Services/parameters/`. For example, connectivity jobs default to a 1 ms bin size with a 50 ms window and 5 ms functional latency, while auto-curation defaults to a minimum signal-to-noise ratio of 5 and minimum firing rate of 0.1 Hz.【F:Services/parameters/connectivity/params_default.json†L1-L4】【F:Services/parameters/curation/params_default.json†L1-L1】 Update or copy these files when you need custom settings for new jobs.
+### Run the services stack (Docker Compose)
+```bash
+cp .env.template .env
+docker-compose up -d
+```
+Edit `.env` to set your S3 bucket and credentials before starting services.
+
+## Pipeline configuration layer
+The pipeline is configurable for external institutions and alternate S3 buckets.
+
+Configuration precedence:
+1. Environment variables (highest)
+2. Optional YAML file at `/app/config/pipeline.yaml` or `PIPELINE_CONFIG`
+3. Embedded defaults (prefix `ephys`, bucket must be provided)
+
+Common environment variables:
+- `S3_BUCKET`, `S3_PREFIX`, `S3_INPUT_PREFIX`, `S3_OUTPUT_PREFIX`
+- `AWS_REGION`, `AWS_PROFILE`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+- `SERVICE_ROOT`, `SERVICE_BUCKET`, `PARAMETER_BUCKET`
+- `NRP_NAMESPACE`
+- `ENDPOINT_URL`, `S3_ENDPOINT`
+
+Helper usage (recommended):
+```python
+from Services.common.config import load_config, s3_uri
+cfg = load_config()
+root = cfg.root()  # e.g. s3://my-bucket/ephys/
+data_path = s3_uri("2025-01-01-e-example", "original", "data", "rec0000.raw.h5")
+derived_path = s3_uri("2025-01-01-e-example", "derived", "kilosort2")
+```
+Do not hardcode `s3://braingeneers/ephys/`. The test `Services/tests/test_no_hardcoded_bucket.py` enforces this.
+
+## Data layout and path helpers
+S3 path contract:
+- Inputs live under `<session_uuid>/original/data/...`.
+- Outputs live under `<session_uuid>/derived/<stage>/...`.
+
+Common artifact suffixes:
+- `_phy.zip` (spike sorting output)
+- `_acqm.zip` (auto-curated spikes)
+- `_figure.zip` (visualization bundle)
+- `_conn.zip` (connectivity output)
+
+Helper functions in `Services/common/path_utils.py`:
+- `replace_original_to_derived(base_path, stage)`
+- `normalize_acqm_source(input_path)`
+- `make_artifact_path(session_uuid, stage, basename, suffix, subdir=None)`
+
+## Configuration and deployment notes
+- Use `.env.template` as the starting point for S3, AWS, and namespace settings.
+- In Kubernetes, prefer ConfigMaps and IAM roles (IRSA) over static keys.
+- The listener injects S3 settings into algorithm jobs; keep `NRP_NAMESPACE` aligned with your cluster.
+
+## Performance and testing
+- `performance/` includes speed tests and optimization notes.
+- `Services/maxtwo_splitter/SPEED_OPTIMIZATION_GUIDE.md` documents tuning for large recordings.
+
+## Documentation
+- Dashboard: `Services/MaxWell_Dashboard/README.md`
+- Listener: `Services/Spike_Sorting_Listener/README.md`
+- Algorithm docs: each subdirectory in `Algorithms/`

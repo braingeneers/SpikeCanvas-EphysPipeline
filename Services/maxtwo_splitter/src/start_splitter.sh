@@ -8,7 +8,7 @@
 # 5. Progress monitoring with ETA calculations
 
 set -euo pipefail
-echo "Running start_splitter.sh v0.40"
+echo "Running start_splitter.sh v0.41"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ###############################################################################

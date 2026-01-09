@@ -8,6 +8,7 @@ import plots as plots
 import plots_sua as plots_sua
 import braingeneers.utils.s3wrangler as wr
 import shutil
+from Services.common.path_utils import normalize_acqm_source, replace_original_to_derived
 
 
 # download data from s3. This can be phy, manual curated or auto curated data
@@ -36,8 +37,15 @@ def curation_to_spike_data(cur_file):
         elif "phy" in cur_file:
             logging.info(f"Reading data from {cur_file}, likely un-curated phy")
         else:
-            logging.error(f"File format not recognized: {cur_file}")
-            sys.exit(1)
+            # Try to map unexpected zip names to expected forms
+            normalized = normalize_acqm_source(cur_file)
+            if normalized.endswith("_acqm.zip"):
+                logging.info(f"Treating {cur_file} as curated acquisition zip after normalization")
+                train, neuron_data, _, fs = utils.load_curation(cur_file)
+                trains = [np.array(t)*fs for t in train]
+            else:
+                logging.error(f"File format not recognized: {cur_file}")
+                sys.exit(1)
         fs, spike_train, neuron_data = utils.read_phy_files(cur_file)
         trains = [np.array(t)*fs for t in spike_train]
     else:
@@ -95,6 +103,7 @@ if __name__ == "__main__":
 
     # package exract_dir and upload to s3
     figure_file = shutil.make_archive(posixpath.join(data_folder, "figure"), format="zip", root_dir=figure_folder)
+    # Standardize upload path: leave in same stage directory and append _figure.zip
     upload_path = data_path.replace(".zip", "_figure.zip")
     logging.info(f"Uploading data from {figure_file} to {upload_path} ...")
     wr.upload(local_file=figure_file, path=upload_path)

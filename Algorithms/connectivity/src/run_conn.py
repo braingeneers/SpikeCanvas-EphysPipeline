@@ -11,6 +11,9 @@ from braingeneers import analysis
 import matplotlib.pyplot as plt
 import json
 
+# new import
+from Services.common.path_utils import normalize_acqm_source, replace_original_to_derived
+
 DEFAULT_PARAMS = {
     "binary_bin_size": 0.001,
     "ccg_win": 50,
@@ -54,10 +57,6 @@ def upload_file(phy_path, local_file):
 
 
 if __name__ == "__main__":
-    # input_str = sys.argv[1:]
-    # print("Start ... ")
-    # print(f"Input string: {input_str}")
-    # logging.info(f"Input string: {input_str}")
     rec_path = sys.argv[1]
     param_path = sys.argv[2]
     param_file_name = param_path.split("/")[-1]
@@ -74,7 +73,6 @@ if __name__ == "__main__":
 
     if not os.path.isdir(data_folder):
         os.mkdir(data_folder)
-    # logging.info(f"Created local base folder: {data_folder}")
     if not os.path.isdir(extract_dir):
         os.mkdir(extract_dir)
     if not os.path.exists(figure_dir):
@@ -85,21 +83,19 @@ if __name__ == "__main__":
     log_file = os.path.join(extract_dir, LOG_FILE_NAME)
     setup_logging(log_file)
 
+    # normalize input to acqm zip and ensure it points to derived/<stage>
     if "derived" in rec_path and rec_path.endswith(".zip"):
         data_path = rec_path
     else:
-        data_path = rec_path.replace("original/data", "derived/kilosort2")
-        if data_path.endswith(".raw.h5.raw.h5"):
-            data_path = data_path.replace(".raw.h5.raw.h5", "_acqm.zip")
-        elif data_path.endswith(".raw.h5"):
-            data_path = data_path.replace(".raw.h5", "_acqm.zip")
-        elif data_path.endswith(".h5"):
-            data_path = data_path.replace(".h5", "_acqm.zip")
-        else:
+        # replace original/data -> derived/kilosort2, then normalize suffix to _acqm.zip
+        replaced = replace_original_to_derived(rec_path, stage="kilosort2")
+        normalized = normalize_acqm_source(replaced)
+        if not (normalized.endswith("_acqm.zip") or normalized.endswith(".zip")):
             logging.error(f"Auto-curation for {rec_path} not available.")
             logging.error(f"Exit")
             sys.exit(1)
-    
+        data_path = normalized
+
     if not wr.does_object_exist(data_path):
         logging.exception(f"Data doesn't exist! Check the path: {data_path}")
         sys.exit(1)

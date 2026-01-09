@@ -15,8 +15,14 @@ from utils import *
 import logging
 import h5py
 import json
+from Services.common.path_utils import replace_original_to_derived, normalize_acqm_source
 
-# BUCKET = "s3://braingeneers/ephys/"
+try:
+    from Services.common.config import load_config
+    _cfg = load_config()
+    # Example usage: base root path available via _cfg.root(); keep local logic building full paths elsewhere.
+except Exception:
+    _cfg = None  # config unavailable in this execution context
 JOB_KWARGS = dict(n_jobs=10, progress_bar=True)
 hdf5_plugin_path = '/src/'
 # os.environ["HDF5_PLUGIN_PATH"] = hdf5_plugin_path
@@ -356,9 +362,10 @@ def parse_uuid(data_path):
     experiment = data_path.split("/")[-1]
     base_path = data_path.split(experiment)[0]
     if "original/data" in base_path:
-        phy_base_path = base_path.replace("original/data", "derived/kilosort2")
+        phy_base_path = replace_original_to_derived(base_path, stage="kilosort2")
         metadata_path = base_path.split("original/data")[0] + "metadata.json"
     elif "shared" in base_path:
+        # keep legacy behavior for shared -> derived/kilosort2
         phy_base_path = base_path.replace("shared", "derived/kilosort2")
         metadata_path = base_path.split("shared")[0] + "metadata.json"
         

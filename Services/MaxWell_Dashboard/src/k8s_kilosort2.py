@@ -1,27 +1,38 @@
 from kubernetes import client, config
-
+import os
 
 class Kube:
     def __init__(self, job_name: str, dataset_prefix: str):
         config.load_kube_config()
         self.batch_v1 = client.BatchV1Api()
-        self.namespace = 'braingeneers'
+        self.namespace = os.getenv('NRP_NAMESPACE', 'braingeneers')
         self.job_name = job_name
-        self.args = "./run.sh " + dataset_prefix
+        run_script = os.getenv('KILOSORT_RUN_ARGS', './run.sh')
+        self.args = f"{run_script} {dataset_prefix}"
 
     def create_job_object(self):
+        image = os.getenv('KILOSORT_IMAGE', 'surygeng/kilosort_docker:v0.2')
+        endpoint_url = os.getenv('ENDPOINT_URL', 'https://s3.braingeneers.gi.ucsc.edu')
+        s3_endpoint = os.getenv('S3_ENDPOINT', 's3.braingeneers.gi.ucsc.edu')
+        req_cpu = os.getenv('JOB_CPU_REQUEST', '16')
+        req_mem = os.getenv('JOB_MEM_REQUEST', '32Gi')
+        req_ephem = os.getenv('JOB_EPHEMERAL_REQUEST', '300Gi')
+        lim_cpu = os.getenv('JOB_CPU_LIMIT', req_cpu)
+        lim_mem = os.getenv('JOB_MEM_LIMIT', req_mem)
+        lim_ephem = os.getenv('JOB_EPHEMERAL_LIMIT', '400Gi')
+        lim_gpu = int(os.getenv('JOB_GPU_LIMIT', '1'))
         container = client.V1Container(
             name="container",
-            image="localhost:30081/surygeng/kilosort_docker:latest",
+            image=image,
             image_pull_policy="Always",
             command=["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"],
             args=[self.args],
             resources=client.V1ResourceRequirements(
-                requests={"cpu": "16", "memory": "32Gi", "ephemeral-storage": "300Gi"},
-                limits={"cpu": "16", "memory": "32Gi", "ephemeral-storage": "400Gi", "nvidia.com/gpu": 1}),
+                requests={"cpu": req_cpu, "memory": req_mem, "ephemeral-storage": req_ephem},
+                limits={"cpu": lim_cpu, "memory": lim_mem, "ephemeral-storage": lim_ephem, "nvidia.com/gpu": lim_gpu}),
             env=[client.V1EnvVar(name="PYTHONUNBUFFERED", value='true'),
-                 client.V1EnvVar(name="ENDPOINT_URL", value="http://rook-ceph-rgw-nautiluss3.rook"),
-                 client.V1EnvVar(name="S3_ENDPOINT", value="rook-ceph-rgw-nautiluss3.rook")],
+                 client.V1EnvVar(name="ENDPOINT_URL", value=endpoint_url),
+                 client.V1EnvVar(name="S3_ENDPOINT", value=s3_endpoint)],
             volume_mounts=[client.V1VolumeMount(name="prp-s3-credentials", mount_path="/root/.aws/credentials",
                                                 sub_path="credentials")])
         affinity = client.V1Affinity(
