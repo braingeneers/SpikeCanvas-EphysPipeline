@@ -290,7 +290,8 @@ def is_maxtwo_recording(data_format: str, file_path: str) -> bool:
     """
     if not data_format:
         return False
-    return (str(data_format).lower() == "maxtwo" and 
+    fmt = str(data_format).lower()
+    return (fmt in ("maxtwo", "max2") and
             (file_path.endswith(".raw.h5") or file_path.endswith(".h5")))   
 
 
@@ -325,6 +326,8 @@ def get_sorter_template() -> dict:
 
 def create_kube_job(job_name, job_info):
     global resp
+    if job_info.get("args") == "./run.sh" and "with_maxtwo_splitter" not in job_info:
+        job_info["with_maxtwo_splitter"] = True
     newJob = Kube(job_name, job_info)
     if not newJob.check_job_exist():
         resp = newJob.create_job()

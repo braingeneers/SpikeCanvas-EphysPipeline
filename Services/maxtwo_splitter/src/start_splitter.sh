@@ -61,6 +61,8 @@ try:
     data_format = metadata.get("ephys_experiments", {}).get(experiment, {}).get("data_format", "")
     if isinstance(data_format, str):
         data_format = data_format.lower()
+        if data_format == "max2":
+            data_format = "maxtwo"
 except Exception:
     data_format = ""
 
