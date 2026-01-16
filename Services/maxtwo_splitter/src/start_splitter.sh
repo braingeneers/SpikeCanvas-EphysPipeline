@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# start_splitter.sh — Optimized MaxTwo splitter for speed
-# Key improvements:
-# 1. Parallel uploads using background processes  
-# 2. Optimized AWS CLI settings for maximum throughput
-# 3. Reduced retry delays for faster recovery
-# 4. Memory-optimized operations
-# 5. Progress monitoring with ETA calculations
+# start_splitter.sh — MaxTwo splitter entrypoint
+# Highlights:
+# 1. Reduced retry delays for faster recovery
+# 2. Progress monitoring with ETA calculations
 
 set -euo pipefail
-echo "Running start_splitter.sh v0.42"
+echo "Running start_splitter.sh v0.55"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 ###############################################################################
@@ -79,57 +76,56 @@ if [[ "${DATA_FORMAT}" != "maxtwo" ]]; then
     exit 0
 fi
 
-# NRP-compliant configuration to utilize 6 CPU cores and 48GB memory efficiently 
+###############################################################################
+# 0.6. Short-circuit if cached split outputs already exist
+###############################################################################
+cache_exists() {
+    local cache_dir="$1"
+    local label="$2"
+    local bucket
+    local prefix
+    local key_count
+
+    bucket="$(echo "${cache_dir}" | cut -d/ -f3)"
+    prefix="$(echo "${cache_dir}" | cut -d/ -f4-)"
+    if [ -n "${prefix}" ]; then
+        prefix="${prefix%/}/${BASE_EXPERIMENT}_well"
+    else
+        prefix="${BASE_EXPERIMENT}_well"
+    fi
+
+    key_count=$(aws --endpoint "${ENDPOINT}" s3api list-objects-v2 \
+        --bucket "${bucket}" \
+        --prefix "${prefix}" \
+        --max-keys 1 \
+        --query 'KeyCount' \
+        --output text 2>/dev/null || echo "0")
+
+    if [ "${key_count}" != "0" ] && [ -n "${key_count}" ]; then
+        echo "Found cached split outputs in ${label}: s3://${bucket}/${prefix}*"
+        return 0
+    fi
+    return 1
+}
+
+CACHE_PREFIX="${S3_URI}"
+if [[ "${CACHE_PREFIX}" == s3://braingeneers/* ]]; then
+    CACHE_PREFIX="s3://braingeneersdev/${CACHE_PREFIX#s3://braingeneers/}"
+fi
+CACHE_DIR="$(dirname "${CACHE_PREFIX}")"
+LEGACY_CACHE_DIR="${CACHE_DIR/original\/data/original\/split}"
+
+echo "Checking cache for existing splits..."
+if cache_exists "${CACHE_DIR}" "primary cache" || cache_exists "${LEGACY_CACHE_DIR}" "legacy cache"; then
+    echo "Cached split files already exist. Skipping split."
+    exit 0
+fi
+
+# Retry configuration
 MAX_RETRIES=3          # Reduced from 5 - fail faster
 RETRY_COUNT=0
 SUCCESS=0
 PARALLEL_UPLOADS=4     # Use 4 parallel uploads to leverage 6 CPU cores
-
-# Function to maintain NRP-compliant resource utilization (prevents account suspension)
-keep_cpu_active() {
-    local operation_name="$1"
-    echo "Starting high-utilization background activity during ${operation_name}..."
-    echo "Target: 25-40% CPU (1.5-2.4 cores of 6) and 25-35% memory (12-17GB of 48GB)"
-    
-    while [ -f "/tmp/io_in_progress" ]; do
-        # High CPU utilization to meet NRP requirements (1.5-2.4 cores of 6 requested)
-        {
-            # Multiple CPU-intensive processes running in parallel
-            for i in {1..4}; do
-                {
-                    # CPU-bound work: compression, hashing, find operations
-                    dd if=/dev/zero bs=1M count=500 2>/dev/null | gzip > /dev/null &
-                    find /usr -type f -name "*.so" -exec sha256sum {} \; >/dev/null 2>&1 &
-                    openssl speed -seconds 3 rsa2048 >/dev/null 2>&1 &
-                } &
-            done
-            
-            # SAFE memory utilization - only allocate once per cycle
-            if [ ! -f "/tmp/memory_allocated" ]; then
-                echo "Allocating SAFE memory for NRP compliance: target 8-10GB of 48GB"
-                python3 "${SCRIPT_DIR}/nrp_memory_utilization.py" 2>/dev/null &
-            fi
-            
-            # Wait before next cycle
-            sleep 30
-            
-            # Clean up completed background processes
-            jobs -p | head -5 | xargs -r kill -9 2>/dev/null || true
-            
-        } &
-        
-        sleep 35  # Check every 35 seconds
-    done
-    
-    # Clean up all background processes
-    echo "Stopping background activity for ${operation_name}"
-    jobs -p | xargs -r kill -9 2>/dev/null || true
-    
-    # Clean up memory allocation flag
-    rm -f /tmp/memory_allocated 2>/dev/null || true
-    
-    echo "Background resource utilization stopped for ${operation_name}"
-}
 
 ###############################################################################
 # 1. AWS CLI configuration
@@ -195,60 +191,56 @@ fi
 echo "=== DOWNLOAD PHASE ==="
 start_time=$(date +%s)
 
-# Get object size for progress estimation
-BUCKET=$(echo "${S3_URI}" | cut -d/ -f3)
-KEY=$(echo "${S3_URI}" | cut -d/ -f4-)
-SIZE_BYTES=$(aws --endpoint "${ENDPOINT}" s3api head-object \
-                 --bucket "${BUCKET}" --key "${KEY}" \
-                 --query 'ContentLength' --output text 2>/dev/null || echo "")
-[[ "${SIZE_BYTES}" == "None" ]] && SIZE_BYTES=""
-
-if [[ -n "${SIZE_BYTES}" ]]; then
-  pv_opts=(-s "${SIZE_BYTES}")
-  size_gb=$(echo "scale=1; ${SIZE_BYTES}/1073741824" | bc)
-  echo "File size: ${size_gb} GB"
+if [ -f "${TARGET_PATH}" ]; then
+    echo "Found existing file at ${TARGET_PATH}; skipping download."
+    download_time=0
 else
-  pv_opts=()
-  echo "File size: Unknown"
-fi
+    # Get object size for progress estimation
+    BUCKET=$(echo "${S3_URI}" | cut -d/ -f3)
+    KEY=$(echo "${S3_URI}" | cut -d/ -f4-)
+    SIZE_BYTES=$(aws --endpoint "${ENDPOINT}" s3api head-object \
+                     --bucket "${BUCKET}" --key "${KEY}" \
+                     --query 'ContentLength' --output text 2>/dev/null || echo "")
+    [[ "${SIZE_BYTES}" == "None" ]] && SIZE_BYTES=""
 
-# Start background CPU activity during download
-touch /tmp/io_in_progress
-keep_cpu_active "download" &
-CPU_PID=$!
-
-# Download with optimized retry logic
-RETRY_COUNT=0
-SUCCESS=0
-
-while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-    echo "Downloading ${FILE_NAME} (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES})..."
-    
-    if aws --endpoint "${ENDPOINT}" s3 cp "${S3_URI}" - \
-       | pv "${pv_opts[@]}" --name "Download" --eta --rate --bytes \
-       > "${TARGET_PATH}"; then
-        SUCCESS=1
-        download_time=$(($(date +%s) - start_time))
-        echo "SUCCESS: Download completed in ${download_time}s"
-        break
+    if [[ -n "${SIZE_BYTES}" ]]; then
+      pv_opts=(-s "${SIZE_BYTES}")
+      size_gb=$(echo "scale=1; ${SIZE_BYTES}/1073741824" | bc)
+      echo "File size: ${size_gb} GB"
     else
-        RETRY_COUNT=$((RETRY_COUNT + 1))
-        echo "FAILED: Download failed. Attempt ${RETRY_COUNT}/${MAX_RETRIES}."
-        rm -f "${TARGET_PATH}"  # Remove partial file
-        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-            echo "Retrying in 5 seconds..."  # Reduced delay
-            sleep 5
-        fi
+      pv_opts=()
+      echo "File size: Unknown"
     fi
-done
 
-# Stop background CPU activity
-rm -f /tmp/io_in_progress
-wait $CPU_PID 2>/dev/null || true
+    # Download with optimized retry logic
+    RETRY_COUNT=0
+    SUCCESS=0
 
-if [ $SUCCESS -eq 0 ]; then
-    echo "FAILED: Failed to download ${S3_URI} after ${MAX_RETRIES} attempts"
-    exit 1
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        echo "Downloading ${FILE_NAME} (attempt $((RETRY_COUNT + 1))/${MAX_RETRIES})..."
+        
+        if aws --endpoint "${ENDPOINT}" s3 cp "${S3_URI}" - \
+           | pv "${pv_opts[@]}" --name "Download" --eta --rate --bytes \
+           > "${TARGET_PATH}"; then
+            SUCCESS=1
+            download_time=$(($(date +%s) - start_time))
+            echo "SUCCESS: Download completed in ${download_time}s"
+            break
+        else
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            echo "FAILED: Download failed. Attempt ${RETRY_COUNT}/${MAX_RETRIES}."
+            rm -f "${TARGET_PATH}"  # Remove partial file
+            if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Retrying in 5 seconds..."  # Reduced delay
+                sleep 5
+            fi
+        fi
+    done
+
+    if [ $SUCCESS -eq 0 ]; then
+        echo "FAILED: Failed to download ${S3_URI} after ${MAX_RETRIES} attempts"
+        exit 1
+    fi
 fi
 
 ###############################################################################
@@ -258,14 +250,8 @@ echo "=== PROCESSING PHASE ==="
 process_start=$(date +%s)
 echo "Launching optimized splitter on ${S3_URI}"
 
-# Use optimized Python script if available, fallback to standard
-if [ -f "splitter_optimized.py" ]; then
-    echo "Using optimized splitter with parallel processing..."
-    python splitter_optimized.py "${S3_URI}"
-else
-    echo "Using standard splitter..."
-    python splitter.py "${S3_URI}"
-fi
+echo "Using standard splitter with parallel processing..."
+python splitter.py "${S3_URI}"
 
 process_time=$(($(date +%s) - process_start))
 echo "Processing completed in ${process_time}s"
@@ -276,7 +262,7 @@ echo "Processing completed in ${process_time}s"
 echo "=== UPLOAD PHASE ==="
 upload_start=$(date +%s)
 
-S3_SPLIT_PREFIX="${S3_URI/original\/data/original\/split}"
+S3_SPLIT_PREFIX="${S3_URI}"
 if [[ "${S3_SPLIT_PREFIX}" == s3://braingeneers/* ]]; then
     S3_SPLIT_PREFIX="s3://braingeneersdev/${S3_SPLIT_PREFIX#s3://braingeneers/}"
 fi
@@ -343,6 +329,21 @@ for file in "${files_to_upload[@]}"; do
         failed_count=$((failed_count + 1))
     fi
 done
+
+###############################################################################
+# 7. Upload metadata to cache root (legacy sorter compatibility)
+###############################################################################
+if [ -f "${META_LOCAL}" ]; then
+    CACHE_META_ROOT="${META_ROOT}"
+    if [[ "${CACHE_META_ROOT}" == s3://braingeneers/* ]]; then
+        CACHE_META_ROOT="s3://braingeneersdev/${CACHE_META_ROOT#s3://braingeneers/}"
+    fi
+    echo "Uploading metadata.json to cache root: ${CACHE_META_ROOT}/metadata.json"
+    aws --endpoint "${ENDPOINT}" s3 cp "${META_LOCAL}" "${CACHE_META_ROOT}/metadata.json" || \
+        echo "WARNING: Failed to upload metadata to ${CACHE_META_ROOT}/metadata.json"
+else
+    echo "Metadata file not found at ${META_LOCAL}; skipping metadata upload"
+fi
 
 upload_time=$(($(date +%s) - upload_start))
 total_time=$(($(date +%s) - start_time))

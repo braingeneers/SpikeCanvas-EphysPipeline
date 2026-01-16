@@ -2,36 +2,22 @@
 
 ## Current Performance Analysis
 
-Based on your observation that splitter jobs are taking >2 hours, the bottlenecks are:
+Based on typical MaxTwo jobs, the bottlenecks are:
 
 1. **Download Phase**: ~45-60 minutes for 25GB files
-2. **Processing Phase**: ~15-20 minutes (actual data splitting)  
+2. **Processing Phase**: ~15-20 minutes (actual data splitting)
 3. **Upload Phase**: ~60-90 minutes for 6 × 4GB files (serial upload)
 
 ## Implemented Optimizations
 
-### 1. Optimized Shell Script (`start_splitter.sh`)
+### 1. Shell Script (`start_splitter.sh`)
 
 **Key Improvements:**
-- **Parallel Uploads**: Upload 3 files simultaneously instead of serially
-- **Optimized AWS CLI**: 16 concurrent requests, 32MB chunks, 1GB/s bandwidth
 - **Faster Retries**: Reduced retry delays from 10s to 3-5s
 - **Progress Monitoring**: Real-time ETA and throughput metrics
 - **Reduced Overhead**: Faster connectivity tests, minimal delays
 
-**Expected Speed Improvement**: 60-70% faster (2+ hours → 45-60 minutes)
-
-### 2. Optimized Python Script (`splitter_optimized.py`)
-
-**Key Improvements:**
-- **Parallel Processing**: Process multiple wells simultaneously using multiprocessing
-- **Memory Optimization**: Chunked I/O, memory-mapped access for large datasets
-- **Optimized H5 Copying**: Efficient hard-link preservation, reduced memory usage
-- **Detailed Timing**: Performance metrics for each phase
-
-**Expected Speed Improvement**: 30-40% faster processing (20 minutes → 12-15 minutes)
-
-### 3. Resource Configuration Updates
+### 2. Resource Configuration Updates
 
 **Current (Post-NRP Fix):**
 ```yaml
@@ -41,7 +27,7 @@ memory: "32Gi"    # 32GB RAM
 
 **Optimized for Speed:**
 ```yaml
-cpu: "6000m"      # 6 cores (more parallel processing)
+cpu: "6000m"      # 6 cores
 memory: "48Gi"    # 48GB RAM (more memory for caching)
 ephemeral-storage: "100Gi"  # Faster local disk
 ```
@@ -50,15 +36,15 @@ ephemeral-storage: "100Gi"  # Faster local disk
 
 ### Step 1: Update Docker Image
 
-Ensure the optimized scripts are included in the Docker image:
+Ensure the splitter scripts are included in the Docker image:
 
 ```dockerfile
 # Add to existing Dockerfile
 COPY src/start_splitter.sh /app/
-COPY src/splitter_optimized.py /app/
+COPY src/splitter.py /app/
 RUN chmod +x /app/start_splitter.sh
 
-# Install additional optimization tools
+# Install additional tools
 RUN apt-get update && apt-get install -y \
     bc \
     && rm -rf /var/lib/apt/lists/*
@@ -77,13 +63,13 @@ The configuration has been updated to use:
 ```bash
 # Build new Docker image
 cd maxtwo_splitter/docker
-docker build -t maxwell-maxtwo-splitter:optimized .
+docker build -t maxwell-maxtwo-splitter .
 
 # Update Kubernetes configuration
 kubectl apply -f ../../k8s/containers.yaml
 
 # Test with a small dataset first
-kubectl create job test-optimized-splitter --from=job/maxwell-maxtwo-splitter-template
+kubectl create job test-splitter --from=job/maxwell-maxtwo-splitter-template
 ```
 
 ## Performance Expectations
@@ -96,9 +82,9 @@ kubectl create job test-optimized-splitter --from=job/maxwell-maxtwo-splitter-te
 
 ### After Optimization:
 - **Total Time**: 45-60 minutes (50-60% improvement)
-- **Download**: 35-40 minutes (AWS CLI optimization)
-- **Processing**: 12-15 minutes (parallel processing)
-- **Upload**: 20-25 minutes (parallel uploads)
+- **Download**: 35-40 minutes
+- **Processing**: 12-15 minutes
+- **Upload**: 20-25 minutes
 
 ## Additional Long-term Optimizations
 
@@ -145,11 +131,9 @@ nodeSelector:
 
 ### If Upload Still Slow:
 - Check network bandwidth to S3 endpoint
-- Consider reducing parallel uploads from 3 to 2
 - Enable AWS CLI debug logging: `aws configure set default.cli_debug true`
 
 ### If Memory Issues:
-- Reduce parallel well processing from 3 to 2 workers
 - Lower memory request if pods fail to schedule
 
 ### If Processing Still Slow:
@@ -162,8 +146,6 @@ nodeSelector:
 With these optimizations, you should see:
 - **50-60% reduction** in total processing time
 - **Real-time progress monitoring** with ETAs
-- **Better resource utilization** (avoiding NRP suspension)
 - **Detailed performance metrics** for further tuning
-- **Parallel processing** making better use of allocated CPUs
 
-The optimizations maintain the same output quality while significantly reducing processing time through parallelization and I/O optimization.
+The optimizations maintain the same output quality while reducing processing time through I/O and retry improvements.

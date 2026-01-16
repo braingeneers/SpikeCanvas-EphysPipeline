@@ -79,7 +79,7 @@ DEFAULT_JOBS = {"batch":
                         "GPU": 1,
                         "params_label": "pipeline",
                         "next_job": "None"},
-                    1: {"image": "surygeng/kilosort_docker:v0.2",
+                    1: {"image": "braingeneers/kilosort2:v0.55",
                         "args": "./run.sh",
                         "cpu_request": 12,
                         "memory_request": 32,
@@ -124,6 +124,7 @@ DEFAULT_JOBS = {"batch":
 
 IMG_JOB_LOOPUP = {
     "surygeng/kilosort_docker:v0.2": "Kilosort2",
+    "braingeneers/kilosort2:v0.55": "Kilosort2",
     "surygeng/connectivity:v0.1": "Functional Connectivity Analysis",
     "surygeng/ephys_pipeline:v0.1": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "surygeng/local_field_potential:v0.1": "Local Field Potential Subbands",

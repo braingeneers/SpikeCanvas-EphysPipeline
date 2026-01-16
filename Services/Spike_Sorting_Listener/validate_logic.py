@@ -111,7 +111,7 @@ def test_pipeline_logic():
         {
             "name": "Pre-split MaxTwo well",
             "data_format": "maxtwo-split",
-            "file_path": "s3://bucket/uuid/original/split/recording_well001.raw.h5",
+            "file_path": "s3://bucket/uuid/original/data/recording_well001.raw.h5",
             "expected": "direct_sorting"
         },
         {
