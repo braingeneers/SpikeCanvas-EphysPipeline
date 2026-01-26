@@ -60,7 +60,6 @@ The MaxWell Ephys Pipeline Dashboard is a comprehensive web-based interface for 
 
 3. **Available Job Types**
    - ✅ **Ephys Pipeline**: Complete pipeline (Kilosort2 + Auto-Curation + Visualization)
-   - ⚡ **Spike Sorting**: Kilosort2 spike detection and clustering
    - 📊 **Auto-Curation**: Quality metrics and unit validation
    - 📈 **Visualization**: Generate plots and visual summaries
    - 🔗 **Functional Connectivity**: Network analysis and connectivity metrics

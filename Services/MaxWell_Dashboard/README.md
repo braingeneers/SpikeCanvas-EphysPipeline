@@ -36,7 +36,6 @@ SpikeCanvas provides a complete suite of tools for electrophysiology data analys
 ### Job Checklist
 - **Select Job**: Choose from the following job options:
   - Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)
-  - Spike Sorting (Kilosort2)
   - Auto-Curation (Quality Metrics)
   - Visualization
   - Functional Connectivity
