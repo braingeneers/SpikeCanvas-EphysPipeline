@@ -16,3 +16,4 @@ performance/
 PIPELINE_README.md
 .vscode/
 pipeline_paper_hippo_slice/
+Services/maxtwo_splitter/tmp/

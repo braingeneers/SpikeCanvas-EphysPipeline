@@ -123,7 +123,6 @@ DEFAULT_JOBS = {"batch":
                 }
 
 IMG_JOB_LOOPUP = {
-    "surygeng/kilosort_docker:v0.2": "Kilosort2",
     "braingeneers/kilosort2:v0.55": "Kilosort2",
     "surygeng/connectivity:v0.1": "Functional Connectivity Analysis",
     "surygeng/ephys_pipeline:v0.1": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",

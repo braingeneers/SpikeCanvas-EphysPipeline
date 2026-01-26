@@ -2,7 +2,7 @@
 """
 Optimized MaxTwo splitter with parallel processing and memory efficiency improvements.
 
-Download a 6-well MaxTwo *.raw.h5* file from S3, split it into six single-well
+Download a MaxTwo *.raw.h5* file from S3, split it into per-well
 files while preserving hard links, and upload the split files back to S3 under
 .../original/split/.
 
@@ -23,15 +23,13 @@ import logging
 import shutil
 import posixpath
 import multiprocessing as mp
-import psutil  # For memory monitoring
-import gc     # For garbage collection
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from functools import partial
+from typing import Dict, List, Union
 
 import h5py
 from tqdm import tqdm
-import numpy as np
 
 import braingeneers.utils.smart_open_braingeneers as smart_open
 import braingeneers.utils.s3wrangler as wr
@@ -94,42 +92,6 @@ def setup_hdf5_plugin():
         dst_dir.mkdir(parents=True, exist_ok=True)
         shutil.copy(src, dst_dir / "libcompression.so")
 
-def maintain_nrp_compliance():
-    """Maintain NRP-compliant resource usage during processing."""
-    try:
-        import psutil
-        process = psutil.Process()
-        
-        # Target: 25-40% of requested resources to stay well above 20% minimum
-        # With 48GB allocated, target 12-19GB usage (25-40%)
-        target_memory_gb = MEMORY_LIMIT_GB * 0.5  # 15GB target (30% of 48GB)
-        current_memory_gb = process.memory_info().rss / (1024 * 1024 * 1024)
-        
-        if current_memory_gb < target_memory_gb * 0.7:  # If below 70% of target
-            # Allocate working memory to maintain NRP compliance
-            dummy_size_gb = min(5, target_memory_gb - current_memory_gb)  # Up to 5GB
-            dummy_elements = int(dummy_size_gb * 1024 * 1024 * 1024 / 8)  # float64 elements
-            
-            # Create working arrays that will be used and cleaned up
-            dummy_array = np.zeros(dummy_elements, dtype=np.float64)
-            # Do some work with the array to ensure it's actually allocated
-            _ = np.mean(dummy_array[::1000])
-            
-            logging.info(f"NRP compliance: allocated {dummy_size_gb:.1f}GB working memory")
-            
-            # Clean up immediately after allocation
-            del dummy_array
-            gc.collect()
-            
-        logging.info(f"NRP compliance: Memory usage {current_memory_gb:.1f}GB (target: {target_memory_gb}GB), CPU workers: {MAX_WORKERS}")
-        
-    except ImportError:
-        logging.warning("psutil not available for resource monitoring")
-    except Exception as e:
-        logging.warning(f"Resource monitoring failed: {e}")
-        # Force cleanup on any error
-        gc.collect()
-
 # NOTE: Download and upload functions are handled by the optimized bash script
 # def download_s3_with_retry(src: str, dst: str, retries: int = 3):
 #     """Optimized download with faster retries."""
@@ -184,27 +146,50 @@ def maintain_nrp_compliance():
 
 def _discover_wells(src: h5py.File):
     """Discover available wells in the file."""
+    # Prefer the explicit wells/wellplate groups when present.
+    if "wells" in src:
+        wells = [k for k in src["wells"].keys() if k.startswith("well")]
+        if wells:
+            return sorted(wells)
+
+    if "wellplate" in src:
+        wells = [k for k in src["wellplate"].keys() if k.startswith("well")]
+        if wells:
+            return sorted(wells)
+
     wells = set()
-    
-    # Check recordings section
+
+    # Fallback to recordings section
     if "recordings" in src:
         for rec_key in src["recordings"].keys():
             rec = src["recordings"][rec_key]
             wells.update(k for k in rec.keys() if k.startswith("well"))
-    
-    # Check data_store section
+
+    if wells:
+        return sorted(wells)
+
+    # Legacy fallback to data_store section
     if "data_store" in src:
         for key in src["data_store"].keys():
             if key.startswith("data"):
                 well_num = key.replace("data", "")
                 if well_num.isdigit():
                     wells.add(f"well{int(well_num):03d}")
-    
-    # Check wells section directly
-    if "wells" in src:
-        wells.update(k for k in src["wells"].keys() if k.startswith("well"))
-    
+
     return sorted(list(wells))
+
+def _build_data_store_link_map(src: h5py.File) -> Dict[int, List[str]]:
+    """Map data_store group IDs to their canonical paths."""
+    data_store_map: Dict[int, List[str]] = {}
+    if "data_store" not in src:
+        return data_store_map
+
+    for key in src["data_store"].keys():
+        group = src["data_store"][key]
+        group_id = group.id.__hash__()
+        data_store_map.setdefault(group_id, []).append(f"data_store/{key}")
+
+    return data_store_map
 
 def _link(dst_parent: h5py.Group, name: str, target: str):
     """Create a hard link in HDF5 file - WORKING version from original."""
@@ -249,7 +234,7 @@ def _copy_tree_optimized(src, dst, src_path, dst_path, id_map, progress_callback
         logging.error(f"Error copying {src_path} to {dst_path}: {e}")
         raise
 
-def _tree_size(obj: h5py.Group | h5py.Dataset) -> int:
+def _tree_size(obj: Union[h5py.Group, h5py.Dataset]) -> int:
     """Calculate the number of objects in an HDF5 tree."""
     if isinstance(obj, h5py.Dataset):
         return 1
@@ -272,6 +257,15 @@ def process_single_well(args):
         with h5py.File(local_h5, "r") as src:
             # Collect source branches for this well - FIXED to prevent duplication
             branches = []
+            branch_set = set()
+
+            def add_branch(path: str):
+                if path not in branch_set:
+                    branches.append(path)
+                    branch_set.add(path)
+
+            data_store_map = _build_data_store_link_map(src)
+            data_store_added = False
             
             # Check recordings - only for this specific well
             if "recordings" in src:
@@ -279,22 +273,29 @@ def process_single_well(args):
                     rec = src["recordings"][rec_key]
                     if well in rec:
                         p = f"recordings/{rec_key}/{well}"
-                        branches.append(p)
+                        add_branch(p)
                         logging.debug(f"Found recording data: {p}")
+
+                        # Map this recording/well group to its data_store entry (24-well safe)
+                        if data_store_map:
+                            rec_well_id = rec[well].id.__hash__()
+                            for data_path in data_store_map.get(rec_well_id, []):
+                                add_branch(data_path)
+                                data_store_added = True
+
                         # Include recording-level metadata (e.g., sampling rate)
                         for child_key in rec.keys():
                             if child_key.startswith("well"):
                                 continue
                             meta_path = f"recordings/{rec_key}/{child_key}"
                             if meta_path in src:
-                                branches.append(meta_path)
+                                add_branch(meta_path)
             
-            # Check data_store - handle both data000 and data0000 key formats
-            well_num = int(well[-3:])  # Extract well number (e.g., well000 -> 0)
-            if "data_store" in src:
-                data_store = src["data_store"]
+            # Legacy fallback for data_store formats that use numeric well ids.
+            if "data_store" in src and not data_store_added:
+                well_num = int(well[-3:])  # Extract well number (e.g., well000 -> 0)
                 matches = []
-                for key in data_store.keys():
+                for key in src["data_store"].keys():
                     if not key.startswith("data"):
                         continue
                     suffix = key.replace("data", "")
@@ -304,17 +305,19 @@ def process_single_well(args):
                     matches.sort(key=len)
                     for data_key in matches:
                         p = f"data_store/{data_key}"
-                        branches.append(p)
+                        add_branch(p)
                         logging.debug(f"Found data_store: {p}")
             
             # Check wells section - only for this specific well
             if "wells" in src and well in src["wells"]:
                 p = f"wells/{well}"
-                branches.append(p)
+                add_branch(p)
                 logging.debug(f"Found wells data: {p}")
             
             # Add metadata using ORIGINAL working method
-            branches.extend(k for k in METADATA_KEYS if k in src)
+            for key in METADATA_KEYS:
+                if key in src:
+                    add_branch(key)
             
             if not branches:
                 logging.warning(f"No data found for {well}")
@@ -367,8 +370,9 @@ def split_maxtwo_by_well_parallel(local_h5: str, rec_name: str, out_dir: str):
     if not wells:
         raise ValueError("No wells found in source file.")
     
-    if len(wells) != 6:
-        logging.warning(f"Expected 6 wells but found {len(wells)}: {wells}")
+    expected_well_counts = {6, 24}
+    if len(wells) not in expected_well_counts:
+        logging.warning(f"Expected {sorted(expected_well_counts)} wells but found {len(wells)}: {wells}")
     
     logging.info(f"Processing {len(wells)} wells using {MAX_WORKERS} workers")
     
@@ -437,10 +441,6 @@ def main():
     logging.info(f"Source: {s3_path}")
     logging.info(f"CPU Workers: {MAX_WORKERS} (utilizing 6 cores)")
     logging.info(f"Memory allocation: {MEMORY_LIMIT_GB}GB (of 48GB available)")
-    logging.info(f"NRP compliance: Target 25-40% utilization")
-    
-    # Initial NRP compliance check
-    maintain_nrp_compliance()
     
     try:
         # Check if source exists
@@ -457,9 +457,6 @@ def main():
             rec_name=rec_name,
             out_dir=str(local_split)
         )
-        
-        # Maintain NRP compliance after processing
-        maintain_nrp_compliance()
         
         process_time = time.perf_counter() - process_start
         logging.info(f"Processing phase completed in {process_time:.1f}s")

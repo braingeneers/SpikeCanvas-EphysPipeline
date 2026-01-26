@@ -10,6 +10,16 @@ REC_TIME=$(echo "$1" | awk -F '/original/(data|split)/|/shared/' '{print $1}')
 DATASET=$(echo "$1" | awk -F '/original/(data|split)/|/shared/' '{print $2}')
 
 DATA_NAME_FULL=$(echo "${DATASET}" | awk -F '.raw.h5|.h5|.nwb' '{print $1}')
+OUT_REC_TIME="${REC_TIME}"
+if [[ "${OUT_REC_TIME}" == s3://braingeneersdev/* ]]; then
+    OUT_REC_TIME="s3://braingeneers/${OUT_REC_TIME#s3://braingeneersdev/}"
+fi
+CACHE_REC_TIME="${REC_TIME}"
+if [[ "${CACHE_REC_TIME}" == s3://braingeneers/* ]]; then
+    CACHE_REC_TIME="s3://braingeneersdev/${CACHE_REC_TIME#s3://braingeneers/}"
+elif [[ "${CACHE_REC_TIME}" != s3://braingeneersdev/* ]]; then
+    CACHE_REC_TIME="s3://braingeneersdev/${CACHE_REC_TIME#s3://}"
+fi
 
 if [[ "${DATA_NAME_FULL}" == *"/"* ]]; then
     CHIP_ID=$(echo "${DATA_NAME_FULL}" | awk -F '/' '{print $1}')"/"
@@ -81,13 +91,13 @@ echo "Uploading results..."
 cd /project/SpikeSorting/inter/sorted/kilosort2 || exit
 
 # Upload cache files
-aws --endpoint $ENDPOINT_URL s3 cp recording.dat s3://braingeneersdev/cache/${DATA_NAME}/recording.dat
-aws --endpoint $ENDPOINT_URL s3 cp temp_wh.dat s3://braingeneersdev/cache/${DATA_NAME}/temp_wh.dat
+aws --endpoint $ENDPOINT_URL s3 cp recording.dat ${CACHE_REC_TIME}/cache/recording.dat
+aws --endpoint $ENDPOINT_URL s3 cp temp_wh.dat ${CACHE_REC_TIME}/cache/temp_wh.dat
 rm *.dat
 
 # Create and upload main results
 zip -r ${DATA_NAME}_phy.zip *
-DEST="${REC_TIME}/derived/kilosort2/${CHIP_ID}${DATA_NAME}_phy.zip"
+DEST="${OUT_REC_TIME}/derived/kilosort2/${CHIP_ID}${DATA_NAME}_phy.zip"
 
 # retry 5 times if the upload fails
 RETRY_COUNT=0
@@ -115,7 +125,7 @@ cd /project/SpikeSorting/inter/sorted/curation/curated || exit
 zip -r qm.zip *
 
 # retry 5 times if the upload fails
-DEST="${REC_TIME}/derived/kilosort2/${CHIP_ID}${DATA_NAME}_acqm.zip"
+DEST="${OUT_REC_TIME}/derived/kilosort2/${CHIP_ID}${DATA_NAME}_acqm.zip"
 RETRY_COUNT=0
 SUCCESS=0
 while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
@@ -138,7 +148,7 @@ fi
 # upload the figure
 cd /project/SpikeSorting/inter/sorted/figure || exit
 zip -r figure.zip *
-DEST="${REC_TIME}/derived/kilosort2/${CHIP_ID}${DATA_NAME}_figure.zip"
+DEST="${OUT_REC_TIME}/derived/kilosort2/${CHIP_ID}${DATA_NAME}_figure.zip"
 
 # retry 5 times if the upload fails
 RETRY_COUNT=0
@@ -158,6 +168,11 @@ if [ $SUCCESS -eq 1 ]; then
     echo "_figure.zip uploaded successfully."
 else
     echo "_figure.zip failed to upload after $MAX_RETRIES attempts."
+fi
+
+if [[ "$1" == s3://braingeneersdev/* ]]; then
+    echo "Cleaning cache input: $1"
+    aws --endpoint "$ENDPOINT_URL" s3 rm "$1" || echo "WARNING: Failed to delete cache input $1"
 fi
 
 echo "Kilosort2 pipeline completed."

@@ -1,3 +1,4 @@
+import spikeinterface as si
 import spikeinterface.extractors as se
 import spikeinterface.preprocessing as sp
 import os
@@ -14,6 +15,7 @@ import utils
 import plots
 import plots_sua
 import shutil
+import h5py
 
 FORMAT_LIST = ["Maxwell", "mearec", "nwb"]
 data_format = None
@@ -165,19 +167,40 @@ def extract_recording(rec_path, output_folder, format):
         mr.convert_recording_to_new_version(rec_path)
         rec, _ = se.read_mearec(rec_path)
     elif format == "Maxwell":
-        rec = se.read_maxwell(rec_path)
+        rec_names = _get_maxwell_rec_names(rec_path)
+        if len(rec_names) <= 1:
+            rec_name = rec_names[0] if rec_names else None
+            if rec_name:
+                logging.info(f"Loading Maxwell recording {rec_name}")
+                rec = se.read_maxwell(rec_path, rec_name=rec_name)
+            else:
+                rec = se.read_maxwell(rec_path)
+        else:
+            logging.info(f"Detected {len(rec_names)} Maxwell recordings; concatenating: {rec_names}")
+            recordings = [se.read_maxwell(rec_path, rec_name=rec_name) for rec_name in rec_names]
+            try:
+                rec = si.concatenate_recordings(recordings)
+            except Exception as exc:
+                logging.warning(f"Concatenation failed ({exc}); defaulting to first recording")
+                rec = recordings[0]
     elif format == "nwb":
         rec = se.read_nwb(rec_path)
     # filter and convert to binary recording
 
-    if float(rec.get_sampling_frequency()) < 20000.:
+    fs = float(rec.get_sampling_frequency())
+    if fs < 20000.:
         logging.warning("Sampling frequency is less than 20 kHz, setting the bandpass filter to 300-4600 Hz instead of 300-6000 Hz.")
         band_max = 4600
     else:
         logging.warning("Sampling frequency is 20 kHz,using 300-6000 Hz for the bandpass filter.")
         band_max = 6000
+    nyquist = fs / 2.0
+    max_allowed = 0.9 * nyquist
+    effective_max = min(band_max, max_allowed)
+    if effective_max < band_max:
+        logging.warning(f"Sampling frequency {fs:.1f} Hz; clamping freq_max to {effective_max:.1f} Hz")
 
-    rec_filter = sp.bandpass_filter(rec, freq_min=band_min, freq_max=band_max, dtype="float32")
+    rec_filter = sp.bandpass_filter(rec, freq_min=band_min, freq_max=effective_max, dtype="float32")
     binary_file_path = os.path.join(output_folder, 'recording.dat')
     se.BinaryRecordingExtractor.write_recording(
         rec_filter, file_paths=binary_file_path,
@@ -185,6 +208,18 @@ def extract_recording(rec_path, output_folder, format):
         n_jobs=kilosort_params["n_jobs_bin"],
         verbose=False, progress_bar=True)
     return rec_filter
+
+
+def _get_maxwell_rec_names(rec_path):
+    try:
+        with h5py.File(rec_path, "r") as dataset:
+            if "recordings" not in dataset:
+                return []
+            rec_names = [key for key in dataset["recordings"].keys() if key.startswith("rec")]
+            return sorted(rec_names)
+    except Exception as exc:
+        logging.warning(f"Failed to read Maxwell recording names: {exc}")
+        return []
 
 if __name__ == "__main__":
     output_folder = os.path.join(inter_folder, "sorted/kilosort2")
@@ -271,4 +306,3 @@ if __name__ == "__main__":
     psua.plot_sua()
 
     logging.info("All plots are saved.")
-
