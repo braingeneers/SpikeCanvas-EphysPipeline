@@ -93,7 +93,6 @@ layout = dbc.Container([
                                    id='select_jobs',
                                    options=[{'label': 'Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)',
                                              'value': 0},
-                                            {'label': 'Spike Sorting (Kilosort2)', 'value': 1},
                                             {'label': 'Auto-Curation (Quality Metrics)', 'value': 2},
                                             {'label': 'Visualization', 'value': 3},
                                             {'label': 'Functional Connectivity', 'value': 4},

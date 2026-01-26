@@ -34,6 +34,6 @@ Errors and exceptions during job execution are logged and can be inspected for t
 
 ## Where Kubernetes job manifests live now
 
-Kubernetes manifests for the underlying algorithms live alongside the code for each stage of the pipeline under `Algorithms/*/k8s/`. For example, the Kilosort2 job template is in `Algorithms/kilosort2_simplified/run_kilosort2.yaml` and LFP, connectivity, and visualization jobs have similar manifests under their respective `k8s` directories.
+Kubernetes manifests for the underlying algorithms live alongside the code for each stage of the pipeline under `Algorithms/*/k8s/`. For example, the pipeline Kilosort2 job template is in `Algorithms/ephys_pipeline/run_kilosort2.yaml` and LFP, connectivity, and visualization jobs have similar manifests under their respective `k8s` directories.
 
 Please review the Mission Control deployment for image packaging, but use this repository for the authoritative job definitions.

@@ -31,7 +31,7 @@ Successfully implemented and **production-tested** automated MaxTwo electrophysi
 
 #### B. Pipeline Branching
 - **MaxTwo Pipeline**: Original → Splitter Job → Watch & Fanout → 6 Sorter Jobs
-- **Non-MaxTwo Pipeline**: Direct spike sorting with `kilosort2_simplified`
+- **Non-MaxTwo Pipeline**: Direct spike sorting with `ephys_pipeline`
 
 #### C. Configuration Management
 - **Splitter Config**: `get_splitter_config()` returns hardcoded Docker container settings
@@ -165,7 +165,7 @@ Successfully implemented and **production-tested** automated MaxTwo electrophysi
 ### 1. Prerequisites
 - Existing MQTT listener service running
 - `maxtwo_splitter:v0.1` Docker image available
-- `kilosort2_simplified` Docker image available
+- `ephys_pipeline` Docker image available
 - Kubernetes cluster with sufficient resources
 
 ### 2. Deployment Steps

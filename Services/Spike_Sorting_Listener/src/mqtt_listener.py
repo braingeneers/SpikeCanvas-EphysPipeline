@@ -46,7 +46,7 @@ TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/ephys-data-pipeline"
 LOG_FILE_NAME = "listener.log"
 LOG_PATH = "s3://braingeneers/services/mqtt_job_listener/" + LOG_FILE_NAME
 DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
-SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.56"
+SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.57"
 
 # setup logging
 stream_handler = logging.StreamHandler()

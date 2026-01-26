@@ -61,7 +61,7 @@ CONVERT_TO_JSON = {
 }
 
 DEFAULT_JOBS = {"batch":
-                    {"image": "surygeng/ephys_pipeline:v0.1",
+                    {"image": "braingeneers/ephys_pipeline:v0.57",
                      "args": "./run.sh",
                      "cpu_request": 12,
                      "memory_request": 32,
@@ -71,21 +71,13 @@ DEFAULT_JOBS = {"batch":
                      "next_job": "None"
                      },
                 "chained": {
-                    0: {"image": "surygeng/ephys_pipeline:v0.1",  # for running individual recording
+                    0: {"image": "braingeneers/ephys_pipeline:v0.57",  # for running individual recording
                         "args": "./run.sh",
                         "cpu_request": 12,
                         "memory_request": 32,
                         "disk_request": 400,
                         "GPU": 1,
                         "params_label": "pipeline",
-                        "next_job": "None"},
-                    1: {"image": "braingeneers/kilosort2:v0.55",
-                        "args": "./run.sh",
-                        "cpu_request": 12,
-                        "memory_request": 32,
-                        "disk_request": 400,
-                        "GPU": 1,
-                        "params_label": "kilosort2",
                         "next_job": "None"},
                     2: {"image": "surygeng/qm_curation:v0.2",
                         "args": "python si_curation.py",
@@ -123,9 +115,8 @@ DEFAULT_JOBS = {"batch":
                 }
 
 IMG_JOB_LOOPUP = {
-    "braingeneers/kilosort2:v0.55": "Kilosort2",
     "surygeng/connectivity:v0.1": "Functional Connectivity Analysis",
-    "surygeng/ephys_pipeline:v0.1": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
+    "braingeneers/ephys_pipeline:v0.57": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "surygeng/local_field_potential:v0.1": "Local Field Potential Subbands",
     "surygeng/qm_curation:v0.2": "Auto-Curation by Quality Metrics",
     "surygeng/visualization:v0.1": "Visualization"

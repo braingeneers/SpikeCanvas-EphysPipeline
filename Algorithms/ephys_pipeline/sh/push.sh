@@ -6,7 +6,7 @@ if [[ -z "${TAG:-}" ]]; then
   exit 1
 fi
 
-IMAGE_NAME="braingeneers/kilosort2_simplified"
+IMAGE_NAME="braingeneers/ephys_pipeline"
 
-echo "Pushing kilosort2_simplified image: ${IMAGE_NAME}:${TAG}"
+echo "Pushing ephys_pipeline image: ${IMAGE_NAME}:${TAG}"
 docker push "${IMAGE_NAME}:${TAG}"

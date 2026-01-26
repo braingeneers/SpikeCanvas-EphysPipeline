@@ -51,5 +51,5 @@ WORKDIR /project/src
 ENV ENDPOINT_URL="https://s3.braingeneers.gi.ucsc.edu"
 ENV PATH="/usr/local/nvidia/bin:/usr/local/cuda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:."
 
-# container name: 
-    # ephys_pipeline:v0.1 - data & parameter input
+# container name:
+    # braingeneers/ephys_pipeline:<tag> - data & parameter input

@@ -13,7 +13,7 @@ All algorithms follow the same three-step workflow:
 3. **Save results to S3** – Upload processed outputs back to S3 storage for downstream use or visualization
 
 Individual algorithm implementations:
-- **Kilosort2 simplified** – automation script that builds the spike-sorting Docker image and launches the accompanying Kubernetes job defined in `run_kilosort2.yaml`. Use it as a reference for running the simplified Kilosort2 pipeline in cluster environments.【F:Algorithms/kilosort2_simplified/run.sh†L1-L10】
+- **Ephys pipeline** – automation script that builds the spike-sorting Docker image and launches the accompanying Kubernetes job defined in `run_kilosort2.yaml`. Use it as a reference for running the full pipeline in cluster environments.【F:Algorithms/ephys_pipeline/run.sh†L1-L10】
 - **Connectivity analysis** – `src/run_conn.py` downloads spike-sorting results from S3, applies default cross-correlogram parameters, and writes connectivity outputs back to storage, logging progress throughout the job.【F:Algorithms/connectivity/src/run_conn.py†L14-L119】
 - **Local field potential (LFP)** – `src/run_lfp.py` loads Maxwell HDF5 recordings from S3, parses JSON parameter files to pick start/end windows, applies filtering/downsampling, and saves the processed segment back to derived storage paths.【F:Algorithms/local_field_potential/src/run_lfp.py†L128-L199】
 - **SpikeInterface auto-curation** – `src/si_curation.py` runs a SpikeInterface-based quality-metric pass (SNR, ISI violations, firing rate, redundant units) with tunable defaults to prune low-quality units and persist cleaned waveforms.【F:Algorithms/si_curation_docker/src/si_curation.py†L30-L109】 Redundant-unit curation is currently disabled, so only the other metrics are applied.

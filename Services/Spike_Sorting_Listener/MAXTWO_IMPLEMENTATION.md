@@ -15,7 +15,7 @@ This document summarizes the completed implementation of the automated MaxTwo el
 
 #### 2. Pipeline Branching Logic
 - **MaxTwo Pipeline**: Original recording → Splitter (1 job) → Watch & Fanout → 6 Sorter jobs
-- **Non-MaxTwo Pipeline**: Direct spike sorting with `kilosort2_simplified`
+- **Non-MaxTwo Pipeline**: Direct spike sorting with `ephys_pipeline`
 - **Integration Point**: Modified `run_sorting()` method in `JobMessage` class
 
 #### 3. Well Validation Logic
@@ -121,7 +121,7 @@ INFO: Starting MaxTwo splitter fanout for uuid, M06359_D51_KOLFMO_632025
 
 ## Docker Images Used
 - **Splitter**: `surygeng/maxtwo_splitter:v0.1`
-- **Sorter**: `surygeng/kilosort2_simplified:latest` (from sorting_job_info.json)
+- **Sorter**: `braingeneers/ephys_pipeline:v0.57` (from sorting_job_info.json)
 
 ## Testing Recommendations
 

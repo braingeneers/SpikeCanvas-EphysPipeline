@@ -6,9 +6,9 @@ if [[ -z "${TAG:-}" ]]; then
   exit 1
 fi
 
-IMAGE_NAME="braingeneers/kilosort2_simplified"
+IMAGE_NAME="braingeneers/ephys_pipeline"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-echo "Building kilosort2_simplified image: ${IMAGE_NAME}:${TAG}"
+echo "Building ephys_pipeline image: ${IMAGE_NAME}:${TAG}"
 docker build -t "${IMAGE_NAME}:${TAG}" -f "${PROJECT_ROOT}/docker/Dockerfile" "${PROJECT_ROOT}"
