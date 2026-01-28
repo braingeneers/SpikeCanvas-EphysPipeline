@@ -6,16 +6,22 @@
 ###############################################################################
 from kubernetes import client, config
 from k8s_kilosort2 import Kube
-import threading, time, os, logging
+import threading, time, os, logging, posixpath
 import traceback
+from urllib.parse import urlparse
+
+import braingeneers.utils.s3wrangler as wr
 
 # import shared utilities
-from job_utils import format_job_name, JOB_PREFIX, NAMESPACE, DEFAULT_S3_BUCKET
+from job_utils import format_job_name, JOB_PREFIX, NAMESPACE, CACHE_S3_BUCKET, DEFAULT_S3_BUCKET
+
+SPLITTER_JOB_PREFIX = "edp-ma2split-"
 
 # Note: Removed module-level kube config loading to avoid connection sharing issues
 
 def spawn_splitter_fanout(uuid: str,
                           experiment: str,
+                          file_path: str,
                           splitter_cfg: dict,
                           sorter_tpl: dict):
     """Submit splitter Job + start a watcher thread."""
@@ -23,22 +29,24 @@ def spawn_splitter_fanout(uuid: str,
     logging.info(f"Parameters - UUID: {uuid}, Experiment: {experiment}")
     
     # Input validation
-    if not uuid or not experiment:
-        raise ValueError(f"UUID and experiment must be provided: uuid='{uuid}', experiment='{experiment}'")
+    if not uuid or not experiment or not file_path:
+        raise ValueError("UUID, experiment, and file_path must be provided")
     
     if not splitter_cfg or not sorter_tpl:
         raise ValueError("splitter_cfg and sorter_tpl must be provided")
     
     # Validate required fields in configs
-    required_splitter_fields = ['args', 'cpu_request', 'memory_request', 'disk_request', 'GPU', 'image']
+    required_splitter_fields = [
+        'args', 'cpu_request', 'memory_request', 'disk_request', 'GPU', 'image',
+        'init_args', 'init_cpu_request', 'init_memory_request', 'init_disk_request', 'init_GPU'
+    ]
     missing_fields = [field for field in required_splitter_fields if field not in splitter_cfg]
     if missing_fields:
         raise ValueError(f"Missing required fields in splitter_cfg: {missing_fields}")
     
     try:
         base_exp = experiment.replace(".raw.h5", "").replace(".h5", "")
-        split_raw   = f"{base_exp}-split"
-        split_name  = format_job_name(split_raw, prefix=JOB_PREFIX)
+        split_name = format_job_name(base_exp, prefix=SPLITTER_JOB_PREFIX)
 
         logging.info(f"Creating splitter job with name: {split_name}")
         logging.info(f"Base experiment: {base_exp}")
@@ -47,7 +55,18 @@ def spawn_splitter_fanout(uuid: str,
         # -------- create splitter Job if missing ----------------------------
         # Prepare config with all required fields
         cfg = splitter_cfg.copy()
-        cfg.update({"uuid": uuid, "experiment": experiment})
+        cfg.update({
+            "file_path": file_path,
+            "init_container": {
+                "name": "maxtwo-download",
+                "image": splitter_cfg["image"],
+                "args": f"{splitter_cfg['init_args']} {file_path}",
+                "cpu_request": splitter_cfg["init_cpu_request"],
+                "memory_request": splitter_cfg["init_memory_request"],
+                "disk_request": splitter_cfg["init_disk_request"],
+                "GPU": splitter_cfg["init_GPU"],
+            },
+        })
         
         # Create Kube object once for efficiency
         splitter_job = Kube(split_name, cfg)
@@ -73,7 +92,7 @@ def spawn_splitter_fanout(uuid: str,
         watcher_thread = threading.Thread(
             target=_watch_and_fanout,
             name=f"fanout-{base_exp}",
-            args=(split_name, uuid, experiment, sorter_tpl, job_created),
+            args=(split_name, uuid, experiment, file_path, sorter_tpl, job_created),
             daemon=False  # Changed to False to ensure proper logging
         )
         watcher_thread.start()
@@ -122,7 +141,7 @@ def _safe_get_job_status(job_name, max_retries=3, retry_delay=5):
             
     return None
 
-def _watch_and_fanout(split_name, uuid_param, experiment, tpl, job_created=True):
+def _watch_and_fanout(split_name, uuid_param, experiment, file_path, tpl, job_created=True):
     """Watch splitter job and fan out sorter jobs when complete."""
     try:
         logging.info(f"Starting watcher for splitter job: {split_name} (job_created={job_created})")
@@ -144,7 +163,7 @@ def _watch_and_fanout(split_name, uuid_param, experiment, tpl, job_created=True)
                 
                 if job_status.succeeded and job_status.succeeded > 0:
                     logging.info(f"[{split_name}] Already completed → fan-out sorters")
-                    _launch_sorters(uuid_param, experiment, tpl)
+                    _launch_sorters(uuid_param, experiment, file_path, tpl)
                     return
                 elif job_status.failed and job_status.failed >= 2:
                     logging.error(f"[{split_name}] Already failed; skip sorters")
@@ -184,7 +203,7 @@ def _watch_and_fanout(split_name, uuid_param, experiment, tpl, job_created=True)
                 if job_status.succeeded and job_status.succeeded > 0:
                     logging.info(f"[{split_name}] Succeeded → fan-out sorters")
                     logging.info(f"LAUNCHING SORTERS: Splitter {split_name} completed successfully")
-                    _launch_sorters(uuid_param, experiment, tpl)
+                    _launch_sorters(uuid_param, experiment, file_path, tpl)
                     return  # Exit successfully
                     
                 if job_status.failed and job_status.failed >= 2:
@@ -221,69 +240,134 @@ def _watch_and_fanout(split_name, uuid_param, experiment, tpl, job_created=True)
     finally:
         logging.info(f"Watcher thread for {split_name} ending")
 
-def _launch_sorters(uuid_param, experiment, tpl):
-    """Launch 6 sorter jobs for the split wells."""
+def _launch_sorters(uuid_param, experiment, file_path, tpl):
+    """Launch sorter jobs after splitter completes."""
     try:
         base_exp = experiment.replace(".raw.h5", "").replace(".h5", "")
-        split_dir = os.path.join(DEFAULT_S3_BUCKET, uuid_param, "original/split")
-        
+        cache_uuid = _normalize_uuid_for_cache(uuid_param)
+        split_dir = posixpath.join(CACHE_S3_BUCKET, cache_uuid, "original/data")
+        legacy_split_dir = posixpath.join(CACHE_S3_BUCKET, cache_uuid, "original/split")
+
         logging.info(f"Launching sorters for experiment: {base_exp}")
-        logging.info(f"Split directory: {split_dir}")
+        if cache_uuid != uuid_param:
+            logging.info(f"Normalized cache UUID from {uuid_param} to {cache_uuid}")
+        logging.info(f"Cache directory: {split_dir}")
 
-        jobs_created = 0
-        jobs_skipped = 0
-        jobs_failed = 0
-        failed_wells = []
-        
-        for i in range(6):
-            well     = f"well{i:03d}"
-            raw_path = os.path.join(split_dir, f"{base_exp}_{well}.raw.h5")
+        split_files = _list_split_files(split_dir, base_exp)
+        if not split_files and legacy_split_dir != split_dir:
+            logging.info("No split files in cache data path; checking legacy split path")
+            split_files = _list_split_files(legacy_split_dir, base_exp)
+            if split_files:
+                logging.info(f"Found {len(split_files)} split files in legacy path for {base_exp}")
 
-            info = tpl.copy()
-            info["file_path"] = raw_path
-            info["uuid"] = uuid_param
-            info["experiment"] = f"{base_exp}_{well}"
-
-            raw_job_name = f"{base_exp}-{well}"
-            job_name     = format_job_name(raw_job_name, prefix=JOB_PREFIX)
-
-            logging.info(f"Creating sorter job {job_name} for well {well}")
-            logging.info(f"Well file path: {raw_path}")
-            
-            try:
-                # Create Kube object once for efficiency
-                kube_job = Kube(job_name, info)
-                
-                if not kube_job.check_job_exist():
-                    job_result = kube_job.create_job()
-                    if job_result == -1:
-                        logging.error(f"Failed to create sorter job {job_name}")
-                        jobs_failed += 1
-                        failed_wells.append(well)
-                    else:
-                        logging.info(f"Sorter Job {job_name} created successfully")
-                        jobs_created += 1
-                        # Small delay between job creations to avoid overwhelming the API
-                        time.sleep(0.1)
-                else:
-                    logging.info(f"Sorter job {job_name} already exists, skipping")
-                    jobs_skipped += 1
-                    
-            except Exception as job_err:
-                logging.error(f"Error creating sorter job {job_name}: {job_err}")
-                jobs_failed += 1
-                failed_wells.append(well)
-                
-        logging.info(f"Sorter job creation complete: {jobs_created} created, {jobs_skipped} skipped, {jobs_failed} failed")
-        
-        if jobs_failed > 0:
-            logging.error(f"Failed wells: {', '.join(failed_wells)}")
-            # Don't raise exception - partial success is still useful
-            # raise Exception(f"Failed to create {jobs_failed} out of 6 sorter jobs")
-        
-        if jobs_created == 0 and jobs_skipped == 0:
-            raise Exception("No sorter jobs were created or found - this indicates a serious problem")
+        if split_files:
+            logging.info(f"Found {len(split_files)} split files for {base_exp}")
+            _launch_split_sorters(uuid_param, base_exp, split_files, tpl)
+        else:
+            logging.info("No split files found; launching single sorter job")
+            _launch_single_sorter(uuid_param, experiment, file_path, tpl)
                 
     except Exception as e:
         logging.error(f"Error launching sorters: {e}")
         raise
+
+
+def _normalize_uuid_for_cache(uuid_param: str) -> str:
+    if not uuid_param:
+        return uuid_param
+    if uuid_param.startswith("s3://"):
+        if uuid_param.startswith(DEFAULT_S3_BUCKET):
+            raw_uuid = uuid_param[len(DEFAULT_S3_BUCKET):]
+            return raw_uuid.strip("/")
+        parsed = urlparse(uuid_param)
+        key = parsed.path.lstrip("/")
+        for prefix in ("ephys/", "integrated/", "fluidics/"):
+            if key.startswith(prefix):
+                key = key[len(prefix):]
+                break
+        return key.strip("/")
+    return uuid_param.strip("/")
+
+
+def _list_split_files(split_dir: str, base_exp: str):
+    try:
+        candidates = wr.list_objects(split_dir)
+    except Exception as err:
+        logging.warning(f"Could not list split directory {split_dir}: {err}")
+        return []
+
+    split_files = []
+    for path in candidates:
+        name = posixpath.basename(path)
+        if not (name.endswith(".raw.h5") or name.endswith(".h5")):
+            continue
+        if name.startswith(f"{base_exp}_well"):
+            split_files.append(path)
+    return sorted(split_files)
+
+
+def _launch_split_sorters(uuid_param, base_exp, split_files, tpl):
+    jobs_created = 0
+    jobs_skipped = 0
+    jobs_failed = 0
+    failed_wells = []
+
+    for raw_path in split_files:
+        well_id = posixpath.basename(raw_path)
+        well_id = well_id.replace(".raw.h5", "").replace(".h5", "")
+        well_id = well_id.split(f"{base_exp}_", 1)[-1]
+
+        info = tpl.copy()
+        info["file_path"] = raw_path
+        info["uuid"] = uuid_param
+        info["experiment"] = f"{base_exp}_{well_id}"
+
+        raw_job_name = f"{base_exp}-{well_id}"
+        job_name = format_job_name(raw_job_name, prefix=JOB_PREFIX)
+
+        logging.info(f"Creating sorter job {job_name} for well {well_id}")
+        logging.info(f"Well file path: {raw_path}")
+
+        try:
+            kube_job = Kube(job_name, info)
+            if not kube_job.check_job_exist():
+                job_result = kube_job.create_job()
+                if job_result == -1:
+                    logging.error(f"Failed to create sorter job {job_name}")
+                    jobs_failed += 1
+                    failed_wells.append(well_id)
+                else:
+                    logging.info(f"Sorter Job {job_name} created successfully")
+                    jobs_created += 1
+                    time.sleep(0.1)
+            else:
+                logging.info(f"Sorter job {job_name} already exists, skipping")
+                jobs_skipped += 1
+        except Exception as job_err:
+            logging.error(f"Error creating sorter job {job_name}: {job_err}")
+            jobs_failed += 1
+            failed_wells.append(well_id)
+
+    logging.info(f"Sorter job creation complete: {jobs_created} created, {jobs_skipped} skipped, {jobs_failed} failed")
+    if jobs_failed > 0:
+        logging.error(f"Failed wells: {', '.join(failed_wells)}")
+    if jobs_created == 0 and jobs_skipped == 0:
+        raise Exception("No sorter jobs were created or found - this indicates a serious problem")
+
+
+def _launch_single_sorter(uuid_param, experiment, file_path, tpl):
+    info = tpl.copy()
+    info["file_path"] = file_path
+    info["uuid"] = uuid_param
+    info["experiment"] = experiment.replace(".raw.h5", "").replace(".h5", "")
+
+    job_name = format_job_name(info["experiment"], prefix=JOB_PREFIX)
+    logging.info(f"Creating sorter job {job_name} for {file_path}")
+    kube_job = Kube(job_name, info)
+    if not kube_job.check_job_exist():
+        job_result = kube_job.create_job()
+        if job_result == -1:
+            raise Exception(f"Failed to create sorter job {job_name}")
+        logging.info(f"Sorter Job {job_name} created successfully")
+    else:
+        logging.info(f"Sorter job {job_name} already exists, skipping")

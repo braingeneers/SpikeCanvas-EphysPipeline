@@ -32,7 +32,7 @@ RUN pip install deprecated \
 ENV ENDPOINT_URL="https://s3.braingeneers.gi.ucsc.edu"
 
 COPY src/ /app/
-RUN chmod +x /app/start_splitter.sh /app/splitter.py
+RUN chmod +x /app/start_splitter.sh /app/download_only.sh /app/splitter.py
 
 WORKDIR /app
 

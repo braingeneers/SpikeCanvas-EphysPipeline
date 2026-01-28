@@ -40,6 +40,18 @@ class Kube:
                           "nvidia.com/gpu": str(self.job_info["GPU"])}
 
     def create_job_object(self):
+        env_vars = [
+            client.V1EnvVar(name="PYTHONUNBUFFERED", value='true'),
+            # client.V1EnvVar(name="ENDPOINT_URL", value="http://rook-ceph-rgw-nautiluss3.rook"),
+            # client.V1EnvVar(name="S3_ENDPOINT", value="rook-ceph-rgw-nautiluss3.rook")],
+            client.V1EnvVar(name="ENDPOINT_URL", value="https://s3.braingeneers.gi.ucsc.edu"),  # use external url to avoid 403 error
+            client.V1EnvVar(name="S3_ENDPOINT", value="s3.braingeneers.gi.ucsc.edu")
+        ]
+        volume_mounts = [
+            client.V1VolumeMount(name="prp-s3-credentials", mount_path="/root/.aws/credentials",
+                                 sub_path="credentials"),
+            client.V1VolumeMount(name="ephemeral", mount_path="/data")
+        ]
         container = client.V1Container(
             name="container",
             image=self.job_info["image"],
@@ -50,14 +62,27 @@ class Kube:
                 requests=self.resources,
                 limits=self.resources
             ),
-            env=[client.V1EnvVar(name="PYTHONUNBUFFERED", value='true'),
-                #  client.V1EnvVar(name="ENDPOINT_URL", value="http://rook-ceph-rgw-nautiluss3.rook"),
-                #  client.V1EnvVar(name="S3_ENDPOINT", value="rook-ceph-rgw-nautiluss3.rook")],
-                 client.V1EnvVar(name="ENDPOINT_URL", value="https://s3.braingeneers.gi.ucsc.edu"),  # use external url to avoid 403 error
-                 client.V1EnvVar(name="S3_ENDPOINT", value="s3.braingeneers.gi.ucsc.edu")],
-            volume_mounts=[client.V1VolumeMount(name="prp-s3-credentials", mount_path="/root/.aws/credentials",
-                                                sub_path="credentials"),
-                           client.V1VolumeMount(name="ephemeral", mount_path="/data")])
+            env=env_vars,
+            volume_mounts=volume_mounts)
+        init_cfg = self.job_info.get("init_container")
+        init_containers = None
+        if init_cfg:
+            init_resources = {"cpu": str(init_cfg["cpu_request"]),
+                              "memory": str(init_cfg["memory_request"]) + "Gi",
+                              "ephemeral-storage": str(init_cfg["disk_request"]) + "Gi",
+                              "nvidia.com/gpu": str(init_cfg["GPU"])}
+            init_containers = [client.V1Container(
+                name=init_cfg.get("name", "init-container"),
+                image=init_cfg["image"],
+                image_pull_policy=init_cfg.get("image_pull_policy", "Always"),
+                command=["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"],
+                args=[init_cfg["args"]],
+                resources=client.V1ResourceRequirements(
+                    requests=init_resources,
+                    limits=init_resources
+                ),
+                env=env_vars,
+                volume_mounts=volume_mounts)]
         if "whitelist_nodes" in self.job_info:
             affinity = client.V1Affinity(
                 node_affinity=client.V1NodeAffinity(
@@ -75,12 +100,14 @@ class Kube:
                                 secret=client.V1SecretVolumeSource(secret_name="prp-s3-credentials")),
                 client.V1Volume(name="ephemeral", empty_dir={})],
                                   affinity=affinity,
+                                  init_containers=init_containers,
                                   containers=[container]))
+        backoff_limit = self.job_info.get("backoff_limit", 0)
         job = client.V1Job(
             api_version='batch/v1',
             kind='Job',
             metadata=client.V1ObjectMeta(name=self.job_name),
-            spec=client.V1JobSpec(backoff_limit=2, template=template))
+            spec=client.V1JobSpec(backoff_limit=backoff_limit, template=template))
         return job
 
     def check_job_exist(self):

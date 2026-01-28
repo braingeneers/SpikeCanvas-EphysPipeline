@@ -281,14 +281,31 @@ def process_single_well(args):
                         p = f"recordings/{rec_key}/{well}"
                         branches.append(p)
                         logging.debug(f"Found recording data: {p}")
+                        # Include recording-level metadata (e.g., sampling rate)
+                        for child_key in rec.keys():
+                            if child_key.startswith("well"):
+                                continue
+                            meta_path = f"recordings/{rec_key}/{child_key}"
+                            if meta_path in src:
+                                branches.append(meta_path)
             
-            # Check data_store - FIXED to use correct path format from original
+            # Check data_store - handle both data000 and data0000 key formats
             well_num = int(well[-3:])  # Extract well number (e.g., well000 -> 0)
-            data_key = f"data0{well_num:03d}"  # Format: data0000, data0001, etc. (like original)
-            if "data_store" in src and data_key in src["data_store"]:
-                p = f"data_store/{data_key}"
-                branches.append(p)
-                logging.debug(f"Found data_store: {p}")
+            if "data_store" in src:
+                data_store = src["data_store"]
+                matches = []
+                for key in data_store.keys():
+                    if not key.startswith("data"):
+                        continue
+                    suffix = key.replace("data", "")
+                    if suffix.isdigit() and int(suffix) == well_num:
+                        matches.append(key)
+                if matches:
+                    matches.sort(key=len)
+                    for data_key in matches:
+                        p = f"data_store/{data_key}"
+                        branches.append(p)
+                        logging.debug(f"Found data_store: {p}")
             
             # Check wells section - only for this specific well
             if "wells" in src and well in src["wells"]:

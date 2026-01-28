@@ -2,7 +2,7 @@ import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', '..', 'shared'))
 
-from braingeneers.utils import messaging
+from braingeneers.iot import messaging
 import braingeneers.utils.s3wrangler as wr
 import braingeneers.utils.smart_open_braingeneers as smart_open
 import uuid as uuidgen
@@ -16,6 +16,19 @@ import zipfile
 import json
 from job_utils import JOB_PREFIX, format_job_name
 from splitter_fanout import spawn_splitter_fanout
+
+# Patch for JWT/shadows database issue in braingeneerspy
+# The MessageBroker tries to access jwt_service_account_token which triggers
+# shadows database access even though it is not needed for MQTT messaging.
+def _patched_jwt_getter(self):
+    return None
+
+if hasattr(messaging.MessageBroker, "jwt_service_account_token"):
+    delattr(messaging.MessageBroker, "jwt_service_account_token")
+    setattr(messaging.MessageBroker, "jwt_service_account_token", property(
+        fget=_patched_jwt_getter,
+        doc="Patched JWT property - returns None to bypass shadows database"
+    ))
 
 # Import shared utilities
 try:
@@ -33,16 +46,19 @@ TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/ephys-data-pipeline"
 LOG_FILE_NAME = "listener.log"
 LOG_PATH = "s3://braingeneers/services/mqtt_job_listener/" + LOG_FILE_NAME
 DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
-SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.40"
+SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.55"
 
 # setup logging
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.INFO)
 # stream_handler.setLevel(logging.DEBUG)
+file_handler = logging.FileHandler(LOG_FILE_NAME, mode="a")
+file_handler.setLevel(logging.INFO)
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s %(message)s',
-                    handlers=[logging.FileHandler(LOG_FILE_NAME, mode="a"),
-                              stream_handler])
+                    handlers=[file_handler, stream_handler],
+                    force=True)
+logging.info(f"MQTT listener starting. Topics: {TOPIC}")
 
 
 ########################## Listener ##########################
@@ -97,64 +113,35 @@ class JobMessage:
                     # Check if MaxTwo recording that needs splitting
                     if is_maxtwo_recording(fmt, path):
                         logging.info(f"Detected MaxTwo recording: {exp}")
-                        
-                        # For MaxTwo, check if ALL 6 well results exist
-                        all_wells_exist = True
-                        missing_wells = []
                         if not overwrite:
-                            # exp is already the base name without extension
-                            for i in range(6):
-                                well_result_path = result_path.replace(
-                                    f"{exp}_phy.zip", 
-                                    f"{exp}_well{i:03d}_phy.zip"
-                                )
-                                if not check_exist(well_result_path):
-                                    all_wells_exist = False
-                                    missing_wells.append(f"well{i:03d}")
-                        
-                        if overwrite or not all_wells_exist:
-                            if missing_wells:
-                                logging.info(f"Missing results for wells: {', '.join(missing_wells)}")
-                            else:
-                                logging.info(f"Overwrite flag set to {overwrite}")
-                            # Use splitter fanout for MaxTwo recordings
-                            logging.info("Getting splitter configuration...")
-                            try:
-                                splitter_cfg = get_splitter_config()
-                                logging.info(f"Splitter config loaded: {splitter_cfg}")
-                            except Exception as cfg_err:
-                                logging.error(f"Error loading splitter config: {cfg_err}")
-                                raise
-                            
-                            logging.info("Getting sorter template...")
-                            try:
-                                sorter_tpl = get_sorter_template()
-                                logging.info(f"Sorter template loaded (keys): {list(sorter_tpl.keys())}")
-                            except Exception as tpl_err:
-                                logging.error(f"Error loading sorter template: {tpl_err}")
-                                raise
-                            
-                            logging.info(f"Starting MaxTwo splitter fanout for {uuid}, {exp}")
-                            try:
-                                # the exp here should be the complete name including extension
-                                full_exp = path.split("/")[-1]
-                                spawn_splitter_fanout(uuid, full_exp, splitter_cfg, sorter_tpl)
-                                logging.info(f"Successfully started MaxTwo pipeline for {full_exp}")
-                            except Exception as fanout_err:
-                                logging.error(f"Error starting MaxTwo fanout for {full_exp}: {fanout_err}")
-                                raise
+                            logging.info("MaxTwo detected; running splitter and sorter fanout")
                         else:
-                            logging.info(f"All MaxTwo well results exist. Moving on to next experiment...")
+                            logging.info(f"Overwrite flag set to {overwrite}")
+
+                        logging.info("Getting splitter configuration...")
+                        splitter_cfg = get_splitter_config()
+                        logging.info("Getting sorter template...")
+                        sorter_tpl = get_sorter_template()
+
+                        full_exp = path.split("/")[-1]
+                        logging.info(f"Launching splitter job for {uuid}, {full_exp}")
+                        spawn_splitter_fanout(uuid, full_exp, file_path, splitter_cfg, sorter_tpl)
                     
                     else:
                         # Regular single-file processing for all non-MaxTwo recordings
                         # This handles: maxone, nwb, maxtwo-split, Maxwell, and any other formats
                         logging.info(f"Processing non-MaxTwo recording with format '{fmt}'")
                         if overwrite:
-                            create_sort(exp, file_path)
+                            splitter_cfg = get_splitter_config()
+                            sorter_tpl = get_sorter_template()
+                            full_exp = path.split("/")[-1]
+                            spawn_splitter_fanout(uuid, full_exp, file_path, splitter_cfg, sorter_tpl)
                             logging.info(f"Overwrite sorting result because overwrite is {overwrite}")
                         elif not check_exist(result_path):
-                            create_sort(exp, file_path)
+                            splitter_cfg = get_splitter_config()
+                            sorter_tpl = get_sorter_template()
+                            full_exp = path.split("/")[-1]
+                            spawn_splitter_fanout(uuid, full_exp, file_path, splitter_cfg, sorter_tpl)
                         else:
                             logging.info(f"Sorting result exists. Moving on to next experiment...")
                 do_logging(f"Done looping experiments. ", "info")
@@ -279,6 +266,15 @@ def launch_job_csv(csv_file, csv_row):
     job_ind = job_info["index"]
     job_name = format_job_name(csv_file, job_ind)
     logging.info(f"creating job for job name: {job_name}")
+    if job_info.get("args") == "./run.sh":
+        splitter_cfg = get_splitter_config()
+        sorter_tpl = job_info.copy()
+        file_path = _build_csv_file_path(job_info)
+        experiment = job_info.get("experiment", "")
+        spawn_splitter_fanout(job_info["uuid"], experiment, file_path, splitter_cfg, sorter_tpl)
+        logging.info(f"Splitter job submitted for {job_name}")
+        return
+
     resp = create_kube_job(job_name, job_info)
     # TODO: resp should have many info inside. Parse it by a better way
     if resp == -1:
@@ -299,7 +295,10 @@ def is_maxtwo_recording(data_format: str, file_path: str) -> bool:
     Returns:
         True if this is a MaxTwo recording that needs splitting
     """
-    return (data_format == "maxtwo" and 
+    if not data_format:
+        return False
+    fmt = str(data_format).lower()
+    return (fmt in ("maxtwo", "max2") and
             (file_path.endswith(".raw.h5") or file_path.endswith(".h5")))   
 
 
@@ -311,7 +310,12 @@ def get_splitter_config() -> dict:
         "memory_request": 48,  # Increased from 32 for better caching
         "disk_request": 400,   # Keep same - needed for large 25GB+ files
         "GPU": 0,
-        "image": SPLITTER_IMAGE  # Updated to optimized version
+        "image": SPLITTER_IMAGE,  # Updated to optimized version
+        "init_args": "./download_only.sh",
+        "init_cpu_request": 1,
+        "init_memory_request": 8,
+        "init_disk_request": 400,
+        "init_GPU": 0,
     }
     logging.info(f"Created optimized splitter config: {config}")
     return config
@@ -410,13 +414,28 @@ def create_sort(experiment, file_path):
     #     logging.info(f"Job {job_name} created")
 
 
+def _build_csv_file_path(job_info: dict) -> str:
+    if "file_path" in job_info:
+        return job_info["file_path"]
+    uuid = job_info["uuid"]
+    experiment = job_info["experiment"]
+    if uuid.startswith("s3"):
+        return os.path.join(uuid, "original/data", experiment)
+    return os.path.join(s3_basepath(uuid), uuid, "original/data", experiment)
+
+
 def start_listening():
+    logging.info("Initializing MQTT MessageBroker")
     mb = messaging.MessageBroker(str(uuidgen.uuid4()))
     q = messaging.CallableQueue()
+    logging.info(f"Subscribing to topics: {TOPIC}")
     for TP in TOPIC:
-        mb.subscribe_message(topic=TP, callback=q)
-        logging.info(f"Subscribed to {TP}")
-        logging.info("Listening to messages...")
+        try:
+            mb.subscribe_message(topic=TP, callback=q)
+            logging.info(f"Subscribed to {TP}")
+        except Exception as err:
+            logging.error(f"Failed to subscribe to {TP}: {err}")
+    logging.info("Listening to messages...")
     try:
         while True:
             topic, message = q.get()

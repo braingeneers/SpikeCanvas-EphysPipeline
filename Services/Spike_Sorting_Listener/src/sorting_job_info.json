@@ -4,7 +4,7 @@
     "memory_request": 32,
     "disk_request": 400,
     "GPU": 1,
-    "image": "surygeng/ephys_pipeline:v0.1",
+    "image": "braingeneers/kilosort2:v0.55",
     "whitelist_nodes": [
         "gpu-01.nrp.mghpcc.org",
         "gpu-02.nrp.mghpcc.org",

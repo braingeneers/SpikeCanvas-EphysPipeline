@@ -7,6 +7,7 @@ import re
 # Constants
 JOB_PREFIX = "edp-"
 DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
+CACHE_S3_BUCKET = "s3://braingeneersdev/ephys/"
 NAMESPACE = "braingeneers"
 
 def format_job_name(raw_name: str,

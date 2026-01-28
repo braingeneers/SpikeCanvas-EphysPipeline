@@ -207,6 +207,10 @@ if __name__ == "__main__":
                 ("data_format" in metadata["ephys_experiments"][experiment]):
             data_format = metadata["ephys_experiments"][experiment]["data_format"]
             logging.info(f"Read data format from metadata.json, format is {data_format}")
+        if isinstance(data_format, str):
+            fmt_lower = data_format.lower()
+            if fmt_lower in ("maxtwo", "max2"):
+                data_format = "Maxwell"
         if not data_format:
             data_format = "Maxwell"  # a patch for the old metadata.json
             logging.info(f"Data format not found in metadata.json, default to Maxwell")
@@ -267,5 +271,4 @@ if __name__ == "__main__":
     psua.plot_sua()
 
     logging.info("All plots are saved.")
-
 
