@@ -76,11 +76,18 @@ class QualityMetrics:
         # all_remove_ids.update(ids)
         # ids = self.curate_by_channel(ids)   # remove single channel units
 
-        self.redundant_pairs = self.curate_by_redundant()  # not actually remove the redundant onessort_template_amplitude
+        if len(self.we.sorting.unit_ids) >= 2:
+            self.redundant_pairs = self.curate_by_redundant()  # not actually remove the redundant ones
+        else:
+            self.redundant_pairs = []
+            logging.info("Skipping redundant-unit curation (fewer than 2 units remain)")
 
         logging.info(f"Total number of units to remove: {len(all_remove_ids)}")
 
-        curated_excess = curation.remove_excess_spikes(self.we.sorting, self.we.recording)
+        if len(self.we.sorting.unit_ids) > 0:
+            curated_excess = curation.remove_excess_spikes(self.we.sorting, self.we.recording)
+        else:
+            curated_excess = self.we.sorting
         self.we.sorting = curated_excess
         return curated_excess.unit_ids, list(all_remove_ids)
 
@@ -142,6 +149,9 @@ class QualityMetrics:
 
     def curate_by_redundant(self):
         num_units = len(self.we.unit_ids)
+        if len(self.we.sorting.unit_ids) < 2:
+            logging.info("Skipping redundant-unit curation (fewer than 2 units remain)")
+            return []
         curated_redundant, redundant_unit_pairs = \
             curation.remove_redundant_units(self.we, align=False,
                                             remove_strategy="max_spikes", extra_outputs=True)
@@ -225,6 +235,21 @@ def prepare_rec(rec_path, low=300., high=6000., common_ref=True):
         return rec_filt
 
 
+def _get_maxwell_recording_group(dataset):
+    if 'recordings' not in dataset:
+        raise KeyError("No recordings group found in the file")
+    recordings = dataset['recordings']
+    if 'rec0000' in recordings:
+        rec_key = 'rec0000'
+    else:
+        rec_keys = sorted(recordings.keys())
+        if not rec_keys:
+            raise KeyError("No recording groups found in the file")
+        rec_key = rec_keys[0]
+    logging.info(f"Using recording group: {rec_key}")
+    return recordings[rec_key], rec_key
+
+
 def read_maxwell_gain(h5_file):
     dataset = h5py.File(h5_file, 'r')
     if 'mapping' in dataset.keys():
@@ -232,16 +257,16 @@ def read_maxwell_gain(h5_file):
         gain_uv = dataset['settings']['lsb'][0] * 1e6
     else:
         # Dynamically find the correct well identifier for MaxTwo data
-        rec_group = dataset['recordings']['rec0000']
-        # Find well groups (well000, well001, etc.)
+        rec_group, _ = _get_maxwell_recording_group(dataset)
+        # Find well groups (well001, well002, etc.)
         well_keys = [key for key in rec_group.keys() if key.startswith('well')]
         if not well_keys:
             raise KeyError("No well groups found in the recording")
-        
-        # Sort well keys to ensure consistent ordering (well000, well001, etc.)
+
+        # Sort well keys to ensure consistent ordering (well001, well002, etc.)
         well_keys.sort()
         well_key = well_keys[0]  # Use the first well found
-        
+
         logging.info(f"Found wells: {well_keys}, using: {well_key}")
         gain_uv = rec_group[well_key]['settings']['lsb'][0] * 1e6
     return gain_uv
@@ -249,18 +274,18 @@ def read_maxwell_gain(h5_file):
 
 def read_maxwell_mapping(h5_file):
     with h5py.File(h5_file, 'r') as dataset:
-        if 'version' and 'mxw_version' in dataset.keys():
+        if 'version' in dataset.keys() and 'mxw_version' in dataset.keys():
             # Dynamically find the correct well identifier for MaxTwo data
-            rec_group = dataset['recordings']['rec0000']
-            # Find well groups (well000, well001, etc.)
+            rec_group, _ = _get_maxwell_recording_group(dataset)
+            # Find well groups (well001, well002, etc.)
             well_keys = [key for key in rec_group.keys() if key.startswith('well')]
             if not well_keys:
                 raise KeyError("No well groups found in the recording")
-            
-            # Sort well keys to ensure consistent ordering (well000, well001, etc.)
+
+            # Sort well keys to ensure consistent ordering (well001, well002, etc.)
             well_keys.sort()
             well_key = well_keys[0]  # Use the first well found
-            
+
             logging.info(f"Found wells: {well_keys}, using: {well_key}")
             mapping = rec_group[well_key]['settings']['mapping']
             config = {'pos_x': np.array(mapping['x']),

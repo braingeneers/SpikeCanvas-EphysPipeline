@@ -46,7 +46,7 @@ TO_SLACK_TOPIC = "telemetry/slack/TOSLACK/ephys-data-pipeline"
 LOG_FILE_NAME = "listener.log"
 LOG_PATH = "s3://braingeneers/services/mqtt_job_listener/" + LOG_FILE_NAME
 DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
-SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.57"
+SPLITTER_IMAGE = "braingeneers/maxtwo_splitter:v0.72"
 
 # setup logging
 stream_handler = logging.StreamHandler()
@@ -268,7 +268,8 @@ def launch_job_csv(csv_file, csv_row):
     logging.info(f"creating job for job name: {job_name}")
     if job_info.get("args") == "./run.sh":
         splitter_cfg = get_splitter_config()
-        sorter_tpl = job_info.copy()
+        sorter_tpl = get_sorter_template()
+        sorter_tpl.update(job_info)
         file_path = _build_csv_file_path(job_info)
         experiment = job_info.get("experiment", "")
         spawn_splitter_fanout(job_info["uuid"], experiment, file_path, splitter_cfg, sorter_tpl)

@@ -51,6 +51,7 @@ class RunKilosort:
     def __init__(self, rec, output_folder):
         self.rec = rec
         self.output_folder = output_folder
+        self.last_output_lines = []
 
     def run_sorting(self):
         self.create_config()
@@ -61,6 +62,7 @@ class RunKilosort:
             kilosort_log = os.path.join(stdln_folder, "kilosort2.log")
             if os.path.isfile(kilosort_log):
                 os.rename(kilosort_log, os.path.join(self.output_folder, "kilosort2.log"))
+        return sorting
 
     def start_kilosort(self):
         logging.info("Start running Kilosort...")
@@ -87,10 +89,27 @@ class RunKilosort:
                 print(output.strip())
                 # Also log it with logging module
                 logging.info(f"Kilosort: {output.strip()}")
+                # Keep a tail of the output for debugging/metrics
+                self.last_output_lines.append(output.strip())
+                if len(self.last_output_lines) > 2000:
+                    self.last_output_lines = self.last_output_lines[-1000:]
         
         # Wait for process to complete and get return code
         ret = psort.wait()
         return ret
+
+    def get_last_threshold_crossings(self):
+        try:
+            import re
+            last = None
+            pattern = re.compile(r"found\s+(\d+)\s+threshold crossings")
+            for line in self.last_output_lines:
+                match = pattern.search(line)
+                if match:
+                    last = int(match.group(1))
+            return last
+        except Exception:
+            return None
 
     def create_config(self):
         """
@@ -221,11 +240,37 @@ def _get_maxwell_rec_names(rec_path):
         logging.warning(f"Failed to read Maxwell recording names: {exc}")
         return []
 
+
+def _compute_retry_nt(rec, min_batches=8, min_nt=16384):
+    try:
+        num_samples = int(rec.get_num_samples())
+    except Exception:
+        return None
+    if num_samples <= 0:
+        return None
+    target_nt = max(min_nt, int(num_samples / float(min_batches)))
+    target_nt = (target_nt // 32) * 32
+    if target_nt <= 0:
+        return None
+    if target_nt >= kilosort_params['NT']:
+        return None
+    return target_nt
+
+
+def _apply_conservative_kilosort_params(base_params, target_nt):
+    if target_nt is not None:
+        kilosort_params['NT'] = target_nt
+    # Conservative settings for short/low-activity recordings
+    kilosort_params['nfilt_factor'] = min(base_params.get('nfilt_factor', 4), 2)
+    kilosort_params['ntbuff'] = min(base_params.get('ntbuff', 64), 32)
+
 if __name__ == "__main__":
     output_folder = os.path.join(inter_folder, "sorted/kilosort2")
     log = os.path.join(output_folder, "run_kilosort2.log")
     setup_logging(log)
     setup_hdf5()
+    allow_empty_on_kilosort_fail = os.environ.get("ALLOW_EMPTY_ON_KS_FAIL", "true").lower() in ("1", "true", "yes")
+    ks_min_crossings = int(os.environ.get("KS_MIN_THRESHOLD_CROSSINGS", "5000"))
 
     # get format from metadata
     experiment = sys.argv[1]
@@ -261,7 +306,48 @@ if __name__ == "__main__":
         logging.error("Error: Recording not readable.")
         sys.exit()
     ks = RunKilosort(rec=rec_filtered, output_folder=output_folder)
-    ks.run_sorting()
+    base_kilosort_params = dict(kilosort_params)
+    ks_status = ks.run_sorting()
+    if ks_status != 0:
+        retry_nt = _compute_retry_nt(rec_filtered)
+        if retry_nt is not None:
+            logging.warning(
+                f"Kilosort failed; retrying once with smaller NT={retry_nt} (was {kilosort_params['NT']})"
+            )
+            kilosort_params['NT'] = retry_nt
+            ks_status = ks.run_sorting()
+        if ks_status != 0:
+            fallback_nt = _compute_retry_nt(rec_filtered, min_batches=32, min_nt=8192)
+            if fallback_nt is not None:
+                logging.warning(
+                    "Kilosort failed again; retrying with conservative params "
+                    f"(NT={fallback_nt}, nfilt_factor=2, ntbuff=32)"
+                )
+                _apply_conservative_kilosort_params(base_kilosort_params, fallback_nt)
+                ks_status = ks.run_sorting()
+        if ks_status != 0:
+            crossings = ks.get_last_threshold_crossings()
+            if allow_empty_on_kilosort_fail and crossings is not None and crossings < ks_min_crossings:
+                logging.warning(
+                    f"Kilosort failed after retries with low activity "
+                    f"(threshold crossings={crossings} < {ks_min_crossings}); "
+                    "writing failure marker and skipping curation."
+                )
+                os.makedirs(output_folder, exist_ok=True)
+                marker = os.path.join(output_folder, "KILOSORT_FAILED_LOW_ACTIVITY.txt")
+                with open(marker, "w") as f:
+                    f.write(
+                        f"Kilosort failed after retries.\n"
+                        f"Threshold crossings: {crossings}\n"
+                        f"Dataset: {experiment}\n"
+                    )
+                sys.exit(0)
+            logging.error("Kilosort failed after retries; aborting pipeline before curation.")
+            sys.exit(ks_status)
+
+    if not os.path.isfile(os.path.join(output_folder, "spike_times.npy")):
+        logging.error("Kilosort outputs missing (spike_times.npy not found); aborting pipeline before curation.")
+        sys.exit(1)
 
     # auto-curation
     curation_folder = os.path.join(inter_folder, "sorted/curation")
@@ -273,6 +359,14 @@ if __name__ == "__main__":
                         default=True)
     spike_data = qm.compile_data()
     logging.info(f"{len(spike_data['neuron_data'])} units after quality metrics check")
+
+    if len(spike_data["neuron_data"]) == 0:
+        logging.warning("No units remain after quality metrics; skipping curation packaging and plotting.")
+        # Ensure expected output dirs exist so downstream steps don't fail
+        os.makedirs(os.path.join(inter_folder, "sorted/figure"), exist_ok=True)
+        os.makedirs(os.path.join(inter_folder, "sorted/curation", "curated"), exist_ok=True)
+        sys.exit(0)
+
     if REMOVE_SINGLE_CHANNEL:
         # remove the single channel units
         spike_data_new = utils.remove_single_channel_unit(spike_data)

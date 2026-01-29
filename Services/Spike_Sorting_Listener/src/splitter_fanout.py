@@ -7,6 +7,7 @@
 from kubernetes import client, config
 from k8s_kilosort2 import Kube
 import threading, time, os, logging, posixpath
+import re
 import traceback
 from urllib.parse import urlparse
 
@@ -45,8 +46,8 @@ def spawn_splitter_fanout(uuid: str,
         raise ValueError(f"Missing required fields in splitter_cfg: {missing_fields}")
     
     try:
-        base_exp = experiment.replace(".raw.h5", "").replace(".h5", "")
-        split_name = format_job_name(base_exp, prefix=SPLITTER_JOB_PREFIX)
+        base_exp = _normalize_experiment_name(experiment)
+        split_name = _build_splitter_job_name(uuid, base_exp)
 
         logging.info(f"Creating splitter job with name: {split_name}")
         logging.info(f"Base experiment: {base_exp}")
@@ -243,7 +244,7 @@ def _watch_and_fanout(split_name, uuid_param, experiment, file_path, tpl, job_cr
 def _launch_sorters(uuid_param, experiment, file_path, tpl):
     """Launch sorter jobs after splitter completes."""
     try:
-        base_exp = experiment.replace(".raw.h5", "").replace(".h5", "")
+        base_exp = _normalize_experiment_name(experiment)
         cache_uuid = _normalize_uuid_for_cache(uuid_param)
         split_dir = posixpath.join(CACHE_S3_BUCKET, cache_uuid, "original/data")
         legacy_split_dir = posixpath.join(CACHE_S3_BUCKET, cache_uuid, "original/split")
@@ -296,14 +297,72 @@ def _list_split_files(split_dir: str, base_exp: str):
         logging.warning(f"Could not list split directory {split_dir}: {err}")
         return []
 
+    base_name = posixpath.basename(base_exp)
+    prefixes = {f"{base_exp}_well"}
+    if base_name != base_exp:
+        prefixes.add(f"{base_name}_well")
+
     split_files = []
     for path in candidates:
         name = posixpath.basename(path)
         if not (name.endswith(".raw.h5") or name.endswith(".h5")):
             continue
-        if name.startswith(f"{base_exp}_well"):
+        if any(name.startswith(prefix) for prefix in prefixes):
+            match = re.search(r"_well(\d{3})", name)
+            if match and int(match.group(1)) < 1:
+                continue
             split_files.append(path)
     return sorted(split_files)
+
+
+def _normalize_experiment_name(experiment: str) -> str:
+    """Strip trailing .raw.h5/.h5 suffixes (including repeated .raw.h5)."""
+    base = experiment or ""
+    while base.endswith(".raw.h5"):
+        base = base[:-len(".raw.h5")]
+    if base.endswith(".h5"):
+        base = base[:-len(".h5")]
+    return base
+
+
+def _sanitize_job_fragment(value: str) -> str:
+    cleaned = re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
+    return cleaned or "x"
+
+
+def _build_well_job_name(uuid_param: str, base_exp: str, well_id: str,
+                         prefix: str = JOB_PREFIX, max_len: int = 63) -> str:
+    """Build a job name that preserves UUID prefix and well id (front-heavy)."""
+    well_part = _sanitize_job_fragment(well_id)
+    uuid_part = _sanitize_job_fragment(_normalize_uuid_for_cache(uuid_param))
+    if uuid_part == "x":
+        uuid_part = _sanitize_job_fragment(base_exp)
+    if uuid_part == "x":
+        uuid_part = "data"
+
+    # Leave room for prefix + '-' + well id
+    keep = max_len - len(prefix) - len(well_part) - 1
+    if keep < 1:
+        return format_job_name(well_part, prefix=prefix, max_len=max_len)
+
+    uuid_part = uuid_part[:keep]
+    return f"{prefix}{uuid_part}-{well_part}"
+
+
+def _build_splitter_job_name(uuid_param: str, base_exp: str,
+                             prefix: str = SPLITTER_JOB_PREFIX, max_len: int = 63) -> str:
+    """Build a splitter job name that preserves the UUID prefix."""
+    uuid_part = _sanitize_job_fragment(_normalize_uuid_for_cache(uuid_param))
+    if uuid_part == "x":
+        uuid_part = _sanitize_job_fragment(base_exp)
+    if uuid_part == "x":
+        uuid_part = "data"
+
+    keep = max_len - len(prefix)
+    if keep < 1:
+        return format_job_name(base_exp, prefix=prefix, max_len=max_len)
+
+    return f"{prefix}{uuid_part[:keep]}"
 
 
 def _launch_split_sorters(uuid_param, base_exp, split_files, tpl):
@@ -322,8 +381,7 @@ def _launch_split_sorters(uuid_param, base_exp, split_files, tpl):
         info["uuid"] = uuid_param
         info["experiment"] = f"{base_exp}_{well_id}"
 
-        raw_job_name = f"{base_exp}-{well_id}"
-        job_name = format_job_name(raw_job_name, prefix=JOB_PREFIX)
+        job_name = _build_well_job_name(uuid_param, base_exp, well_id, max_len=56)
 
         logging.info(f"Creating sorter job {job_name} for well {well_id}")
         logging.info(f"Well file path: {raw_path}")

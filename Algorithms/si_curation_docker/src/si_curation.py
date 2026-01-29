@@ -272,12 +272,12 @@ def read_maxwell_gain(h5_file):
     else:
         # Dynamically find the correct well identifier for MaxTwo data
         rec_group = dataset['recordings']['rec0000']
-        # Find well groups (well000, well001, etc.)
+        # Find well groups (well001, well002, etc.)
         well_keys = [key for key in rec_group.keys() if key.startswith('well')]
         if not well_keys:
             raise KeyError("No well groups found in the recording")
         
-        # Sort well keys to ensure consistent ordering (well000, well001, etc.)
+        # Sort well keys to ensure consistent ordering (well001, well002, etc.)
         well_keys.sort()
         well_key = well_keys[0]  # Use the first well found
         
@@ -291,12 +291,12 @@ def read_maxwell_mapping(h5_file):
         if 'version' and 'mxw_version' in dataset.keys():
             # Dynamically find the correct well identifier for MaxTwo data
             rec_group = dataset['recordings']['rec0000']
-            # Find well groups (well000, well001, etc.)
+            # Find well groups (well001, well002, etc.)
             well_keys = [key for key in rec_group.keys() if key.startswith('well')]
             if not well_keys:
                 raise KeyError("No well groups found in the recording")
             
-            # Sort well keys to ensure consistent ordering (well000, well001, etc.)
+            # Sort well keys to ensure consistent ordering (well001, well002, etc.)
             well_keys.sort()
             well_key = well_keys[0]  # Use the first well found
             

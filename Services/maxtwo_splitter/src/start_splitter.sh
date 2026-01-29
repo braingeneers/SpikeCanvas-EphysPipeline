@@ -19,6 +19,19 @@ S3_URI="$1"
 # ENDPOINT="https://s3.braingeneers.gi.ucsc.edu"
 ENDPOINT="http://rook-ceph-rgw-nautiluss3.rook"  # Internal endpoint for NRP cluster
 
+to_cache_path() {
+    local uri="$1"
+    if [[ "${uri}" == s3://braingeneersdev/cache/ephys/* ]]; then
+        echo "${uri}"
+    elif [[ "${uri}" == s3://braingeneersdev/ephys/* ]]; then
+        echo "s3://braingeneersdev/cache/ephys/${uri#s3://braingeneersdev/ephys/}"
+    elif [[ "${uri}" == s3://braingeneers/ephys/* ]]; then
+        echo "s3://braingeneersdev/cache/ephys/${uri#s3://braingeneers/ephys/}"
+    else
+        echo "${uri}"
+    fi
+}
+
 ###############################################################################
 # 0.5. Skip non-MaxTwo datasets early (avoid heavy downloads)
 ###############################################################################
@@ -35,8 +48,10 @@ fi
 BASE_EXPERIMENT=$(echo "${DATA_NAME}" | sed -E 's/_well[0-9]{3}$//')
 META_ROOT="${REC_ROOT}"
 
-if [[ "${META_ROOT}" == s3://braingeneersdev/* ]]; then
-    META_ROOT="s3://braingeneers/${META_ROOT#s3://braingeneersdev/}"
+if [[ "${META_ROOT}" == s3://braingeneersdev/cache/ephys/* ]]; then
+    META_ROOT="s3://braingeneers/ephys/${META_ROOT#s3://braingeneersdev/cache/ephys/}"
+elif [[ "${META_ROOT}" == s3://braingeneersdev/ephys/* ]]; then
+    META_ROOT="s3://braingeneers/ephys/${META_ROOT#s3://braingeneersdev/ephys/}"
 fi
 
 META_PATH="${META_ROOT}/metadata.json"
@@ -85,6 +100,9 @@ cache_exists() {
     local bucket
     local prefix
     local key_count
+    local keys
+    local unique_wells
+    local well_count_ge1
 
     bucket="$(echo "${cache_dir}" | cut -d/ -f3)"
     prefix="$(echo "${cache_dir}" | cut -d/ -f4-)"
@@ -94,24 +112,33 @@ cache_exists() {
         prefix="${BASE_EXPERIMENT}_well"
     fi
 
-    key_count=$(aws --endpoint "${ENDPOINT}" s3api list-objects-v2 \
+    keys=$(aws --endpoint "${ENDPOINT}" s3api list-objects-v2 \
         --bucket "${bucket}" \
         --prefix "${prefix}" \
-        --max-keys 1 \
-        --query 'KeyCount' \
-        --output text 2>/dev/null || echo "0")
+        --max-keys 1000 \
+        --query 'Contents[].Key' \
+        --output text 2>/dev/null || echo "")
 
-    if [ "${key_count}" != "0" ] && [ -n "${key_count}" ]; then
-        echo "Found cached split outputs in ${label}: s3://${bucket}/${prefix}*"
-        return 0
+    if [ -z "${keys}" ]; then
+        return 1
+    fi
+
+    key_count=$(echo "${keys}" | tr '\t' '\n' | wc -l | tr -d ' ')
+    unique_wells=$(echo "${keys}" | tr '\t' '\n' | sed -n 's/.*_well\([0-9]\{3\}\).*/\1/p' | sort -u)
+    well_count_ge1=$(echo "${unique_wells}" | awk '$1+0>=1{c++} END{print c+0}')
+
+    if [[ "${key_count}" =~ ^[0-9]+$ ]]; then
+        if [ "${well_count_ge1}" -eq 6 ] || [ "${well_count_ge1}" -eq 24 ]; then
+            echo "Found cached split outputs in ${label}: s3://${bucket}/${prefix}* (${well_count_ge1} wells)"
+            return 0
+        elif [ "${well_count_ge1}" -gt 0 ]; then
+            echo "Partial cache in ${label}: s3://${bucket}/${prefix}* (${well_count_ge1} wells). Will re-split."
+        fi
     fi
     return 1
 }
 
-CACHE_PREFIX="${S3_URI}"
-if [[ "${CACHE_PREFIX}" == s3://braingeneers/* ]]; then
-    CACHE_PREFIX="s3://braingeneersdev/${CACHE_PREFIX#s3://braingeneers/}"
-fi
+CACHE_PREFIX="$(to_cache_path "${S3_URI}")"
 CACHE_DIR="$(dirname "${CACHE_PREFIX}")"
 LEGACY_CACHE_DIR="${CACHE_DIR/original\/data/original\/split}"
 
@@ -262,10 +289,7 @@ echo "Processing completed in ${process_time}s"
 echo "=== UPLOAD PHASE ==="
 upload_start=$(date +%s)
 
-S3_SPLIT_PREFIX="${S3_URI}"
-if [[ "${S3_SPLIT_PREFIX}" == s3://braingeneers/* ]]; then
-    S3_SPLIT_PREFIX="s3://braingeneersdev/${S3_SPLIT_PREFIX#s3://braingeneers/}"
-fi
+S3_SPLIT_PREFIX="$(to_cache_path "${S3_URI}")"
 S3_SPLIT_DIR="$(dirname "${S3_SPLIT_PREFIX}")"
 
 echo "Uploading split files from ${TARGET_DIR}/split_output to ${S3_SPLIT_DIR}/"
@@ -334,10 +358,7 @@ done
 # 7. Upload metadata to cache root (legacy sorter compatibility)
 ###############################################################################
 if [ -f "${META_LOCAL}" ]; then
-    CACHE_META_ROOT="${META_ROOT}"
-    if [[ "${CACHE_META_ROOT}" == s3://braingeneers/* ]]; then
-        CACHE_META_ROOT="s3://braingeneersdev/${CACHE_META_ROOT#s3://braingeneers/}"
-    fi
+    CACHE_META_ROOT="$(to_cache_path "${META_ROOT}")"
     echo "Uploading metadata.json to cache root: ${CACHE_META_ROOT}/metadata.json"
     aws --endpoint "${ENDPOINT}" s3 cp "${META_LOCAL}" "${CACHE_META_ROOT}/metadata.json" || \
         echo "WARNING: Failed to upload metadata to ${CACHE_META_ROOT}/metadata.json"

@@ -39,6 +39,17 @@ def setup_hdf5():
         os.makedirs("/usr/local/hdf5/lib/plugin/")
         shutil.copy(path_to_lib, "/usr/local/hdf5/lib/plugin/libcompression.so")
 
+def _get_maxwell_rec_and_well(dataset):
+    if "recordings" not in dataset:
+        raise KeyError("No recordings group found in file")
+    recordings = dataset["recordings"]
+    rec_key = "rec0000" if "rec0000" in recordings else sorted(recordings.keys())[0]
+    rec_group = recordings[rec_key]
+    well_keys = sorted([key for key in rec_group.keys() if key.startswith("well")])
+    if not well_keys:
+        raise KeyError("No well groups found in recording")
+    return rec_group, well_keys[0]
+
 def load_raw_maxwell(dataset_path: str, channel_list: list, rec_period: list, fs=20000.0):
     """
     To read the raw recording data from a maxwell hdf5 file, both new and old version
@@ -64,9 +75,10 @@ def load_raw_maxwell(dataset_path: str, channel_list: list, rec_period: list, fs
                 matched_chan = mw_channels[channels]  # channels from kilosort are 0-based
                 # print(signal.shape)
             else:
-                signal = dataset['recordings']['rec0000']['well000']['groups']['routed']['raw']
-                gain_uV = dataset['recordings']['rec0000']['well000']['settings']['lsb'][0] * 1e6
-                # mw_channels = np.array(dataset['wells']['well000']['rec0000']['settings']['mapping']['channel'])
+                rec_group, well_key = _get_maxwell_rec_and_well(dataset)
+                signal = rec_group[well_key]['groups']['routed']['raw']
+                gain_uV = rec_group[well_key]['settings']['lsb'][0] * 1e6
+                # mw_channels = np.array(dataset['wells']['well001']['rec0000']['settings']['mapping']['channel'])
                 matched_chan = channels.copy()
             block_start_frame = int(fs * rec_period[0])
             block_end_frame = int(fs * rec_period[1])
@@ -86,15 +98,16 @@ def load_info_maxwell(dataset_path, fs=20000.0):
         with h5py.File(f, 'r') as dataset:
             if 'version' and 'mxw_version' in dataset.keys():
                 version = dataset['mxw_version'][0]
-                start_time = dataset['recordings']['rec0000']['well000']['start_time'][0]
-                stop_time = dataset['recordings']['rec0000']['well000']['stop_time'][0]
+                rec_group, well_key = _get_maxwell_rec_and_well(dataset)
+                start_time = rec_group[well_key]['start_time'][0]
+                stop_time = rec_group[well_key]['stop_time'][0]
                 df = pd.DataFrame({'start_end': [start_time, stop_time]})
                 time_stamp = pd.to_datetime(df['start_end'], unit='ms')
-                config_df = pd.DataFrame({'pos_x': np.array(dataset['recordings']['rec0000']['well000']['settings']['mapping']['x']), 
-                          'pos_y': np.array(dataset['recordings']['rec0000']['well000']['settings']['mapping']['y']),
-                          'channel': np.array(dataset['recordings']['rec0000']['well000']['settings']['mapping']['channel'])})                 
-                raw_frame = np.array(dataset['recordings']['rec0000']['well000']['spikes']['frameno'])
-                raster_df = pd.DataFrame({'channel': np.array(dataset['recordings']['rec0000']['well000']['spikes']['channel']),
+                config_df = pd.DataFrame({'pos_x': np.array(rec_group[well_key]['settings']['mapping']['x']), 
+                          'pos_y': np.array(rec_group[well_key]['settings']['mapping']['y']),
+                          'channel': np.array(rec_group[well_key]['settings']['mapping']['channel'])})                 
+                raw_frame = np.array(rec_group[well_key]['spikes']['frameno'])
+                raster_df = pd.DataFrame({'channel': np.array(rec_group[well_key]['spikes']['channel']),
                                          'frameno': (raw_frame - raw_frame[0]) / fs})
             else:
                 version = dataset['version'][0]
@@ -239,5 +252,3 @@ if __name__ == "__main__":
     lfp_file = shutil.make_archive(posixpath.join(base_folder, "lfp"), format="zip", root_dir=output_folder)
     wr.upload(local_file=lfp_file, path=save_to_path)
     
-
-

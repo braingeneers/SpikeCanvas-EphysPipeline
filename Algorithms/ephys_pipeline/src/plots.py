@@ -1,6 +1,5 @@
 import numpy as np
 import plotly.graph_objects as go
-from plotly.validators.scatter.marker import SymbolValidator
 import plotly.express as px
 from plotly.subplots import make_subplots
 import utils
@@ -702,6 +701,21 @@ class PlotlyEphys:
 
     def burst_duration_distribution(self):
         fig = go.Figure()
+        if self.duration is None or len(self.duration) == 0:
+            fig.update_layout(title="Burst Duration (no bursts detected)",
+                              height=500, width=500)
+            fig.update_layout(xaxis_title="",
+                              yaxis_title="Burst Duration (s)",
+                              font=dict(size=16))
+            fig.update_layout(showlegend=False,
+                              margin=dict(b=0, l=0, r=0, t=0),
+                              plot_bgcolor=self.bg_color,
+                              paper_bgcolor=self.bg_color
+                            )
+            fig.add_annotation(text="No bursts detected",
+                               x=0.5, y=0.5, xref="paper", yref="paper",
+                               showarrow=False)
+            return fig
         fig.add_trace(go.Violin(y=self.duration, 
                                 box_visible=True, 
                                 line_color='black', 
@@ -730,6 +744,21 @@ class PlotlyEphys:
         """
         ibi = np.diff(self.bins[self.peak_indices]) 
         fig = go.Figure()
+        if ibi is None or len(ibi) == 0:
+            fig.update_layout(title="Inter-Burst Interval (no bursts detected)",
+                              height=500, width=500)
+            fig.update_layout(xaxis_title="",
+                              yaxis_title="Inter-Burst Interval (s)",
+                              font=dict(size=16))
+            fig.update_layout(showlegend=False,
+                              margin=dict(b=0, l=0, r=0, t=0),
+                              plot_bgcolor=self.bg_color,
+                              paper_bgcolor=self.bg_color
+                            )
+            fig.add_annotation(text="No bursts detected",
+                               x=0.5, y=0.5, xref="paper", yref="paper",
+                               showarrow=False)
+            return fig
         fig.add_trace(go.Violin(y=ibi, 
                                 box_visible=True, 
                                 line_color='black', 
@@ -759,6 +788,22 @@ class PlotlyEphys:
         burst_num = len(burst_start)
         burstiness = []
         burst_spikes = []
+        if burst_num == 0:
+            fig = go.Figure()
+            fig.update_layout(title="Burstiness (no bursts detected)",
+                              height=500, width=500)
+            fig.update_layout(xaxis_title="",
+                              yaxis_title="Burstiness",
+                              font=dict(size=16))
+            fig.update_layout(showlegend=False,
+                              margin=dict(b=0, l=0, r=0, t=0),
+                              plot_bgcolor=self.bg_color,
+                              paper_bgcolor=self.bg_color
+                            )
+            fig.add_annotation(text="No bursts detected",
+                               x=0.5, y=0.5, xref="paper", yref="paper",
+                               showarrow=False)
+            return fig
         for i, t in enumerate(self.train):
             for n in range(burst_num):
                 # print(n, t[(t > burst_start[n]) & (t < burst_end[n])])
@@ -775,9 +820,10 @@ class PlotlyEphys:
                                 fillcolor='cadetblue',
                                 opacity=0.6,
                                 showlegend=False))
-        fig.data[0].update(span=[np.min(burstiness), 
-                                 np.max(burstiness)], 
-                                 spanmode='manual')
+        if len(burstiness) > 0:
+            fig.data[0].update(span=[np.min(burstiness), 
+                                     np.max(burstiness)], 
+                                     spanmode='manual')
         fig.update_layout(title=f'Burstiness', height=500, width=500)
         fig.update_layout(xaxis_title="",
                             yaxis_title="Burstiness",
@@ -795,6 +841,21 @@ class PlotlyEphys:
     def burst_peak_freq(self):
         burst_freq = self.fr[self.peak_indices]
         fig = go.Figure()
+        if burst_freq is None or len(burst_freq) == 0:
+            fig.update_layout(title="Firing Rate of Burst Peaks (no bursts detected)",
+                              height=500, width=500)
+            fig.update_layout(xaxis_title="",
+                              yaxis_title="Population Firing Rate (Hz)",
+                              font=dict(size=16))
+            fig.update_layout(showlegend=False,
+                              margin=dict(b=0, l=0, r=0, t=0),
+                              plot_bgcolor=self.bg_color,
+                              paper_bgcolor=self.bg_color
+                            )
+            fig.add_annotation(text="No bursts detected",
+                               x=0.5, y=0.5, xref="paper", yref="paper",
+                               showarrow=False)
+            return fig
         fig.add_trace(go.Violin(y=burst_freq, 
                                 box_visible=True, 
                                 line_color='black', 

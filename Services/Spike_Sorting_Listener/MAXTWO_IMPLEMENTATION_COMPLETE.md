@@ -63,7 +63,7 @@ Successfully implemented and **production-tested** automated MaxTwo electrophysi
 - **maxtwo-split**: Pre-split well files → Direct sorting
 
 ### 4. Well Processing Logic
-- **Well Naming**: `well000`, `well001`, ..., `well005`
+- **Well Naming**: `well001`, `well002`, ..., `well006`
 - **Result Paths**: `{base_name}_well{i:03d}_phy.zip`
 - **Validation**: Ensures ALL 6 wells processed before skipping
 - **Missing Wells Logging**: Detailed logging of which wells need processing
@@ -200,7 +200,7 @@ kubectl logs -f <mqtt-listener-pod>
 
 ### 4. Production Workflow Verified ✅
 1. ✅ MQTT listener detects MaxTwo format correctly
-2. ✅ Checks for existing well results (`*_well000_phy.zip` through `*_well005_phy.zip`)
+2. ✅ Checks for existing well results (`*_well001_phy.zip` through `*_well006_phy.zip`)
 3. ✅ Starts splitter job with proper configuration
 4. ✅ Background watcher monitors splitter job with robust error handling
 5. ✅ Spawns 6 parallel sorter jobs after splitter completion
@@ -245,7 +245,7 @@ kubectl get jobs -l app=edp -n braingeneers | grep {experiment-name}
 
 # View job logs
 kubectl logs job/edp-{experiment-name}-split -n braingeneers
-kubectl logs job/edp-{experiment-name}-well000 -n braingeneers
+kubectl logs job/edp-{experiment-name}-well001 -n braingeneers
 
 # Check MQTT listener logs
 kubectl logs -f deployment/mqtt-listener -n braingeneers

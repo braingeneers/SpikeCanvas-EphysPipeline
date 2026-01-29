@@ -12,6 +12,7 @@ class Kube:
         self.namespace = namespace
         self.job_name = job_name
         self.job_info = job_info
+        self.gpu_resource = self.job_info.get("gpu_resource", "nvidia.com/gpu")
         if "file_path" in job_info:
             s3_path = job_info["file_path"]
         else:
@@ -36,8 +37,10 @@ class Kube:
         
         self.resources = {"cpu": str(self.job_info["cpu_request"]),
                           "memory": str(self.job_info["memory_request"]) + "Gi",
-                          "ephemeral-storage": str(self.job_info["disk_request"]) + "Gi",
-                          "nvidia.com/gpu": str(self.job_info["GPU"])}
+                          "ephemeral-storage": str(self.job_info["disk_request"]) + "Gi"}
+        gpu_count = int(self.job_info.get("GPU", 0))
+        if gpu_count:
+            self.resources[self.gpu_resource] = str(gpu_count)
 
     def create_job_object(self):
         env_vars = [
@@ -69,8 +72,10 @@ class Kube:
         if init_cfg:
             init_resources = {"cpu": str(init_cfg["cpu_request"]),
                               "memory": str(init_cfg["memory_request"]) + "Gi",
-                              "ephemeral-storage": str(init_cfg["disk_request"]) + "Gi",
-                              "nvidia.com/gpu": str(init_cfg["GPU"])}
+                              "ephemeral-storage": str(init_cfg["disk_request"]) + "Gi"}
+            init_gpu = int(init_cfg.get("GPU", 0))
+            if init_gpu:
+                init_resources[self.gpu_resource] = str(init_gpu)
             init_containers = [client.V1Container(
                 name=init_cfg.get("name", "init-container"),
                 image=init_cfg["image"],
@@ -83,14 +88,68 @@ class Kube:
                 ),
                 env=env_vars,
                 volume_mounts=volume_mounts)]
-        if "whitelist_nodes" in self.job_info:
+        match_expressions = []
+        whitelist_nodes = self.job_info.get("whitelist_nodes") or []
+        if whitelist_nodes:
+            match_expressions.append(client.V1NodeSelectorRequirement(
+                key="kubernetes.io/hostname",
+                operator="In",
+                values=whitelist_nodes
+            ))
+
+        gpu_product = self.job_info.get("gpu_product")
+        if gpu_product:
+            gpu_values = gpu_product if isinstance(gpu_product, list) else [gpu_product]
+            match_expressions.append(client.V1NodeSelectorRequirement(
+                key="nvidia.com/gpu.product",
+                operator="In",
+                values=gpu_values
+            ))
+
+        cuda_runtime = self.job_info.get("cuda_runtime") or {}
+        runtime_major = cuda_runtime.get("major")
+        runtime_minor = cuda_runtime.get("minor")
+        if runtime_major:
+            match_expressions.append(client.V1NodeSelectorRequirement(
+                key="nvidia.com/cuda.runtime.major",
+                operator="In",
+                values=[str(runtime_major)]
+            ))
+        if runtime_minor:
+            match_expressions.append(client.V1NodeSelectorRequirement(
+                key="nvidia.com/cuda.runtime.minor",
+                operator="In",
+                values=[str(runtime_minor)]
+            ))
+
+        cuda_driver = self.job_info.get("cuda_driver") or {}
+        driver_major = cuda_driver.get("major")
+        driver_minor = cuda_driver.get("minor")
+        driver_major_op = cuda_driver.get("major_op", "In")
+        driver_minor_op = cuda_driver.get("minor_op", "In")
+        if driver_major:
+            match_expressions.append(client.V1NodeSelectorRequirement(
+                key="nvidia.com/cuda.driver.major",
+                operator=driver_major_op,
+                values=[str(driver_major)]
+            ))
+        if driver_minor:
+            match_expressions.append(client.V1NodeSelectorRequirement(
+                key="nvidia.com/cuda.driver.minor",
+                operator=driver_minor_op,
+                values=[str(driver_minor)]
+            ))
+
+        if match_expressions:
             affinity = client.V1Affinity(
                 node_affinity=client.V1NodeAffinity(
                     required_during_scheduling_ignored_during_execution=client.V1NodeSelector(
-                        node_selector_terms=[client.V1NodeSelectorTerm(match_expressions=[
-                            client.V1NodeSelectorRequirement(key="kubernetes.io/hostname", operator="In",
-                                                             values=self.job_info["whitelist_nodes"]),
-                        ])])))
+                        node_selector_terms=[client.V1NodeSelectorTerm(
+                            match_expressions=match_expressions
+                        )]
+                    )
+                )
+            )
         else:
             affinity = None
         template = client.V1PodTemplateSpec(

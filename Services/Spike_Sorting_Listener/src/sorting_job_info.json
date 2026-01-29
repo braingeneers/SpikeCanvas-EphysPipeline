@@ -4,7 +4,8 @@
     "memory_request": 32,
     "disk_request": 400,
     "GPU": 1,
-    "image": "braingeneers/ephys_pipeline:v0.57",
+    "image": "braingeneers/ephys_pipeline:v0.72",
+    "gpu_resource": "nvidia.com/gpu",
     "whitelist_nodes": [
         "gpu-01.nrp.mghpcc.org",
         "gpu-02.nrp.mghpcc.org",

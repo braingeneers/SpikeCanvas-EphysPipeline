@@ -7,12 +7,13 @@ import re
 # Constants
 JOB_PREFIX = "edp-"
 DEFAULT_S3_BUCKET = "s3://braingeneers/ephys/"
-CACHE_S3_BUCKET = "s3://braingeneersdev/ephys/"
+CACHE_S3_BUCKET = "s3://braingeneersdev/cache/ephys/"
 NAMESPACE = "braingeneers"
 
 def format_job_name(raw_name: str,
                     job_ind: int | None = None,
-                    prefix: str = JOB_PREFIX) -> str:
+                    prefix: str = JOB_PREFIX,
+                    max_len: int = 63) -> str:
     """
     Format a raw name into a Kubernetes-safe job name.
     
@@ -36,9 +37,9 @@ def format_job_name(raw_name: str,
     stem = stem.strip("-")
 
     full = f"{prefix}{stem}"
-    if len(full) > 63:
+    if len(full) > max_len:
         # keep the END of the stem (often has date/well info)
-        keep = 63 - len(prefix)
+        keep = max_len - len(prefix)
         full = f"{prefix}{stem[-keep:]}"
         full = full.lstrip("-") or "x"   # ensure first char alnum
 

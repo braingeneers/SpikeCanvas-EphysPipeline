@@ -1,8 +1,8 @@
 index,status,uuid,experiment,image,args,cpu_request,memory_request,disk_request,GPU,next_job
-1,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d21.h5,braingeneers/ephys_pipeline:v0.57,./run.sh,12,32,400,1,None
-2,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d28.h5,braingeneers/ephys_pipeline:v0.57,./run.sh,12,32,400,1,None
-3,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d35.h5,braingeneers/ephys_pipeline:v0.57,./run.sh,12,32,400,1,None
-4,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d42.h5,braingeneers/ephys_pipeline:v0.57,./run.sh,12,32,400,1,None
-5,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d49.h5,braingeneers/ephys_pipeline:v0.57,./run.sh,12,32,400,1,None
-6,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d56.h5,braingeneers/ephys_pipeline:v0.57,./run.sh,12,32,400,1,None
-7,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d63.h5,braingeneers/ephys_pipeline:v0.57,./run.sh,12,32,400,1,None
+1,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d21.h5,braingeneers/ephys_pipeline:v0.72,./run.sh,12,32,400,1,None
+2,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d28.h5,braingeneers/ephys_pipeline:v0.72,./run.sh,12,32,400,1,None
+3,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d35.h5,braingeneers/ephys_pipeline:v0.72,./run.sh,12,32,400,1,None
+4,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d42.h5,braingeneers/ephys_pipeline:v0.72,./run.sh,12,32,400,1,None
+5,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d49.h5,braingeneers/ephys_pipeline:v0.72,./run.sh,12,32,400,1,None
+6,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d56.h5,braingeneers/ephys_pipeline:v0.72,./run.sh,12,32,400,1,None
+7,ready,s3://braingeneers/ephys/2023-02-13-e-umass-Pak_ASD_Pl3_C2320b_Tri/,13684_C2320b_Tri_d63.h5,braingeneers/ephys_pipeline:v0.72,./run.sh,12,32,400,1,None

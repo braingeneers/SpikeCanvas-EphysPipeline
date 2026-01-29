@@ -23,6 +23,7 @@ import logging
 import shutil
 import posixpath
 import multiprocessing as mp
+import re
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from functools import partial
@@ -178,6 +179,27 @@ def _discover_wells(src: h5py.File):
 
     return sorted(list(wells))
 
+def _parse_well_number(well: str) -> Union[int, None]:
+    match = re.search(r"well(\d+)$", well or "")
+    if not match:
+        return None
+    return int(match.group(1))
+
+def _infer_well_offset(wells: List[str]) -> int:
+    nums = [n for n in (_parse_well_number(w) for w in wells) if n is not None]
+    if not nums:
+        return 0
+    if any(n == 0 for n in nums):
+        return 1
+    return 0
+
+def _rewrite_well_path(path: str, src_well: str, dst_well: str) -> str:
+    if src_well == dst_well:
+        return path
+    parts = path.split("/")
+    parts = [dst_well if part == src_well else part for part in parts]
+    return "/".join(parts)
+
 def _build_data_store_link_map(src: h5py.File) -> Dict[int, List[str]]:
     """Map data_store group IDs to their canonical paths."""
     data_store_map: Dict[int, List[str]] = {}
@@ -245,14 +267,17 @@ def _tree_size(obj: Union[h5py.Group, h5py.Dataset]) -> int:
 
 def process_single_well(args):
     """Process a single well - designed for multiprocessing with FIXED data handling."""
-    local_h5, rec_name, out_dir, well, well_index, total_wells = args
+    local_h5, rec_name, out_dir, src_well, dst_well, well_index, total_wells = args
     
     try:
         start_time = time.perf_counter()
         out_dir = Path(out_dir)
-        dst_path = out_dir / f"{rec_name}_{well}.raw.h5"
-        
-        logging.info(f"[{well_index+1}/{total_wells}] Processing {well}")
+        dst_path = out_dir / f"{rec_name}_{dst_well}.raw.h5"
+
+        if src_well != dst_well:
+            logging.info(f"[{well_index+1}/{total_wells}] Processing {dst_well} (source {src_well})")
+        else:
+            logging.info(f"[{well_index+1}/{total_wells}] Processing {src_well}")
         
         with h5py.File(local_h5, "r") as src:
             # Collect source branches for this well - FIXED to prevent duplication
@@ -271,14 +296,14 @@ def process_single_well(args):
             if "recordings" in src:
                 for rec_key in src["recordings"].keys():
                     rec = src["recordings"][rec_key]
-                    if well in rec:
-                        p = f"recordings/{rec_key}/{well}"
+                    if src_well in rec:
+                        p = f"recordings/{rec_key}/{src_well}"
                         add_branch(p)
                         logging.debug(f"Found recording data: {p}")
 
                         # Map this recording/well group to its data_store entry (24-well safe)
                         if data_store_map:
-                            rec_well_id = rec[well].id.__hash__()
+                            rec_well_id = rec[src_well].id.__hash__()
                             for data_path in data_store_map.get(rec_well_id, []):
                                 add_branch(data_path)
                                 data_store_added = True
@@ -293,7 +318,7 @@ def process_single_well(args):
             
             # Legacy fallback for data_store formats that use numeric well ids.
             if "data_store" in src and not data_store_added:
-                well_num = int(well[-3:])  # Extract well number (e.g., well000 -> 0)
+                well_num = int(src_well[-3:])  # Extract well number (e.g., well000 -> 0)
                 matches = []
                 for key in src["data_store"].keys():
                     if not key.startswith("data"):
@@ -309,8 +334,8 @@ def process_single_well(args):
                         logging.debug(f"Found data_store: {p}")
             
             # Check wells section - only for this specific well
-            if "wells" in src and well in src["wells"]:
-                p = f"wells/{well}"
+            if "wells" in src and src_well in src["wells"]:
+                p = f"wells/{src_well}"
                 add_branch(p)
                 logging.debug(f"Found wells data: {p}")
             
@@ -320,10 +345,10 @@ def process_single_well(args):
                     add_branch(key)
             
             if not branches:
-                logging.warning(f"No data found for {well}")
+                logging.warning(f"No data found for {src_well}")
                 return None
             
-            logging.info(f"[{well_index+1}/{total_wells}] {well}: Found {len(branches)} data branches")
+            logging.info(f"[{well_index+1}/{total_wells}] {dst_well}: Found {len(branches)} data branches")
             
             # Create output file with progress tracking
             with h5py.File(dst_path, "w") as dst:
@@ -337,23 +362,24 @@ def process_single_well(args):
                 # FIXED: Copy branches without duplication
                 for branch in branches:
                     if branch in src:  # Verify branch exists
-                        _copy_tree_optimized(src, dst, branch, branch, id_map, progress_callback)
+                        dst_branch = _rewrite_well_path(branch, src_well, dst_well)
+                        _copy_tree_optimized(src, dst, branch, dst_branch, id_map, progress_callback)
                     else:
                         logging.warning(f"Branch {branch} not found in source file")
         
         processing_time = time.perf_counter() - start_time
         file_size = os.path.getsize(dst_path) / (1024**3)  # GB
         
-        logging.info(f"[{well_index+1}/{total_wells}] {well} completed: {file_size:.1f}GB in {processing_time:.1f}s")
+        logging.info(f"[{well_index+1}/{total_wells}] {dst_well} completed: {file_size:.1f}GB in {processing_time:.1f}s")
         
         # VALIDATION: Check file size is reasonable
         if file_size > 8.0:  # Each well should be ~4-6GB, not >8GB
-            logging.warning(f"[{well_index+1}/{total_wells}] {well}: File size {file_size:.1f}GB seems too large")
+            logging.warning(f"[{well_index+1}/{total_wells}] {dst_well}: File size {file_size:.1f}GB seems too large")
         
         return str(dst_path)
         
     except Exception as e:
-        logging.error(f"Error processing {well}: {e}")
+        logging.error(f"Error processing {dst_well}: {e}")
         return None
 
 def split_maxtwo_by_well_parallel(local_h5: str, rec_name: str, out_dir: str):
@@ -376,10 +402,22 @@ def split_maxtwo_by_well_parallel(local_h5: str, rec_name: str, out_dir: str):
     
     logging.info(f"Processing {len(wells)} wells using {MAX_WORKERS} workers")
     
+    offset = _infer_well_offset(wells)
+    if offset:
+        logging.info("Translating MaxTwo wells to 1-indexed output (well000 -> well001)")
+
+    mapped_wells = []
+    for well in wells:
+        num = _parse_well_number(well)
+        if num is None:
+            mapped_wells.append((well, well))
+        else:
+            mapped_wells.append((well, f"well{num + offset:03d}"))
+
     # Prepare arguments for parallel processing
     process_args = [
-        (local_h5, rec_name, str(out_dir), well, i, len(wells))
-        for i, well in enumerate(wells)
+        (local_h5, rec_name, str(out_dir), src_well, dst_well, i, len(mapped_wells))
+        for i, (src_well, dst_well) in enumerate(mapped_wells)
     ]
     
     # Process wells in parallel

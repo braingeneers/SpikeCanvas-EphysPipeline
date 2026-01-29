@@ -20,7 +20,7 @@ This document summarizes the completed implementation of the automated MaxTwo el
 
 #### 3. Well Validation Logic
 - **Before Processing**: Checks if ALL 6 wells already have results before running splitter
-- **Well Naming**: `well000`, `well001`, `well002`, `well003`, `well004`, `well005`
+- **Well Naming**: `well001`, `well002`, `well003`, `well004`, `well005`, `well006`
 - **Result Paths**: `{base_name}_well{i:03d}_phy.zip`
 - **Behavior**: Only skips splitter if ALL wells exist (not just ANY well)
 
@@ -71,7 +71,7 @@ if is_maxtwo_recording(fmt, file_path):
     # Check if ALL 6 wells exist
     all_wells_exist = True
     missing_wells = []
-    for i in range(6):
+    for i in range(1, 7):
         well_result_path = result_path.replace(
             f"{exp}_phy.zip", 
             f"{base_exp}_well{i:03d}_phy.zip"
@@ -121,7 +121,7 @@ INFO: Starting MaxTwo splitter fanout for uuid, M06359_D51_KOLFMO_632025
 
 ## Docker Images Used
 - **Splitter**: `surygeng/maxtwo_splitter:v0.1`
-- **Sorter**: `braingeneers/ephys_pipeline:v0.57` (from sorting_job_info.json)
+- **Sorter**: `braingeneers/ephys_pipeline:v0.72` (from sorting_job_info.json)
 
 ## Testing Recommendations
 

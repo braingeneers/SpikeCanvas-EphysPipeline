@@ -35,7 +35,7 @@ print()
 
 print("5. CHECK JOB NAMES TO IDENTIFY TYPES:")
 print("   - Splitter jobs: edp-*-split")
-print("   - Well sorter jobs: edp-*-well000, edp-*-well001, etc.")  
+print("   - Well sorter jobs: edp-*-well001, edp-*-well002, etc.")  
 print("   - Regular sorter jobs: edp-* (without -split or -well suffix)")
 print()
 
