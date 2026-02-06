@@ -16,6 +16,8 @@ import plots
 import plots_sua
 import shutil
 import h5py
+import posixpath
+import re
 
 FORMAT_LIST = ["Maxwell", "mearec", "nwb"]
 data_format = None
@@ -241,6 +243,31 @@ def _get_maxwell_rec_names(rec_path):
         return []
 
 
+def _normalize_metadata_path(path: str) -> str:
+    if not path:
+        return ""
+    path = path.lstrip("/")
+    if path.startswith("original/split/"):
+        path = "original/data/" + path.split("/", 2)[2]
+    directory, base = posixpath.split(path)
+    base = re.sub(r"_well\\d{3}(?=\\.raw\\.h5$|\\.h5$|\\.nwb$)", "", base)
+    base = re.sub(r"\\.+", ".", base).rstrip(".")
+    return f"{directory}/{base}" if directory else base
+
+
+def _data_format_from_blocks(metadata: dict, dataset_path: str):
+    target = _normalize_metadata_path(dataset_path)
+    if not target:
+        return None
+    for exp in metadata.get("ephys_experiments", {}).values():
+        blocks = exp.get("blocks") or []
+        for block in blocks:
+            block_path = _normalize_metadata_path(block.get("path", ""))
+            if block_path and block_path == target:
+                return exp.get("data_format")
+    return None
+
+
 def _compute_retry_nt(rec, min_batches=8, min_nt=16384):
     try:
         num_samples = int(rec.get_num_samples())
@@ -283,10 +310,15 @@ if __name__ == "__main__":
     else:
         with open(metadata_path, 'r') as f:
             metadata = json.load(f)
-        if (experiment in metadata["ephys_experiments"]) and \
-                ("data_format" in metadata["ephys_experiments"][experiment]):
-            data_format = metadata["ephys_experiments"][experiment]["data_format"]
-            logging.info(f"Read data format from metadata.json, format is {data_format}")
+        dataset_path = os.environ.get("DATASET_PATH", "")
+        if dataset_path:
+            data_format = _data_format_from_blocks(metadata, dataset_path)
+            if data_format:
+                logging.info(f"Read data format from metadata.json blocks, format is {data_format}")
+            else:
+                logging.info(f"Data format not found in metadata.json for dataset path: {dataset_path}")
+        else:
+            logging.info("DATASET_PATH not set; cannot resolve data format from metadata blocks")
         if isinstance(data_format, str):
             fmt_lower = data_format.lower()
             if fmt_lower in ("maxtwo", "max2"):

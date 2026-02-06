@@ -6,6 +6,8 @@ This file captures stable repo structure, workflow expectations, and operational
 - **Primary spike-sorting workflow** is the **Ephys Pipeline** under `Algorithms/ephys_pipeline/`.
 - **Maxwell dashboard** web app lives under `Services/MaxWell_Dashboard/`.
 - **Job orchestration** for spike sorting lives under `Services/Spike_Sorting_Listener/` (MQTT listener + job creation). Kubernetes manifests for pipeline jobs live alongside algorithms (e.g., `Algorithms/ephys_pipeline/run_kilosort2.yaml`).
+- **Mission control deployment** lives in `../mission_control/` and manages the shared Docker Compose stack (dashboard, listeners, and related services). Update image tags there to roll out new versions.
+- **Listener image dependency**: when changing spike-sorting image tags or job templates, rebuild/push `braingeneers/spike_sorting_listener` and update `mqtt-job-listener` in `../mission_control/docker-compose.yaml` so new jobs pick up the updated defaults.
 - **MaxTwo splitting** (Maxwell 6/24‑well) is handled by `Services/maxtwo_splitter/` (separate from the pipeline).
 - **Legacy**: `../Kilosort_docker` is deprecated; Ephys Pipeline is the single source of truth for spike sorting.
 

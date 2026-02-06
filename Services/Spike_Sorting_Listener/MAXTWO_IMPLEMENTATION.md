@@ -121,7 +121,7 @@ INFO: Starting MaxTwo splitter fanout for uuid, M06359_D51_KOLFMO_632025
 
 ## Docker Images Used
 - **Splitter**: `surygeng/maxtwo_splitter:v0.1`
-- **Sorter**: `braingeneers/ephys_pipeline:v0.72` (from sorting_job_info.json)
+- **Sorter**: `braingeneers/ephys_pipeline:v0.75` (from sorting_job_info.json)
 
 ## Testing Recommendations
 

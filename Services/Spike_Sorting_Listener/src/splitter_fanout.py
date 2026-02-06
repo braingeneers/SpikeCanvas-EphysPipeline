@@ -322,6 +322,7 @@ def _normalize_experiment_name(experiment: str) -> str:
         base = base[:-len(".raw.h5")]
     if base.endswith(".h5"):
         base = base[:-len(".h5")]
+    base = re.sub(r"\\.+", ".", base).rstrip(".")
     return base
 
 

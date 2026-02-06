@@ -10,6 +10,16 @@ if [[ $# -ne 1 ]]; then
 fi
 
 S3_URI="$1"
+# Capture relative dataset path for metadata matching (original/data/..., original/split/..., shared/...)
+if [[ "${S3_URI}" == *"/original/data/"* ]]; then
+    DATASET_PATH="original/data/${S3_URI#*'/original/data/'}"
+elif [[ "${S3_URI}" == *"/original/split/"* ]]; then
+    DATASET_PATH="original/split/${S3_URI#*'/original/split/'}"
+elif [[ "${S3_URI}" == *"/shared/"* ]]; then
+    DATASET_PATH="shared/${S3_URI#*'/shared/'}"
+else
+    DATASET_PATH=""
+fi
 # ENDPOINT="https://s3.braingeneers.gi.ucsc.edu"
 ENDPOINT="http://rook-ceph-rgw-nautiluss3.rook"  # Internal endpoint for NRP cluster
 
@@ -35,18 +45,40 @@ META_LOCAL="/tmp/metadata.json"
 DATA_FORMAT=""
 
 if aws --endpoint "${ENDPOINT}" s3 cp "${META_PATH}" "${META_LOCAL}" >/dev/null 2>&1; then
-    DATA_FORMAT=$(BASE_EXPERIMENT="${BASE_EXPERIMENT}" python3 - <<'PY'
+    DATA_FORMAT=$(DATASET_PATH="${DATASET_PATH:-${DATASET}}" python3 - <<'PY'
 import json
 import os
+import posixpath
+import re
 
 meta_path = "/tmp/metadata.json"
-experiment = os.environ.get("BASE_EXPERIMENT", "")
+dataset_path = os.environ.get("DATASET_PATH", "")
 data_format = ""
+
+def normalize_path(path: str) -> str:
+    if not path:
+        return ""
+    path = path.lstrip("/")
+    if path.startswith("original/split/"):
+        path = "original/data/" + path.split("/", 2)[2]
+    directory, base = posixpath.split(path)
+    base = re.sub(r"_well\\d{3}(?=\\.raw\\.h5$|\\.h5$|\\.nwb$)", "", base)
+    base = re.sub(r"\\.+", ".", base).rstrip(".")
+    return f"{directory}/{base}" if directory else base
 
 try:
     with open(meta_path, "r") as f:
         metadata = json.load(f)
-    data_format = metadata.get("ephys_experiments", {}).get(experiment, {}).get("data_format", "")
+    target = normalize_path(dataset_path)
+    for exp in metadata.get("ephys_experiments", {}).values():
+        blocks = exp.get("blocks") or []
+        for block in blocks:
+            block_path = normalize_path(block.get("path", ""))
+            if block_path and block_path == target:
+                data_format = exp.get("data_format", "")
+                break
+        if data_format:
+            break
     if isinstance(data_format, str):
         data_format = data_format.lower()
         if data_format == "max2":

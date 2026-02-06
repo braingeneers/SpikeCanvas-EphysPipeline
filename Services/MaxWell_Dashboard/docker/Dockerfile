@@ -13,8 +13,8 @@ COPY docker/requirements.txt ./requirements.txt
 RUN set -ex && \
     pip install -r ./requirements.txt
 
-# Install braingeneers from GitHub (always most up-to-date)
-RUN pip install "git+https://github.com/braingeneers/braingeneerspy.git#egg=braingeneers[iot,analysis,data]"
+# Install braingeneers from PyPI (latest release)
+RUN python -m pip install braingeneers
 
 # Manually create _version.py since git metadata is not preserved during pip install from git
 RUN echo 'version = "0.0.0+git"' > /usr/local/lib/python3.10/site-packages/braingeneers/_version.py
