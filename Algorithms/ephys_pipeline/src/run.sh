@@ -129,16 +129,25 @@ if [[ "${DATA_FORMAT}" == "maxtwo" ]]; then
 fi
 
 echo "Downloading raw data file: ${RAW_S3_PATH}"
+DOWNLOAD_START=$(date +%s)
 aws --endpoint $ENDPOINT_URL s3 cp ${RAW_S3_PATH} /project/SpikeSorting/Trace
+DOWNLOAD_END=$(date +%s)
+DOWNLOAD_ELAPSED=$((DOWNLOAD_END - DOWNLOAD_START))
+echo "TIMING: S3 download completed in ${DOWNLOAD_ELAPSED}s"
 
 echo "Starting Kilosort2 processing..."
+COMPUTE_START=$(date +%s)
 DATASET_PATH="${DATASET_PATH}" python kilosort2_simplified.py $DATA_NAME
 KS_STATUS=$?
+COMPUTE_END=$(date +%s)
+COMPUTE_ELAPSED=$((COMPUTE_END - COMPUTE_START))
+echo "TIMING: Kilosort2 compute completed in ${COMPUTE_ELAPSED}s (exit code: ${KS_STATUS})"
 if [ $KS_STATUS -ne 0 ]; then
     echo "ERROR: Kilosort2 processing failed with exit code ${KS_STATUS}"
     exit $KS_STATUS
 fi
 
+UPLOAD_START=$(date +%s)
 echo "Uploading results..."
 cd /project/SpikeSorting/inter/sorted/kilosort2 || {
     echo "ERROR: Expected output folder not found: /project/SpikeSorting/inter/sorted/kilosort2"
@@ -244,4 +253,9 @@ elif [[ "$1" == s3://braingeneersdev/* ]]; then
     echo "Skipping cache cleanup for $1 (CLEAN_CACHE_INPUT=${CLEAN_CACHE_INPUT})"
 fi
 
+UPLOAD_END=$(date +%s)
+UPLOAD_ELAPSED=$((UPLOAD_END - UPLOAD_START))
+PIPELINE_TOTAL=$((UPLOAD_END - DOWNLOAD_START))
+echo "TIMING: S3 upload completed in ${UPLOAD_ELAPSED}s"
+echo "TIMING: Total pipeline wall-clock: ${PIPELINE_TOTAL}s (download: ${DOWNLOAD_ELAPSED}s, compute: ${COMPUTE_ELAPSED}s, upload: ${UPLOAD_ELAPSED}s)"
 echo "Kilosort2 pipeline completed."

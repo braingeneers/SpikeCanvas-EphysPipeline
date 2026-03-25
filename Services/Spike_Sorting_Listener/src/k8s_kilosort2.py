@@ -179,9 +179,14 @@ class Kube:
             return False
 
     def create_job(self):
+        # Explicit idempotency check: skip creation if job already exists
+        if self.check_job_exist():
+            logging.info(f"Job '{self.job_name}' already exists — skipping duplicate creation")
+            return None
         resp = self.batch_v1.create_namespaced_job(
             body=self.create_job_object(),
             namespace=self.namespace)
+        logging.info(f"Job '{self.job_name}' created successfully")
         return resp
 
     def check_job_status(self):

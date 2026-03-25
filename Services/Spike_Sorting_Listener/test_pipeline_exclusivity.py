@@ -56,7 +56,6 @@ def test_pipeline_exclusivity():
             'create_sort': mock_create_sort,
             'get_splitter_config': lambda: {'args': ['test'], 'cpu_request': '1', 'memory_request': '1Gi', 'disk_request': '10Gi', 'GPU': '0', 'image': 'test'},
             'get_sorter_template': lambda: {'test': 'template'},
-            'check_all_maxtwo_wells_exist': lambda *args: (False, ['well001']),  # Missing wells
             'check_exist': lambda path: False,  # No existing results
             's3_basepath': lambda uuid: f"s3://braingeneers/ephys/{uuid}/",
         }
@@ -184,8 +183,8 @@ def test_pipeline_exclusivity():
 def main():
     """Run all pipeline exclusivity tests."""
     print("Testing MaxTwo Pipeline Exclusivity")
-    print("Verifying: MaxTwo → MaxTwo Pipeline ONLY")
-    print("Verifying: MaxOne/NWB → Regular Pipeline ONLY")
+    print("Verifying: MaxTwo -> MaxTwo Pipeline ONLY")
+    print("Verifying: MaxOne/NWB -> Regular Pipeline ONLY")
     
     try:
         test_pipeline_exclusivity()

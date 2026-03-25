@@ -1,0 +1,111 @@
+# CI/CD Pipeline for SpikeCanvas-EphysPipeline
+# Runs unit tests on every push/PR, with optional integration test against NRP.
+
+name: SpikeCanvas Tests
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'Services/**'
+      - 'Algorithms/ephys_pipeline/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Services/**'
+      - 'Algorithms/ephys_pipeline/**'
+  workflow_dispatch:  # Manual trigger for integration tests
+    inputs:
+      run_integration:
+        description: 'Run NRP integration test (requires cluster access)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  # ============================================================
+  # Unit Tests — run on every push, no cluster access needed
+  # ============================================================
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install kubernetes braingeneers
+
+      - name: Run idempotency tests
+        working-directory: Services/Spike_Sorting_Listener
+        run: python test_idempotency.py
+
+      - name: Run pipeline exclusivity tests
+        working-directory: Services/Spike_Sorting_Listener
+        run: python test_pipeline_exclusivity.py
+
+      - name: Run connection stability tests
+        working-directory: Services/Spike_Sorting_Listener
+        run: python test_connection_stability.py
+
+      - name: Run sequencing tests
+        working-directory: Services/Spike_Sorting_Listener
+        run: python test_sequencing.py
+
+      - name: Validate run.sh syntax
+        run: bash -n Algorithms/ephys_pipeline/src/run.sh
+
+  # ============================================================
+  # Integration Test — manual trigger only, needs NRP kubeconfig
+  # ============================================================
+  integration-test:
+    name: NRP Integration Test
+    runs-on: ubuntu-latest
+    if: github.event.inputs.run_integration == 'true'
+    needs: unit-tests  # Only run if unit tests pass
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install kubernetes braingeneers
+
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.NRP_KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+
+      - name: Run single-job smoke test
+        working-directory: performance/speed_test
+        run: |
+          echo "Submitting 1 test job to NRP..."
+          python test.py --jobs 1 --cleanup
+        timeout-minutes: 60
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: performance/speed_test/benchmark_run_*.json

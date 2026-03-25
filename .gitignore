@@ -18,3 +18,5 @@ PIPELINE_README.md
 pipeline_paper_hippo_slice/
 Services/maxtwo_splitter/tmp/
 tmp/
+manuscript/
+Services/Spike_Sorting_Listener/listener.log

@@ -172,7 +172,7 @@ def test_splitter_first_sorters_wait():
 def main():
     """Run all sequencing tests."""
     print("Testing MaxTwo Pipeline Job Sequencing")
-    print("Verifying: Splitter First → Wait → Sorters")
+    print("Verifying: Splitter First -> Wait -> Sorters")
     
     try:
         test_splitter_first_sorters_wait()
@@ -185,7 +185,7 @@ def main():
         print("  3. Sorter jobs ONLY created AFTER splitter succeeds")
         print("  4. No sorter jobs created if splitter fails")
         print("  5. All 6 sorter jobs created on splitter success")
-        print("\nSEQUENCING IS CORRECT: Splitter → Wait → Sorters")
+        print("\nSEQUENCING IS CORRECT: Splitter -> Wait -> Sorters")
         print("=" * 60)
         
     except Exception as e:
