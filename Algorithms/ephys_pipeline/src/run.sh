@@ -130,7 +130,26 @@ fi
 
 echo "Downloading raw data file: ${RAW_S3_PATH}"
 DOWNLOAD_START=$(date +%s)
-aws --endpoint $ENDPOINT_URL s3 cp ${RAW_S3_PATH} /project/SpikeSorting/Trace
+
+# retry download up to MAX_RETRIES times (matches upload retry pattern)
+RETRY_COUNT=0
+SUCCESS=0
+while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+    aws --endpoint $ENDPOINT_URL s3 cp ${RAW_S3_PATH} /project/SpikeSorting/Trace
+    if [ $? -eq 0 ]; then
+        SUCCESS=1
+        break
+    fi
+    RETRY_COUNT=$((RETRY_COUNT + 1))
+    echo "Download from ${RAW_S3_PATH} failed. Attempt $RETRY_COUNT/$MAX_RETRIES. Retrying..."
+    sleep 5
+done
+
+if [ $SUCCESS -ne 1 ]; then
+    echo "ERROR: S3 download failed after $MAX_RETRIES attempts."
+    exit 1
+fi
+
 DOWNLOAD_END=$(date +%s)
 DOWNLOAD_ELAPSED=$((DOWNLOAD_END - DOWNLOAD_START))
 echo "TIMING: S3 download completed in ${DOWNLOAD_ELAPSED}s"
@@ -258,4 +277,35 @@ UPLOAD_ELAPSED=$((UPLOAD_END - UPLOAD_START))
 PIPELINE_TOTAL=$((UPLOAD_END - DOWNLOAD_START))
 echo "TIMING: S3 upload completed in ${UPLOAD_ELAPSED}s"
 echo "TIMING: Total pipeline wall-clock: ${PIPELINE_TOTAL}s (download: ${DOWNLOAD_ELAPSED}s, compute: ${COMPUTE_ELAPSED}s, upload: ${UPLOAD_ELAPSED}s)"
+
+# Write provenance record for this pipeline run
+# Captures input/output paths, timing, and execution environment
+PROVENANCE_FILE="/tmp/provenance.json"
+cat > "$PROVENANCE_FILE" << EOF
+{
+    "pipeline": "kilosort2",
+    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "input_s3_path": "${RAW_S3_PATH}",
+    "output_s3_prefix": "${OUT_REC_TIME}/derived/kilosort2/",
+    "data_format": "${DATA_FORMAT}",
+    "hostname": "$(hostname)",
+    "image": "${PIPELINE_IMAGE:-unknown}",
+    "kilosort_exit_code": ${KS_STATUS},
+    "timing_seconds": {
+        "download": ${DOWNLOAD_ELAPSED},
+        "compute": ${COMPUTE_ELAPSED},
+        "upload": ${UPLOAD_ELAPSED},
+        "total": ${PIPELINE_TOTAL}
+    },
+    "artifacts_uploaded": [
+        "${CHIP_ID}${DATA_NAME}_phy.zip"
+    ]
+}
+EOF
+
+# Upload provenance alongside results
+PROV_DEST="${OUT_REC_TIME}/derived/kilosort2/${CHIP_ID}${DATA_NAME}_provenance.json"
+aws --endpoint "$ENDPOINT_URL" s3 cp "$PROVENANCE_FILE" "$PROV_DEST" || echo "WARNING: Failed to upload provenance record"
+echo "Provenance record uploaded to ${PROV_DEST}"
+
 echo "Kilosort2 pipeline completed."

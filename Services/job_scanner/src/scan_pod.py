@@ -159,8 +159,8 @@ class edpScanner:
         while True:
             try:
                 pod_list = core_v1.list_namespaced_pod(namespace=self.namespace)
-            except:
-                logging.info("Refresh token")
+            except ApiException:
+                logging.info("Kubernetes API error, refreshing token")
                 config.load_kube_config()
                 core_v1 = client.CoreV1Api()
                 batch_v1 = client.BatchV1Api()  # Refresh BatchV1Api as well
