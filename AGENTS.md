@@ -40,6 +40,21 @@ This file captures stable repo structure, workflow expectations, and operational
 ## Image/versioning guidance
 - Ephys Pipeline container image should be pushed to: `braingeneers/ephys_pipeline:<tag>`.
 - When updating tags, ensure **all runtime references** are updated (listener job config, dashboard, manifests).
+- Use the repo-root `Makefile` as the primary interface for image work. Prefer `make ephys-build TAG=<tag>`, `make ephys-push TAG=<tag>`, `make listener-build TAG=<tag>`, `make listener-push TAG=<tag>`, `make dashboard-build TAG=<tag>`, and `make dashboard-push TAG=<tag>` over raw `docker build` / `docker push` commands.
+- Keep the Ephys Pipeline, Spike Sorting Listener, and MaxWell Dashboard image tags aligned unless there is a deliberate reason not to.
+
+## Release/update workflow
+- For an Ephys Pipeline release, first bump the pipeline tag in:
+  `Algorithms/ephys_pipeline/run_kilosort2.yaml`,
+  `Services/Spike_Sorting_Listener/src/sorting_job_info.json`,
+  `Services/Spike_Sorting_Listener/src/job_type_table.json`,
+  `Services/job_scanner/src/job_type_table.json`,
+  `Services/MaxWell_Dashboard/src/values.py`,
+  and `Services/MaxWell_Dashboard/src/k8s_kilosort2.py`.
+- Build images from the repo root with `make release-build TAG=<tag>` or the narrower per-service targets if only one image changed.
+- Push images from the repo root with `make release-push TAG=<tag>` after the build succeeds.
+- After pushing, update `../mission_control/docker-compose.yaml` so `mqtt-job-listener` and `maxwell-dashboard` point at the new listener/dashboard tags, then validate mission control from that repo with its `make compose-validate` target before committing.
+- Commit and push `EphysPipeline` and `../mission_control` separately so the image/tag change history stays clear.
 
 ## Dashboard expectations
 - **Remove**/avoid the standalone “Spike Sorting (Kilosort2)” option in the dashboard. The Ephys Pipeline should be the visible entry point.

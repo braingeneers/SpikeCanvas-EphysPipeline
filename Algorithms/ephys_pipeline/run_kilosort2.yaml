@@ -8,7 +8,7 @@ spec:
     spec:
       containers:
         - name: container
-          image: braingeneers/ephys_pipeline:v0.76
+          image: braingeneers/ephys_pipeline:v0.77
           imagePullPolicy: Always
           resources:
             requests:

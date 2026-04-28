@@ -250,8 +250,8 @@ def _normalize_metadata_path(path: str) -> str:
     if path.startswith("original/split/"):
         path = "original/data/" + path.split("/", 2)[2]
     directory, base = posixpath.split(path)
-    base = re.sub(r"_well\\d{3}(?=\\.raw\\.h5$|\\.h5$|\\.nwb$)", "", base)
-    base = re.sub(r"\\.+", ".", base).rstrip(".")
+    base = re.sub(r"_well\d{3}(?=\.raw\.h5$|\.h5$|\.nwb$)", "", base)
+    base = re.sub(r"\.+", ".", base).rstrip(".")
     return f"{directory}/{base}" if directory else base
 
 

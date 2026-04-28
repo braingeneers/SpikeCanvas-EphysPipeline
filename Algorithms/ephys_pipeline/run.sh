@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
-kubectl delete job sjg-simplified-r2
+set -euo pipefail
+
+if [[ -z "${TAG:-}" ]]; then
+  echo "Error: TAG environment variable is not set. Example: TAG=v0.77 ./run.sh" >&2
+  exit 1
+fi
+
+make ephys-build TAG="${TAG}"
+make ephys-push TAG="${TAG}"
+
+kubectl delete job sjg-simplified-r2 || true
 sleep 5
-docker build -f docker/Dockerfile -t braingeneers/ephys_pipeline:v0.76 .
-sleep 2
-docker push braingeneers/ephys_pipeline:v0.76
-sleep 2
 kubectl create -f run_kilosort2.yaml
 sleep 5
 watch "kubectl get pods | grep sjg"
