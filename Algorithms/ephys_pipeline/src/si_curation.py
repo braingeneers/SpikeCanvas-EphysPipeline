@@ -29,6 +29,32 @@ DEFUALT_PARAMS =  {"min_snr": 3,
                   "max_isi_viol": 0.5}
 
 
+class _SortingMetricsContext:
+    """Provide the minimal WaveformExtractor-like API needed by SpikeInterface metrics."""
+
+    def __init__(self, sorting, recording):
+        self.sorting = sorting
+        self.sampling_frequency = recording.get_sampling_frequency()
+        self._segment_sample_counts = [
+            recording.get_num_samples(segment_index=i) for i in range(recording.get_num_segments())
+        ]
+
+    def get_total_duration(self):
+        total_samples = sum(self._segment_sample_counts)
+        if self.sampling_frequency <= 0:
+            return 0
+        return total_samples / self.sampling_frequency
+
+    def get_total_samples(self):
+        return sum(self._segment_sample_counts)
+
+    def get_num_samples(self, segment_index):
+        return self._segment_sample_counts[segment_index]
+
+    def get_num_segments(self):
+        return len(self._segment_sample_counts)
+
+
 class QualityMetrics:
     """
     curation by quality metrics using spikeinterface API
@@ -54,23 +80,31 @@ class QualityMetrics:
         self._fr_thres = min_fr
         self._isi_viol_thres = max_isi_viol
         self.data_format = data_format
+        self.sorting_metrics_context = _SortingMetricsContext(self.phy_result, rec)
+        self.prefiltered_sorting, self.prefilter_remove_ids = self._prefilter_sorting()
 
-        self.we = self.extract_waveforms(rec, max_spikes=500)
-        print("waveforms", self.we)
+        if len(self.prefiltered_sorting.unit_ids) > 0:
+            self.we = self.extract_waveforms(rec, self.prefiltered_sorting, max_spikes=500)
+            print("waveforms", self.we)
+        else:
+            self.we = None
+            logging.info("No units remain after firing-rate/ISI prefilter; skipping waveform extraction.")
 
         if default:
             self.curated_ids, self.all_remove_ids = self.default_curation()
-            logging.info("Saving cleaned units...")
-            self.we_clean = self.we.select_units(self.curated_ids, self.clean_folder)
-            logging.info(f"Saved, {self.we_clean}")
+            if self.we is not None:
+                logging.info("Saving cleaned units...")
+                self.we_clean = self.we.select_units(self.curated_ids, self.clean_folder)
+                logging.info(f"Saved, {self.we_clean}")
+            else:
+                self.we_clean = None
 
     def default_curation(self):
-        all_remove_ids = set()
+        all_remove_ids = set(self.prefilter_remove_ids)
+        if self.we is None:
+            logging.info("Skipping waveform-based curation because no units remain after prefilter.")
+            return np.array([], dtype=self.phy_result.unit_ids.dtype), list(all_remove_ids)
         ids = self.curate_by_snr()
-        all_remove_ids.update(ids)
-        ids = self.curate_by_isi()
-        all_remove_ids.update(ids)
-        ids = self.curate_by_fr()
         all_remove_ids.update(ids)
         # ids = self.curate_by_redundant()  # output the cleaned units and the original/remove list
         # all_remove_ids.update(ids)
@@ -91,12 +125,41 @@ class QualityMetrics:
         self.we.sorting = curated_excess
         return curated_excess.unit_ids, list(all_remove_ids)
 
-    def extract_waveforms(self, rec_pre, ms_before=2., ms_after=3., max_spikes=500):
+    def _prefilter_sorting(self):
+        sorting = self.phy_result
+        remove_ids = set()
+        firing_rate = sqm.compute_firing_rates(self.sorting_metrics_context)
+        fr_remove_ids = [k for k, v in firing_rate.items() if v < self._fr_thres]
+        if fr_remove_ids:
+            sorting = sorting.remove_units(fr_remove_ids)
+        remove_ids.update(fr_remove_ids)
+        logging.info(
+            f"Pre-curated by firing rate of {self._fr_thres} Hz. "
+            f"Remove number of units: {len(fr_remove_ids)}/{len(self.phy_result.unit_ids)}"
+        )
+
+        if len(sorting.unit_ids) == 0:
+            return sorting, list(remove_ids)
+
+        metric_context = _SortingMetricsContext(sorting, self.sorting_metrics_context)
+        isi_viol_ratio, isi_viol_num = sqm.compute_isi_violations(metric_context)
+        isi_remove_ids = [k for k, v in isi_viol_ratio.items() if v > self._isi_viol_thres]
+        if isi_remove_ids:
+            sorting = sorting.remove_units(isi_remove_ids)
+        remove_ids.update(isi_remove_ids)
+        logging.info(
+            f"Pre-curated by ISI violation (Hill method) "
+            f"of {self._isi_viol_thres}/1 of 1.5 ms refactory period. "
+            f"Remove number of units: {len(isi_remove_ids)}/{len(self.phy_result.unit_ids) - len(fr_remove_ids)}"
+        )
+        return sorting, list(remove_ids)
+
+    def extract_waveforms(self, rec_pre, sorting, ms_before=2., ms_after=3., max_spikes=500):
         self.extract_path = posixpath.join(self.base_folder, "extract_waveforms")
         if os.path.isdir(self.extract_path):
             we = sc.WaveformExtractor.load(folder=self.extract_path)
         else:
-            we = sc.WaveformExtractor(rec_pre, self.phy_result, self.base_folder, allow_unfiltered=False)
+            we = sc.WaveformExtractor(rec_pre, sorting, self.base_folder, allow_unfiltered=False)
             we.set_params(ms_before=ms_before, ms_after=ms_after, max_spikes_per_unit=max_spikes)
             we.run_extract_waveforms(**JOB_KWARGS)
             we.save(self.extract_path, overwrite=True)
@@ -179,6 +242,15 @@ class QualityMetrics:
         """
         compile the cleaned sorting to npz with braingeneers compatible structure
         """
+        if self.we_clean is None:
+            logging.info("No curated waveforms available; returning empty spike data.")
+            return {
+                "train": {},
+                "neuron_data": {},
+                "config": {},
+                "redundant_pairs": [],
+                "fs": self.sorting_metrics_context.sampling_frequency,
+            }
         templates = self.we_clean.get_all_templates()
         clusters = self.we_clean.unit_ids
         nc = len(clusters)

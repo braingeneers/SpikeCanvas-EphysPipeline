@@ -131,6 +131,13 @@ fi
 echo "Downloading raw data file: ${RAW_S3_PATH}"
 aws --endpoint $ENDPOINT_URL s3 cp ${RAW_S3_PATH} /project/SpikeSorting/Trace
 
+CURRENT_NOFILE=$(ulimit -Sn 2>/dev/null || echo "unknown")
+if ulimit -n 65535 2>/dev/null; then
+    echo "Raised open-file limit from ${CURRENT_NOFILE} to $(ulimit -Sn)"
+else
+    echo "Open-file limit remains at ${CURRENT_NOFILE}"
+fi
+
 echo "Starting Kilosort2 processing..."
 DATASET_PATH="${DATASET_PATH}" python kilosort2_simplified.py $DATA_NAME
 KS_STATUS=$?
