@@ -1,6 +1,6 @@
 {
     "surygeng/connectivity:v0.1": "Functional Connectivity Analysis",
-    "braingeneers/ephys_pipeline:v0.77": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
+    "braingeneers/ephys_pipeline:v0.78": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "surygeng/local_field_potential:v0.1": "Local Field Potential Subbands",
     "surygeng/qm_curation:v0.2": "Auto-Curation by Quality Metrics",
     "surygeng/visualization:v0.1": "Visualization",

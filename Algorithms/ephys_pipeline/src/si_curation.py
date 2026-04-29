@@ -75,6 +75,7 @@ class QualityMetrics:
         self.clean_folder = posixpath.join(base_folder, "cleaned_waveforms")
         phy_result = se.KiloSortSortingExtractor(phy_folder)
         self.phy_result = phy_result.remove_empty_units()
+        self.rec = rec
         self._rec_path = rec_path
         self._snr_thres = min_snr
         self._fr_thres = min_fr
@@ -141,7 +142,7 @@ class QualityMetrics:
         if len(sorting.unit_ids) == 0:
             return sorting, list(remove_ids)
 
-        metric_context = _SortingMetricsContext(sorting, self.sorting_metrics_context)
+        metric_context = _SortingMetricsContext(sorting, self.rec)
         isi_viol_ratio, isi_viol_num = sqm.compute_isi_violations(metric_context)
         isi_remove_ids = [k for k, v in isi_viol_ratio.items() if v > self._isi_viol_thres]
         if isi_remove_ids:

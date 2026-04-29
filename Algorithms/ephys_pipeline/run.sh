@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ -z "${TAG:-}" ]]; then
-  echo "Error: TAG environment variable is not set. Example: TAG=v0.77 ./run.sh" >&2
+  echo "Error: TAG environment variable is not set. Example: TAG=v0.78 ./run.sh" >&2
   exit 1
 fi
 
