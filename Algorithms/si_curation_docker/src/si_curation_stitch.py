@@ -258,7 +258,7 @@ class QualityMetrics:
         wf_file = None
         return qm_file, wf_file
 
-    def compile_data(self, n=12):
+    def compile_data(self):
         """
         compile the cleaned sorting to npz with braingeneers compatible structure
         """
@@ -272,7 +272,7 @@ class QualityMetrics:
         for i in range(nc):
             c = clusters[i]
             temp = templates[i]
-            sorted_idx = sort_template_amplitude(temp)[:n]
+            sorted_idx = sort_template_amplitude(temp)
             temp = temp.T
             best_idx = sorted_idx[0]
             neuron_dict[i] = {"cluster_id": c, "channel": best_channels[c],
