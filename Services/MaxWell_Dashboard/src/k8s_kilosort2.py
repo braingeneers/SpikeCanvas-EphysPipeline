@@ -12,7 +12,7 @@ class Kube:
     def create_job_object(self):
         container = client.V1Container(
             name="container",
-            image="braingeneers/ephys_pipeline:v0.78",
+            image="braingeneers/ephys_pipeline:v0.79",
             image_pull_policy="Always",
             command=["stdbuf", "-i0", "-o0", "-e0", "/usr/bin/time", "-v", "bash", "-c"],
             args=[self.args],
