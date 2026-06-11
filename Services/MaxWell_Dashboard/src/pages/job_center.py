@@ -223,6 +223,8 @@ def update_job_table(input_value, rows, uuid):
             job_info["uuid"] = uuid  # uuid
             job_info["experiment"] = rec.split("original/data/")[1]
             for h, value in DEFAULT_JOBS["batch"].items():
+                if h == "params_label":
+                    continue
                 job_info[h] = value
             rows.append(job_info)
         print(f"{rows}")

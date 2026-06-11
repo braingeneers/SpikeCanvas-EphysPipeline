@@ -45,7 +45,7 @@ def upload_to_s3(file, s3_path):
             writer = csv.DictWriter(f, fieldnames=TABLE_HEADERS)
             writer.writeheader()
             for row in file:
-                writer.writerow(row)
+                writer.writerow({field: row.get(field) for field in TABLE_HEADERS})
         return None
     except Exception as err:
         print(err)
