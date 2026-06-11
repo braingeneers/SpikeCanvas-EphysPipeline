@@ -68,11 +68,20 @@ def test_splitter_first_sorters_wait():
             # Call spawn_splitter_fanout
             splitter_cfg = {
                 'args': ['test'], 'cpu_request': '1', 'memory_request': '1Gi', 
-                'disk_request': '10Gi', 'GPU': '0', 'image': 'test'
+                'disk_request': '10Gi', 'GPU': '0', 'image': 'test',
+                'init_args': ['download'], 'init_cpu_request': '1',
+                'init_memory_request': '1Gi', 'init_disk_request': '10Gi',
+                'init_GPU': '0'
             }
             sorter_tpl = {'test': 'template'}
             
-            spawn_splitter_fanout("test-uuid", "test_experiment.raw.h5", splitter_cfg, sorter_tpl)
+            spawn_splitter_fanout(
+                "test-uuid",
+                "test_experiment.raw.h5",
+                "s3://bucket/test-uuid/original/data/test_experiment.raw.h5",
+                splitter_cfg,
+                sorter_tpl
+            )
             
             # Verify only splitter job was created
             created_jobs = [log for log in job_creation_log if log.startswith("CREATE:")]
@@ -116,6 +125,10 @@ def test_splitter_first_sorters_wait():
         
         with patch('splitter_fanout.Kube', MockKube), \
              patch('splitter_fanout._safe_get_job_status', mock_safe_get_job_status), \
+             patch('splitter_fanout._list_split_files', return_value=[
+                 f"s3://bucket/test-uuid/original/data/test_experiment_well{i:03d}.raw.h5"
+                 for i in range(1, 7)
+             ]), \
              patch('splitter_fanout.time.sleep') as mock_sleep:  # Speed up test
             
             # Call watcher function directly
@@ -123,6 +136,7 @@ def test_splitter_first_sorters_wait():
                 "test-splitter-job", 
                 "test-uuid", 
                 "test_experiment.raw.h5", 
+                "s3://bucket/test-uuid/original/data/test_experiment.raw.h5",
                 sorter_tpl, 
                 job_created=True
             )
@@ -159,6 +173,7 @@ def test_splitter_first_sorters_wait():
                 "test-splitter-job", 
                 "test-uuid", 
                 "test_experiment.raw.h5", 
+                "s3://bucket/test-uuid/original/data/test_experiment.raw.h5",
                 sorter_tpl, 
                 job_created=True
             )

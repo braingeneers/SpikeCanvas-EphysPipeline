@@ -1,7 +1,7 @@
 ###############################################################################
 # splitter_fanout.py
-#  – Submit *one* splitter Job
-#  – Background thread watches it; when Succeeded → fan-out 6 sorter Jobs
+#  – Submit *one* splitter Job per recording
+#  – Background thread watches it; when Succeeded → fan-out per-well sorter Jobs
 #  – Uses mqtt_listener.format_job_name so all Job names are K8s-safe
 ###############################################################################
 from kubernetes import client, config
@@ -333,37 +333,56 @@ def _sanitize_job_fragment(value: str) -> str:
 
 def _build_well_job_name(uuid_param: str, base_exp: str, well_id: str,
                          prefix: str = JOB_PREFIX, max_len: int = 63) -> str:
-    """Build a job name that preserves UUID prefix and well id (front-heavy)."""
+    """Build a job name that preserves UUID, recording context, and well id."""
     well_part = _sanitize_job_fragment(well_id)
     uuid_part = _sanitize_job_fragment(_normalize_uuid_for_cache(uuid_param))
+    exp_part = _sanitize_job_fragment(base_exp)
     if uuid_part == "x":
-        uuid_part = _sanitize_job_fragment(base_exp)
+        uuid_part = exp_part
     if uuid_part == "x":
         uuid_part = "data"
+    if exp_part == "x":
+        exp_part = "recording"
 
-    # Leave room for prefix + '-' + well id
-    keep = max_len - len(prefix) - len(well_part) - 1
-    if keep < 1:
+    keep = max_len - len(prefix)
+    remaining = keep - len(well_part) - 1
+    if remaining < 1:
         return format_job_name(well_part, prefix=prefix, max_len=max_len)
 
-    uuid_part = uuid_part[:keep]
-    return f"{prefix}{uuid_part}-{well_part}"
+    min_exp = min(len(exp_part), 24)
+    uuid_keep = max(1, remaining - min_exp - 1)
+    uuid_part = uuid_part[:uuid_keep]
+    exp_keep = remaining - len(uuid_part) - 1
+    if exp_keep < 1:
+        return f"{prefix}{uuid_part[:remaining]}-{well_part}"
+
+    return f"{prefix}{uuid_part}-{exp_part[:exp_keep]}-{well_part}"
 
 
 def _build_splitter_job_name(uuid_param: str, base_exp: str,
                              prefix: str = SPLITTER_JOB_PREFIX, max_len: int = 63) -> str:
-    """Build a splitter job name that preserves the UUID prefix."""
+    """Build a splitter job name that is unique per UUID and recording."""
     uuid_part = _sanitize_job_fragment(_normalize_uuid_for_cache(uuid_param))
+    exp_part = _sanitize_job_fragment(base_exp)
     if uuid_part == "x":
-        uuid_part = _sanitize_job_fragment(base_exp)
+        uuid_part = exp_part
     if uuid_part == "x":
         uuid_part = "data"
+    if exp_part == "x":
+        exp_part = "recording"
 
     keep = max_len - len(prefix)
     if keep < 1:
         return format_job_name(base_exp, prefix=prefix, max_len=max_len)
 
-    return f"{prefix}{uuid_part[:keep]}"
+    min_exp = min(len(exp_part), 24)
+    uuid_keep = max(1, keep - min_exp - 1)
+    uuid_part = uuid_part[:uuid_keep]
+    exp_keep = keep - len(uuid_part) - 1
+    if exp_keep < 1:
+        return f"{prefix}{uuid_part[:keep]}".rstrip("-")
+
+    return f"{prefix}{uuid_part}-{exp_part[:exp_keep]}".rstrip("-")
 
 
 def _launch_split_sorters(uuid_param, base_exp, split_files, tpl):

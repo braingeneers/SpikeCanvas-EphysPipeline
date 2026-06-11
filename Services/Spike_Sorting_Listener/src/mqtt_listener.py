@@ -132,16 +132,10 @@ class JobMessage:
                         # This handles: maxone, nwb, maxtwo-split, Maxwell, and any other formats
                         logging.info(f"Processing non-MaxTwo recording with format '{fmt}'")
                         if overwrite:
-                            splitter_cfg = get_splitter_config()
-                            sorter_tpl = get_sorter_template()
-                            full_exp = path.split("/")[-1]
-                            spawn_splitter_fanout(uuid, full_exp, file_path, splitter_cfg, sorter_tpl)
+                            create_sort(exp, file_path)
                             logging.info(f"Overwrite sorting result because overwrite is {overwrite}")
                         elif not check_exist(result_path):
-                            splitter_cfg = get_splitter_config()
-                            sorter_tpl = get_sorter_template()
-                            full_exp = path.split("/")[-1]
-                            spawn_splitter_fanout(uuid, full_exp, file_path, splitter_cfg, sorter_tpl)
+                            create_sort(exp, file_path)
                         else:
                             logging.info(f"Sorting result exists. Moving on to next experiment...")
                 do_logging(f"Done looping experiments. ", "info")
@@ -241,7 +235,11 @@ def run_job_from_csv(csv_path, update_info, job_index):
         for row in reader:
             if int(row["index"]) in job_index:
                 if update_info == "Start":
-                    launch_job_csv(csv_file, row)
+                    launched = launch_job_csv(csv_file, row)
+                    if not launched:
+                        row["status"] = "Failed"
+                        new_rows_list.append(row)
+                        continue
                 elif update_info == "Succeeded":
                     if row["next_job"] != "None":
                         next_index = list(row["next_job"].split('/'))
@@ -249,8 +247,8 @@ def run_job_from_csv(csv_path, update_info, job_index):
                             next_job.add(int(n))
                 row["status"] = update_info
             elif bool(next_job) and int(row["index"]) in next_job:
-                launch_job_csv(csv_file, row)
-                row["status"] = "Started"
+                launched = launch_job_csv(csv_file, row)
+                row["status"] = "Started" if launched else "Failed"
                 next_job.remove(int(row["index"]))
             new_rows_list.append(row)
     # Do the writing
@@ -267,21 +265,32 @@ def launch_job_csv(csv_file, csv_row):
     job_name = format_job_name(csv_file, job_ind)
     logging.info(f"creating job for job name: {job_name}")
     if job_info.get("args") == "./run.sh":
-        splitter_cfg = get_splitter_config()
-        sorter_tpl = get_sorter_template()
-        sorter_tpl.update(job_info)
         file_path = _build_csv_file_path(job_info)
         experiment = job_info.get("experiment", "")
-        spawn_splitter_fanout(job_info["uuid"], experiment, file_path, splitter_cfg, sorter_tpl)
-        logging.info(f"Splitter job submitted for {job_name}")
-        return
+        data_format = get_data_format_for_file(file_path)
+        if is_maxtwo_recording(data_format, file_path):
+            splitter_cfg = get_splitter_config()
+            sorter_tpl = get_sorter_template()
+            sorter_tpl.update(job_info)
+            spawn_splitter_fanout(job_info["uuid"], experiment, file_path, splitter_cfg, sorter_tpl)
+            logging.info(f"Splitter job submitted for {job_name}")
+            return True
+        if not should_direct_sort_csv_recording(data_format, file_path):
+            logging.error(
+                "Could not determine a safe sorter route for CSV Ephys Pipeline job "
+                f"{job_name}: file_path={file_path}, data_format={data_format or 'unknown'}"
+            )
+            return False
+        logging.info(f"CSV Ephys Pipeline job is format '{data_format or 'unknown'}'; creating sorter directly")
 
     resp = create_kube_job(job_name, job_info)
     # TODO: resp should have many info inside. Parse it by a better way
     if resp == -1:
         logging.error(f"Error creating {job_name}. Err message {resp}")  # TODO: catch error message...
+        return False
     else:
         logging.info(f"Job {job_name} created")
+        return True
 
 
 ########################## Utils ##########################
@@ -298,9 +307,100 @@ def is_maxtwo_recording(data_format: str, file_path: str) -> bool:
     """
     if not data_format:
         return False
-    fmt = str(data_format).lower()
-    return (fmt in ("maxtwo", "max2") and
+    fmt = _normalize_data_format(data_format)
+    return (fmt == "maxtwo" and
             (file_path.endswith(".raw.h5") or file_path.endswith(".h5")))   
+
+
+def should_direct_sort_csv_recording(data_format: str, file_path: str) -> bool:
+    """Return True only when a CSV pipeline job is safe to launch directly."""
+    fmt = _normalize_data_format(data_format)
+    if fmt:
+        return fmt in {"maxone", "nwb", "maxtwo-split", "maxwell"}
+    if file_path.endswith((".raw.h5", ".h5")):
+        return False
+    return file_path.endswith(".nwb")
+
+
+def get_data_format_for_file(file_path: str) -> str:
+    """Read metadata.json and return the data_format for a recording path."""
+    metadata_root = _metadata_root_from_file_path(file_path)
+    dataset_path = _dataset_path_from_file_path(file_path)
+    if not metadata_root or not dataset_path:
+        return ""
+
+    metadata_path = f"{metadata_root.rstrip('/')}/metadata.json"
+    target = _normalize_metadata_path(dataset_path)
+    try:
+        with smart_open.open(metadata_path, "r") as f:
+            metadata = json.load(f)
+        for exp in _iter_ephys_experiments(metadata):
+            if not isinstance(exp, dict):
+                continue
+            for block in exp.get("blocks") or []:
+                if not isinstance(block, dict):
+                    continue
+                block_path = _normalize_metadata_path(block.get("path", ""))
+                if block_path and block_path == target:
+                    return _normalize_data_format(exp.get("data_format", ""))
+    except Exception as err:
+        logging.warning(f"Could not determine data format for {file_path}: {err}")
+    return ""
+
+
+def _iter_ephys_experiments(metadata: dict):
+    experiments = metadata.get("ephys_experiments", {})
+    if isinstance(experiments, dict):
+        return experiments.values()
+    if isinstance(experiments, list):
+        return experiments
+    return []
+
+
+def _normalize_data_format(data_format: str) -> str:
+    if not isinstance(data_format, str):
+        return ""
+    normalized = data_format.strip().lower()
+    if normalized == "max2":
+        return "maxtwo"
+    return normalized
+
+
+def _metadata_root_from_file_path(file_path: str) -> str:
+    for marker in ("/original/data/", "/original/split/", "/shared/"):
+        if marker in file_path:
+            root = file_path.split(marker, 1)[0]
+            break
+    else:
+        return ""
+
+    if root.startswith("s3://braingeneersdev/cache/ephys/"):
+        return "s3://braingeneers/ephys/" + root.split("s3://braingeneersdev/cache/ephys/", 1)[1].strip("/")
+    if root.startswith("s3://braingeneersdev/ephys/"):
+        return "s3://braingeneers/ephys/" + root.split("s3://braingeneersdev/ephys/", 1)[1].strip("/")
+    return root
+
+
+def _dataset_path_from_file_path(file_path: str) -> str:
+    if "/original/data/" in file_path:
+        return "original/data/" + file_path.split("/original/data/", 1)[1]
+    if "/original/split/" in file_path:
+        return "original/split/" + file_path.split("/original/split/", 1)[1]
+    if "/shared/" in file_path:
+        return "shared/" + file_path.split("/shared/", 1)[1]
+    return ""
+
+
+def _normalize_metadata_path(path: str) -> str:
+    if not path:
+        return ""
+    path = path.lstrip("/")
+    if path.startswith("original/split/"):
+        path = "original/data/" + path.split("/", 2)[2]
+    directory, base = posixpath.split(path)
+    base = re.sub(r"_well\d{3}(?=\.raw\.h5$|\.h5$|\.nwb$)", "", base)
+    base = re.sub(r"\.+", ".", base).rstrip(".")
+    return f"{directory}/{base}" if directory else base
 
 
 def get_splitter_config() -> dict:

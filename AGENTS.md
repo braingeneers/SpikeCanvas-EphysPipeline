@@ -56,6 +56,11 @@ This file captures stable repo structure, workflow expectations, and operational
 - After pushing, update `../mission_control/docker-compose.yaml` so `mqtt-job-listener` and `maxwell-dashboard` point at the new listener/dashboard tags, then validate mission control from that repo with its `make compose-validate` target before committing.
 - Commit and push `EphysPipeline` and `../mission_control` separately so the image/tag change history stays clear.
 
+## Testing workflow
+- Run Spike Sorting Listener tests inside the production listener image (or a rebuilt candidate image) so dependency behavior matches deployment. Prefer commands like:
+  `docker run --rm -v "$PWD/Services/Spike_Sorting_Listener:/workspace:ro" -w /tmp -e PYTHONPATH=/workspace/src -e PYTHONPYCACHEPREFIX=/tmp/pycache braingeneers/spike_sorting_listener:<tag> python /workspace/test_listener_routing.py`.
+- When testing a new listener build, replace `<tag>` with the candidate image tag. Keep the repo mount read-only and write Python bytecode/cache files under `/tmp` to avoid leaving generated artifacts in the worktree.
+
 ## Dashboard expectations
 - **Remove**/avoid the standalone “Spike Sorting (Kilosort2)” option in the dashboard. The Ephys Pipeline should be the visible entry point.
 - Keep user‑facing labels aligned with actual job image names to reduce confusion.

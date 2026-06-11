@@ -56,9 +56,9 @@ def test_pipeline_exclusivity():
             'create_sort': mock_create_sort,
             'get_splitter_config': lambda: {'args': ['test'], 'cpu_request': '1', 'memory_request': '1Gi', 'disk_request': '10Gi', 'GPU': '0', 'image': 'test'},
             'get_sorter_template': lambda: {'test': 'template'},
-            'check_all_maxtwo_wells_exist': lambda *args: (False, ['well001']),  # Missing wells
             'check_exist': lambda path: False,  # No existing results
             's3_basepath': lambda uuid: f"s3://braingeneers/ephys/{uuid}/",
+            'do_logging': lambda *args: None,
         }
         
         # Test Case 1: MaxTwo recording should ONLY trigger MaxTwo pipeline
@@ -154,7 +154,7 @@ def test_pipeline_exclusivity():
         assert len(pipeline_calls['create_sort']) == 2, f"Expected 2 regular calls, got {len(pipeline_calls['create_sort'])}"
         print("PASS: Mixed batch correctly routed to appropriate pipelines")
         
-        # Test Case 4: Unknown format should be skipped
+        # Test Case 4: Unknown non-MaxTwo format should use regular sorting
         print("\n=== Test Case 4: Unknown Format ===")
         pipeline_calls['spawn_splitter_fanout'].clear()
         pipeline_calls['create_sort'].clear()
@@ -178,8 +178,8 @@ def test_pipeline_exclusivity():
         print(f"Regular sorting calls: {len(pipeline_calls['create_sort'])}")
         
         assert len(pipeline_calls['spawn_splitter_fanout']) == 0, f"Expected 0 MaxTwo calls, got {len(pipeline_calls['spawn_splitter_fanout'])}"
-        assert len(pipeline_calls['create_sort']) == 0, f"Expected 0 regular calls, got {len(pipeline_calls['create_sort'])}"
-        print("PASS: Unknown format correctly skipped")
+        assert len(pipeline_calls['create_sort']) == 1, f"Expected 1 regular call, got {len(pipeline_calls['create_sort'])}"
+        print("PASS: Unknown non-MaxTwo format routed to regular sorting")
 
 def main():
     """Run all pipeline exclusivity tests."""
@@ -197,7 +197,7 @@ def main():
         print("  2. PASS: MaxOne recordings ONLY trigger regular pipeline")
         print("  3. PASS: NWB recordings ONLY trigger regular pipeline")
         print("  4. PASS: Mixed batches route correctly")
-        print("  5. PASS: Unknown formats are skipped")
+        print("  5. PASS: Unknown non-MaxTwo formats use regular sorting")
         print("\nPIPELINE EXCLUSIVITY IS CORRECT!")
         print("=" * 60)
         
