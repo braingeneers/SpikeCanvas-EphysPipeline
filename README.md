@@ -47,3 +47,5 @@ Individual algorithm implementations:
 
 ## Parameter management
 Reusable parameter JSON files reside in `Services/parameters/`. For example, connectivity jobs default to a 1 ms bin size with a 50 ms window and 5 ms functional latency, while auto-curation defaults to a minimum signal-to-noise ratio of 5 and minimum firing rate of 0.1 Hz.【F:Services/parameters/connectivity/params_default.json†L1-L4】【F:Services/parameters/curation/params_default.json†L1-L1】 Update or copy these files when you need custom settings for new jobs.
+
+The MaxWell Dashboard Job Center can also create and attach parameter files at submission time. For Ephys Pipeline jobs, this controls the post-Kilosort2 auto-curation thresholds `min_snr`, `min_fr`, and `max_isi_viol`; on MaxTwo recordings the selected pipeline parameter file is propagated to every per-well sorter job after splitting. See [Services/MaxWell_Dashboard/README.md](Services/MaxWell_Dashboard/README.md#3-parameter-settings) for the dashboard workflow and an example parameter set.

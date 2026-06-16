@@ -46,11 +46,51 @@ SpikeCanvas provides a complete suite of tools for electrophysiology data analys
 ### Setting Parameters
 - **Set new parameters**: This section allows you to set parameters for the selected job. Input the parameter file name and values in the text areas provided.
 
+For **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**, the parameter fields control the auto-curation step that runs after Kilosort2. The dashboard saves these fields as JSON under:
+
+```text
+s3://braingeneers/services/mqtt_job_listener/params/pipeline/params_<file-name>.json
+```
+
+The Ephys Pipeline reads the JSON keys below:
+
+| Dashboard field | JSON key | Effect |
+| --- | --- | --- |
+| Minimum SNR (rms) | `min_snr` | Exclude units with signal-to-noise ratio below this value |
+| Minimum Firing Rate (Hz) | `min_fr` | Exclude units with firing rate below this value |
+| Maximum ISI Violation (/1) | `max_isi_viol` | Exclude units with ISI violation rate above this value |
+
+For example, to exclude putative neuronal units with ISI violation rates above `0.5`, firing rates below `0.1` Hz, and SNR below your chosen threshold, select **Ephys Pipeline**, enter a file name such as `kd_fusion_qc`, enter:
+
+```json
+{
+  "min_snr": 3,
+  "min_fr": 0.1,
+  "max_isi_viol": 0.5
+}
+```
+
+through the dashboard fields, and click **Save Parameters**. The dashboard will create `params_kd_fusion_qc.json` in the `pipeline` parameter folder.
+
 ### Loading Parameter Files
 - **Select a job to load parameter file**: Choose a job to load the corresponding parameter file. The parameters will display in the text area.
 
 ### Current Parameter Setting
 - **Parameter Table**: View and manage the current parameter settings in a table. You can add or remove parameter files as needed.
+
+### Applying Parameters to a Job
+1. Select the dataset UUID and recording(s).
+2. Select **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**.
+3. Either create a new parameter file with **Save Parameters**, or choose an existing file under **Select a job to load parameter file**.
+4. Click **Add to Parameter Table**. Confirm that the table has `pipeline` in the job column and the selected parameter file in the parameter file column.
+5. Click **Add to Job Table**. The job table row should show `pipeline/<parameter-file>` in the `params` column.
+6. Click **Export and Start Job**.
+
+Use the recording checklist and **Add to Job Table** path for custom Ephys Pipeline parameters. The **Batch Process with Standard Pipeline** shortcut creates standard pipeline rows directly and does not attach parameter-table selections.
+
+For MaxTwo datasets, the listener starts one splitter job first and then fans out one Ephys Pipeline job per well. The selected `pipeline/<parameter-file>` setting is copied into the sorter template, so every well job receives the same parameter file.
+
+If the `params` column is empty or points to a missing file, the Ephys Pipeline uses its built-in curation defaults: `min_snr=3`, `min_fr=0.1`, and `max_isi_viol=0.5`.
 
 ## 4. Job Management
 
@@ -77,5 +117,6 @@ SpikeCanvas provides a complete suite of tools for electrophysiology data analys
 - Ensure all required fields are filled before adding jobs to the table.
 - If metadata does not display, verify the dataset UUID and try again.
 - Parameters should be set carefully to ensure jobs run correctly.
+- For Ephys Pipeline jobs, verify the Status Monitor parameter path points at `.../params/pipeline/params_<file-name>.json`. If it does not, re-add the parameter file to the Parameter Table before adding the job row.
 
 This manual provides a detailed guide to using the Job Center Webpage. Follow the instructions in each section to efficiently manage and execute your data processing jobs.

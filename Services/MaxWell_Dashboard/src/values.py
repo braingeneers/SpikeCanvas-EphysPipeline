@@ -22,7 +22,9 @@ FINISH_FLAGS = ["Succeeded", "Failed", "Unknown"]
 
 # Define the parameters for each job
 JOB_PARAMETERS = {
-    0: ["parameter not yet available"],
+    0: ["Minimum SNR (rms)",
+        "Minimum Firing Rate (Hz)",
+        "Maximum ISI Violation (/1)"],
     1: ["parameter not yet available"],
     2: ["Minimum SNR (rms)", 
         "Minimum Firing Rate (Hz)", 
@@ -61,7 +63,7 @@ CONVERT_TO_JSON = {
 }
 
 DEFAULT_JOBS = {"batch":
-                    {"image": "braingeneers/ephys_pipeline:v0.79",
+                    {"image": "braingeneers/ephys_pipeline:v0.81",
                      "args": "./run.sh",
                      "cpu_request": 12,
                      "memory_request": 32,
@@ -71,7 +73,7 @@ DEFAULT_JOBS = {"batch":
                      "next_job": "None"
                      },
                 "chained": {
-                    0: {"image": "braingeneers/ephys_pipeline:v0.79",  # for running individual recording
+                    0: {"image": "braingeneers/ephys_pipeline:v0.81",  # for running individual recording
                         "args": "./run.sh",
                         "cpu_request": 12,
                         "memory_request": 32,
@@ -117,6 +119,8 @@ DEFAULT_JOBS = {"batch":
 IMG_JOB_LOOPUP = {
     "surygeng/connectivity:v0.1": "Functional Connectivity Analysis",
     "braingeneers/ephys_pipeline:v0.79": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
+    "braingeneers/ephys_pipeline:v0.80": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
+    "braingeneers/ephys_pipeline:v0.81": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "surygeng/local_field_potential:v0.1": "Local Field Potential Subbands",
     "surygeng/qm_curation:v0.2": "Auto-Curation by Quality Metrics",
     "surygeng/visualization:v0.1": "Visualization"

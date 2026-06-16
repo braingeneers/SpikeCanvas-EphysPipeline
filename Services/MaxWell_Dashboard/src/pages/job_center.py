@@ -105,7 +105,35 @@ layout = dbc.Container([
                 ]),
     html.Br(),
     # New row for parameter setting
-    dbc.Row([dbc.Col(dbc.Card(["Set new parameters: ",
+    dbc.Row([dbc.Col(dbc.Card([
+                               html.Span([
+                                   "Set new parameters: ",
+                                   html.Span("?", id="custom-params-help", role="button", tabIndex=0,
+                                             style={
+                                                 "display": "inline-flex",
+                                                 "alignItems": "center",
+                                                 "justifyContent": "center",
+                                                 "width": "18px",
+                                                 "height": "18px",
+                                                 "borderRadius": "50%",
+                                                 "border": "1px solid #6c757d",
+                                                 "color": "#6c757d",
+                                                 "fontWeight": "bold",
+                                                 "fontSize": "12px",
+                                                 "cursor": "help",
+                                                 "marginLeft": "4px",
+                                             })
+                               ]),
+                               dbc.Tooltip(
+                                   [
+                                       html.Div("To apply custom parameters, select exactly one job, fill in a file name and values, then click Save Parameters."),
+                                       html.Div("Choose the saved file under Select a job to load parameter file, click Add to Parameter Table, then Add to Job Table."),
+                                       html.Div("For Ephys Pipeline, use the recording checklist path. Batch Process with Standard Pipeline does not attach parameter-table selections."),
+                                       html.Div("MaxTwo datasets copy the selected pipeline parameter file to every per-well sorter job.")
+                                   ],
+                                   target="custom-params-help",
+                                   placement="right",
+                               ),
                                dbc.CardBody(id="set_parameter"),
                                dbc.Button("Save Parameters",
                                           id='save_params_button',

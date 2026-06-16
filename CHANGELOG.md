@@ -2,3 +2,6 @@
 2026-06-10 18:58 | dashboard jobs | prevent internal parameter labels from breaking job CSV export
 2026-06-11 10:16 | developer workflow | document production-container listener test verification
 2026-06-11 10:20 | listener routing | harden CSV MaxTwo detection and fail closed when H5 format is unknown
+2026-06-16 10:11 | dashboard parameters | document and enable Ephys Pipeline curation parameter files
+2026-06-16 10:11 | release images | align dashboard listener and pipeline defaults on v0.80
+2026-06-16 10:22 | dashboard parameters | add inline custom-parameter help and align release defaults on v0.81

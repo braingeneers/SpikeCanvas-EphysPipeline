@@ -63,6 +63,15 @@ if ! aws --endpoint $ENDPOINT_URL s3 cp ${META_REC_TIME}/metadata.json /project/
     echo "WARNING: Failed to download metadata from ${META_REC_TIME}/metadata.json"
 fi
 
+if [[ -n "${2:-}" ]]; then
+    echo "Downloading parameter file: $2"
+    if ! aws --endpoint "$ENDPOINT_URL" s3 cp "$2" /project/SpikeSorting/parameters.json; then
+        echo "WARNING: Failed to download parameter file from $2; using pipeline defaults"
+    fi
+else
+    echo "No parameter file supplied; using pipeline defaults"
+fi
+
 # download raw data to local
 DATASET_PATH=""
 if [[ "$1" == *"/original/data/"* ]]; then
