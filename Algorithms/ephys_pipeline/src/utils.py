@@ -12,9 +12,9 @@ import json
 
 
 DEFAULT_PARAM_LIST = {
-    "min_snr": 5, 
+    "min_snr": 3,
     "min_fr": 0.1,
-    "max_isi_viol": 0.2
+    "max_isi_viol": 0.5
 }
 # bin_size=0.05, win=5, avg=False, win_tiling=0.02,
 # gaussian=True, sigma=5, burst_rms_thr=3

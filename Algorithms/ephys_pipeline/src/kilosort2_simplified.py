@@ -28,6 +28,10 @@ DEFUALT_PARAMS =  {"min_snr": 3,
             "min_fr": 0.1,
             "max_isi_viol": 0.5}
 
+KILOSORT_PARAM_OVERRIDES = {
+    "detect_threshold": float,
+}
+
 # TODO: Fix this mearec error 
 # assert filename.suffix in [".h5", ".hdf5"], "Provide an .h5 or .hdf5 file name"
 # AssertionError: Provide an .h5 or .hdf5 file name
@@ -291,6 +295,19 @@ def _apply_conservative_kilosort_params(base_params, target_nt):
     kilosort_params['nfilt_factor'] = min(base_params.get('nfilt_factor', 4), 2)
     kilosort_params['ntbuff'] = min(base_params.get('ntbuff', 64), 32)
 
+
+def _apply_kilosort_param_overrides(params):
+    for key, value_type in KILOSORT_PARAM_OVERRIDES.items():
+        if key not in params:
+            continue
+        try:
+            override_value = value_type(params[key])
+        except (TypeError, ValueError):
+            logging.warning(f"Ignoring invalid Kilosort parameter override {key}={params[key]!r}")
+            continue
+        kilosort_params[key] = override_value
+        logging.info(f"Applied Kilosort parameter override: {key}={override_value}")
+
 if __name__ == "__main__":
     output_folder = os.path.join(inter_folder, "sorted/kilosort2")
     log = os.path.join(output_folder, "run_kilosort2.log")
@@ -332,6 +349,7 @@ if __name__ == "__main__":
         
     else:
         params = utils.load_paramter(parameter_path)   # TODO: save with kilosort parameters to the parameter_setting.json
+    _apply_kilosort_param_overrides(params)
 
     rec_filtered = extract_recording(rec_path=rec_file, output_folder=output_folder, format=data_format)
     if rec_filtered == -1:

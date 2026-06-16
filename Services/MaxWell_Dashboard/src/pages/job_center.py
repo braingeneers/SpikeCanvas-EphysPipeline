@@ -132,6 +132,7 @@ layout = dbc.Container([
                                            html.Li("Fill only the values you want to override, give the custom values a name, then click Save Custom Values."),
                                            html.Li("To reuse saved values, choose them under Use saved custom values."),
                                            html.Li("The preview box is read-only. It shows the selected values; it does not save changes."),
+                                           html.Li("Advanced Ephys Pipeline values such as Kilosort Detection Threshold change spike detection before curation; leave them blank unless you are intentionally debugging sorter behavior."),
                                            html.Li("Click Use Selected Values, then Add to Job Table. The job row should show pipeline/<name>."),
                                            html.Li("For Ephys Pipeline custom values, use recording selection plus Add to Job Table. The Batch shortcut does not attach selected custom values."),
                                            html.Li("For MaxTwo, the selected Ephys Pipeline custom values apply to every per-well sorter job.")

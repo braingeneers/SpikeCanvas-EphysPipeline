@@ -24,7 +24,8 @@ FINISH_FLAGS = ["Succeeded", "Failed", "Unknown"]
 JOB_PARAMETERS = {
     0: ["Minimum SNR (rms)",
         "Minimum Firing Rate (Hz)",
-        "Maximum ISI Violation (/1)"],
+        "Maximum ISI Violation (/1)",
+        "Kilosort Detection Threshold"],
     1: ["parameter not yet available"],
     2: ["Minimum SNR (rms)", 
         "Minimum Firing Rate (Hz)", 
@@ -42,6 +43,7 @@ CONVERT_TO_READABLE = {
         "min_fr": "Minimum Firing Rate (Hz)",
         "min_snr": "Minimum SNR (rms)",
         "max_isi_viol": "Maximum ISI Violation (/1)",
+        "detect_threshold": "Kilosort Detection Threshold",
         "binary_bin_size": "Raster Bin Size (seconds)",
         "ccg_win": "Cross-correlogram Window (ms)",
         "func_latency": "Maximum Functional Latency (ms)",
@@ -54,6 +56,7 @@ CONVERT_TO_JSON = {
     "Minimum Firing Rate (Hz)": "min_fr",
     "Minimum SNR (rms)": "min_snr",
     "Maximum ISI Violation (/1)": "max_isi_viol",
+    "Kilosort Detection Threshold": "detect_threshold",
     "Raster Bin Size (seconds)": "binary_bin_size",
     "Cross-correlogram Window (ms)": "ccg_win",
     "Maximum Functional Latency (ms)": "func_latency",
@@ -63,7 +66,7 @@ CONVERT_TO_JSON = {
 }
 
 DEFAULT_JOBS = {"batch":
-                    {"image": "braingeneers/ephys_pipeline:v0.83",
+                    {"image": "braingeneers/ephys_pipeline:v0.84",
                      "args": "./run.sh",
                      "cpu_request": 12,
                      "memory_request": 32,
@@ -73,7 +76,7 @@ DEFAULT_JOBS = {"batch":
                      "next_job": "None"
                      },
                 "chained": {
-                    0: {"image": "braingeneers/ephys_pipeline:v0.83",  # for running individual recording
+                    0: {"image": "braingeneers/ephys_pipeline:v0.84",  # for running individual recording
                         "args": "./run.sh",
                         "cpu_request": 12,
                         "memory_request": 32,
@@ -123,6 +126,7 @@ IMG_JOB_LOOPUP = {
     "braingeneers/ephys_pipeline:v0.81": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "braingeneers/ephys_pipeline:v0.82": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "braingeneers/ephys_pipeline:v0.83": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
+    "braingeneers/ephys_pipeline:v0.84": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "surygeng/local_field_potential:v0.1": "Local Field Potential Subbands",
     "surygeng/qm_curation:v0.2": "Auto-Curation by Quality Metrics",
     "surygeng/visualization:v0.1": "Visualization"

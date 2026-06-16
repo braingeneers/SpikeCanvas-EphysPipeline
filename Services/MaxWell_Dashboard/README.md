@@ -47,7 +47,7 @@ SpikeCanvas provides a complete suite of tools for electrophysiology data analys
 - **Customize default values**: Use this section when you want normal defaults plus a few custom overrides. Select exactly one job, give the custom values a name, fill only the values you want to override, and click **Save Custom Values**.
 - Blank fields are not saved. The pipeline uses its defaults for any value you leave blank.
 
-For **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**, the custom values control the auto-curation step that runs after Kilosort2. The dashboard saves only the values you filled in under:
+For **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**, most custom values control the auto-curation step that runs after Kilosort2. Advanced Kilosort values are also available for targeted sorter workarounds. The dashboard saves only the values you filled in under:
 
 ```text
 s3://braingeneers/services/mqtt_job_listener/params/pipeline/params_<saved-name>.json
@@ -60,6 +60,7 @@ The Ephys Pipeline reads the JSON keys below:
 | Minimum SNR (rms) | `min_snr` | Exclude units with signal-to-noise ratio below this value |
 | Minimum Firing Rate (Hz) | `min_fr` | Exclude units with firing rate below this value |
 | Maximum ISI Violation (/1) | `max_isi_viol` | Exclude units with ISI violation rate above this value |
+| Kilosort Detection Threshold | `detect_threshold` | Advanced Kilosort2 spike-detection threshold applied before sorting |
 
 For example, to exclude putative neuronal units with ISI violation rates above `0.5`, firing rates below `0.1` Hz, and SNR below your chosen threshold, select **Ephys Pipeline**, enter a saved custom values name such as `kd_fusion_qc`, enter:
 
@@ -72,6 +73,8 @@ For example, to exclude putative neuronal units with ISI violation rates above `
 ```
 
 through the dashboard fields, and click **Save Custom Values**. The dashboard will create `params_kd_fusion_qc.json` in the `pipeline` parameter folder. The saved name is the suffix used after `params_`; for example, entering `kd_fusion_qc` creates `params_kd_fusion_qc.json`.
+
+Leave **Kilosort Detection Threshold** blank for normal pipeline behavior. For targeted MaxTwo wells that hit Kilosort2 template-optimization index errors, raising this value can reduce low-confidence detections enough for the job to finish or cleanly mark a low-activity well. In local testing on `2026-03-12-e-KD_fusion_and_control`, well004 completed with `detect_threshold=7`, while well005 cleanly exited through the low-activity marker path with `detect_threshold=7.5`.
 
 ### Using Saved Custom Values
 - **Use saved custom values**: Use this section when you want to reuse saved values or choose a default file. Selecting a file previews its JSON contents in the textbox.
@@ -92,7 +95,7 @@ Use the recording checklist and **Add to Job Table** path for custom Ephys Pipel
 
 For MaxTwo datasets, the listener starts one splitter job first and then fans out one Ephys Pipeline job per well. The selected `pipeline/<parameter-file>` setting is copied into the sorter template, so every well job receives the same parameter file.
 
-If the `params` column is empty or points to a missing file, the Ephys Pipeline uses its built-in curation defaults: `min_snr=3`, `min_fr=0.1`, and `max_isi_viol=0.5`.
+If the `params` column is empty or points to a missing file, the Ephys Pipeline uses its built-in curation defaults: `min_snr=3`, `min_fr=0.1`, and `max_isi_viol=0.5`, and the default Kilosort detection threshold of `6`.
 
 ## 4. Job Management
 
