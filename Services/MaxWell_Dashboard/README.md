@@ -59,7 +59,7 @@ The Ephys Pipeline reads the JSON keys below:
 | --- | --- | --- |
 | Minimum SNR (rms) | `min_snr` | Exclude units with signal-to-noise ratio below this value |
 | Minimum Firing Rate (Hz) | `min_fr` | Exclude units with firing rate below this value |
-| Maximum ISI Violation (/1) | `max_isi_viol` | Exclude units with ISI violation rate above this value |
+| Maximum ISI Violation Rate (fraction) | `max_isi_viol` | Exclude units with ISI violation rate above this value; enter as a fraction, so `0.5` means 50% |
 | Kilosort Detection Threshold | `detect_threshold` | Advanced Kilosort2 spike-detection threshold applied before sorting |
 
 For example, to exclude putative neuronal units with ISI violation rates above `0.5`, firing rates below `0.1` Hz, and SNR below your chosen threshold, select **Ephys Pipeline**, enter a saved custom values name such as `kd_fusion_qc`, enter:

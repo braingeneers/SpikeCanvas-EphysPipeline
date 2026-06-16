@@ -130,6 +130,7 @@ layout = dbc.Container([
                                        html.Ul([
                                            html.Li("Normal defaults are used for every value you leave blank."),
                                            html.Li("Fill only the values you want to override, give the custom values a name, then click Save Custom Values."),
+                                           html.Li("Maximum ISI Violation Rate is entered as a fraction: 0.5 means 50%."),
                                            html.Li("To reuse saved values, choose them under Use saved custom values."),
                                            html.Li("The preview box is read-only. It shows the selected values; it does not save changes."),
                                            html.Li("Advanced Ephys Pipeline values such as Kilosort Detection Threshold change spike detection before curation; leave them blank unless you are intentionally debugging sorter behavior."),

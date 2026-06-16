@@ -24,12 +24,12 @@ FINISH_FLAGS = ["Succeeded", "Failed", "Unknown"]
 JOB_PARAMETERS = {
     0: ["Minimum SNR (rms)",
         "Minimum Firing Rate (Hz)",
-        "Maximum ISI Violation (/1)",
+        "Maximum ISI Violation Rate (fraction)",
         "Kilosort Detection Threshold"],
     1: ["parameter not yet available"],
     2: ["Minimum SNR (rms)", 
         "Minimum Firing Rate (Hz)", 
-        "Maximum ISI Violation (/1)"],
+        "Maximum ISI Violation Rate (fraction)"],
     3: ["parameter not yet available"],
     4: ["Raster Bin Size (seconds)", 
         "Cross-correlogram Window (ms)", 
@@ -42,7 +42,7 @@ JOB_PARAMETERS = {
 CONVERT_TO_READABLE = {
         "min_fr": "Minimum Firing Rate (Hz)",
         "min_snr": "Minimum SNR (rms)",
-        "max_isi_viol": "Maximum ISI Violation (/1)",
+        "max_isi_viol": "Maximum ISI Violation Rate (fraction)",
         "detect_threshold": "Kilosort Detection Threshold",
         "binary_bin_size": "Raster Bin Size (seconds)",
         "ccg_win": "Cross-correlogram Window (ms)",
@@ -55,6 +55,7 @@ CONVERT_TO_READABLE = {
 CONVERT_TO_JSON = {
     "Minimum Firing Rate (Hz)": "min_fr",
     "Minimum SNR (rms)": "min_snr",
+    "Maximum ISI Violation Rate (fraction)": "max_isi_viol",
     "Maximum ISI Violation (/1)": "max_isi_viol",
     "Kilosort Detection Threshold": "detect_threshold",
     "Raster Bin Size (seconds)": "binary_bin_size",

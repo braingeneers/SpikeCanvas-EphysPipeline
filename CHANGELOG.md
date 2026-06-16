@@ -9,3 +9,5 @@
 2026-06-16 10:38 | dashboard parameters | make custom values partial overrides layered on defaults
 2026-06-16 11:36 | pipeline parameters | allow dashboard custom values to raise Kilosort detection threshold for targeted sorter workarounds
 2026-06-16 11:36 | release images | align dashboard listener and pipeline defaults on v0.84
+2026-06-16 13:05 | dashboard parameters | clarify ISI violation rate field wording and fraction entry guidance
+2026-06-16 14:36 | release images | publish Maxwell dashboard v0.85 for parameter wording refresh
