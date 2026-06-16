@@ -107,7 +107,7 @@ layout = dbc.Container([
     # New row for parameter setting
     dbc.Row([dbc.Col(dbc.Card([
                                html.Span([
-                                   "Create a parameter file: ",
+                                   "Customize default values: ",
                                    html.Span("?", id="custom-params-help", role="button", tabIndex=0,
                                              style={
                                                  "display": "inline-flex",
@@ -126,14 +126,15 @@ layout = dbc.Container([
                                ]),
                                dbc.Tooltip(
                                    html.Div([
-                                       html.Div("Custom parameter workflow", style={"fontWeight": "bold", "marginBottom": "6px"}),
+                                       html.Div("Custom values workflow", style={"fontWeight": "bold", "marginBottom": "6px"}),
                                        html.Ul([
-                                           html.Li("Create a parameter file only when you need new values. Enter a file name and values, then click Save Parameters."),
-                                           html.Li("Select an existing parameter file when you want to reuse saved values or a default file."),
-                                           html.Li("The preview textbox is read-only. It shows the selected JSON file; it does not override or save values."),
-                                           html.Li("Click Add to Parameter Table, then Add to Job Table. The job row should show pipeline/<file>."),
-                                           html.Li("For Ephys Pipeline custom parameters, use recording selection plus Add to Job Table. The Batch shortcut does not attach parameter-table selections."),
-                                           html.Li("For MaxTwo, the selected pipeline parameter file is applied to every per-well sorter job.")
+                                           html.Li("Normal defaults are used for every value you leave blank."),
+                                           html.Li("Fill only the values you want to override, give the custom values a name, then click Save Custom Values."),
+                                           html.Li("To reuse saved values, choose them under Use saved custom values."),
+                                           html.Li("The preview box is read-only. It shows the selected values; it does not save changes."),
+                                           html.Li("Click Use Selected Values, then Add to Job Table. The job row should show pipeline/<name>."),
+                                           html.Li("For Ephys Pipeline custom values, use recording selection plus Add to Job Table. The Batch shortcut does not attach selected custom values."),
+                                           html.Li("For MaxTwo, the selected Ephys Pipeline custom values apply to every per-well sorter job.")
                                        ], style={"paddingLeft": "18px", "marginBottom": "0"})
                                    ], style={
                                        "textAlign": "left",
@@ -145,7 +146,7 @@ layout = dbc.Container([
                                    style={"maxWidth": "460px"},
                                ),
                                dbc.CardBody(id="set_parameter"),
-                               dbc.Button("Save Parameters",
+                               dbc.Button("Save Custom Values",
                                           id='save_params_button',
                                           disabled=False,
                                           outline=True,
@@ -155,12 +156,12 @@ layout = dbc.Container([
                                ]), width="auto"),
              html.Br(),
              html.Br(),
-             dbc.Col(dbc.Card(["Select an existing parameter file: ",
+             dbc.Col(dbc.Card(["Use saved custom values: ",
                                dbc.CardBody(id="load_job_params"),
                                dcc.Textarea(
                                     id="display_params",
                                     value="",
-                                    placeholder="Selected parameter file contents appear here. This preview is read-only.",
+                                    placeholder="Selected custom values appear here. This preview is read-only.",
                                     contentEditable=False,
                                     readOnly=True,
                                     style={'width': '70%', 'height': 150}, 
@@ -172,7 +173,7 @@ layout = dbc.Container([
                                            outline=True,
                                            color="success",
                                            className="me-1"),
-                                dbc.Button("Add to Parameter Table",
+                                dbc.Button("Use Selected Values",
                                            id="add_params_button",
                                            disabled=False,
                                            outline=True,
@@ -181,12 +182,12 @@ layout = dbc.Container([
                                 html.Div(id="add_params_return"),
                                 ]), width="auto"),
              html.Br(),
-             dbc.Col(dbc.Card(["Current parameter setting: ", 
+             dbc.Col(dbc.Card(["Custom values to apply: ",
                             dash_table.DataTable(
                                 id="parameter_table",
                                 columns=[
                                     {'id': "added_job", 'name': "job"},
-                                    {'id': "added_params_file", 'name': "parameter file"}],
+                                    {'id': "added_params_file", 'name': "saved values"}],
                                 data=[],
                                 row_deletable=True
                             ),
@@ -332,7 +333,7 @@ def show_parameters_to_job(jobs):
         parameter_fields = []
         parameter_fields.append(
             dbc.Card([
-                dbc.Label("Parameter file name", html_for=f"params_file_name"),
+                dbc.Label("Saved custom values name", html_for=f"params_file_name"),
                 dcc.Textarea(id=f"params_file_name",
                              placeholder="Example: kd_fusion_qc",
                              style={'width': '100%', 'height': 30}),
@@ -344,7 +345,9 @@ def show_parameters_to_job(jobs):
                 parameter_fields.append(
                     dbc.Card([
                         dbc.Label(params, html_for=f"params_{job}_{params}"),
-                        dcc.Textarea(id=f"params_{job}_{params}", style={'width': '100%', 'height': 30}),
+                        dcc.Textarea(id=f"params_{job}_{params}",
+                                     placeholder="Leave blank to use the default",
+                                     style={'width': '100%', 'height': 30}),
                         html.Br()
                     ])
                 )
@@ -456,6 +459,9 @@ def export_parameter_json(params_fields, job, n_clicks):
         # print(f"job {job}, params {params_fields}, file name {params_file_name}")
         # params_file_name = "delete_me"
         params_file_name = params_fields[0]["props"]["children"][1]["props"]["value"]
+        if params_file_name is None or str(params_file_name).strip() == "":
+            return "Please enter a name for these custom values."
+        params_file_name = str(params_file_name).strip()
         print(f"params file name {params_file_name}")
         curr_params_file = f"params_{params_file_name}.json"
         params_subbucket = DEFAULT_JOBS["chained"][job[0]]["params_label"]
@@ -466,14 +472,22 @@ def export_parameter_json(params_fields, job, n_clicks):
             if i == 0:
                 continue
             params_name = params_fields[i]["props"]["children"][0]["props"]["children"]
-            params_value = float(params_fields[i]["props"]["children"][1]["props"]["value"])
+            raw_value = params_fields[i]["props"]["children"][1]["props"]["value"]
+            if raw_value is None or str(raw_value).strip() == "":
+                continue
+            try:
+                params_value = float(raw_value)
+            except ValueError:
+                return f"Invalid value for {params_name}: {raw_value}. Leave blank to use the default or enter a number."
             params_label = utils.convert_to_json_key(params_name)
             params_setting[params_label] = params_value
+        if len(params_setting) == 0:
+            return "No custom values entered. Leave defaults selected, or enter at least one value to override."
         print(f"{params_setting} for {s3_params_path}")
         try:
             with smart_open.open(s3_params_path, 'w', newline='') as f:
                 f.write(json.dumps(params_setting))
-                return "Parameter file saved"
+                return "Custom values saved"
         except Exception as err:
             print(err)
             return err

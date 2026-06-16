@@ -43,13 +43,14 @@ SpikeCanvas provides a complete suite of tools for electrophysiology data analys
 
 ## 3. Parameter Settings
 
-### Creating Parameter Files
-- **Create a parameter file**: Use this section when you need a new saved JSON parameter file. Select exactly one job, input a parameter file name, enter the values, and click **Save Parameters**.
+### Customizing Default Values
+- **Customize default values**: Use this section when you want normal defaults plus a few custom overrides. Select exactly one job, give the custom values a name, fill only the values you want to override, and click **Save Custom Values**.
+- Blank fields are not saved. The pipeline uses its defaults for any value you leave blank.
 
-For **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**, the parameter fields control the auto-curation step that runs after Kilosort2. The dashboard saves these fields as JSON under:
+For **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**, the custom values control the auto-curation step that runs after Kilosort2. The dashboard saves only the values you filled in under:
 
 ```text
-s3://braingeneers/services/mqtt_job_listener/params/pipeline/params_<file-name>.json
+s3://braingeneers/services/mqtt_job_listener/params/pipeline/params_<saved-name>.json
 ```
 
 The Ephys Pipeline reads the JSON keys below:
@@ -60,7 +61,7 @@ The Ephys Pipeline reads the JSON keys below:
 | Minimum Firing Rate (Hz) | `min_fr` | Exclude units with firing rate below this value |
 | Maximum ISI Violation (/1) | `max_isi_viol` | Exclude units with ISI violation rate above this value |
 
-For example, to exclude putative neuronal units with ISI violation rates above `0.5`, firing rates below `0.1` Hz, and SNR below your chosen threshold, select **Ephys Pipeline**, enter a file name such as `kd_fusion_qc`, enter:
+For example, to exclude putative neuronal units with ISI violation rates above `0.5`, firing rates below `0.1` Hz, and SNR below your chosen threshold, select **Ephys Pipeline**, enter a saved custom values name such as `kd_fusion_qc`, enter:
 
 ```json
 {
@@ -70,11 +71,11 @@ For example, to exclude putative neuronal units with ISI violation rates above `
 }
 ```
 
-through the dashboard fields, and click **Save Parameters**. The dashboard will create `params_kd_fusion_qc.json` in the `pipeline` parameter folder. The file name field is the suffix used after `params_`; for example, entering `kd_fusion_qc` creates `params_kd_fusion_qc.json`.
+through the dashboard fields, and click **Save Custom Values**. The dashboard will create `params_kd_fusion_qc.json` in the `pipeline` parameter folder. The saved name is the suffix used after `params_`; for example, entering `kd_fusion_qc` creates `params_kd_fusion_qc.json`.
 
-### Selecting Existing Parameter Files
-- **Select an existing parameter file**: Use this section when you want to reuse a saved file, including a default file. Selecting a file previews its JSON contents in the textbox.
-- The preview textbox is read-only. It does not edit, override, or save parameter values. To change values, create and save a new parameter file.
+### Using Saved Custom Values
+- **Use saved custom values**: Use this section when you want to reuse saved values or choose a default file. Selecting a file previews its JSON contents in the textbox.
+- The preview textbox is read-only. It does not edit, override, or save values. To change values, save a new set of custom values.
 
 ### Current Parameter Setting
 - **Parameter Table**: View and manage the current parameter settings in a table. You can add or remove parameter files as needed.
@@ -82,8 +83,8 @@ through the dashboard fields, and click **Save Parameters**. The dashboard will 
 ### Applying Parameters to a Job
 1. Select the dataset UUID and recording(s).
 2. Select **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**.
-3. Either create a new parameter file with **Save Parameters**, or choose an existing file under **Select an existing parameter file**.
-4. Click **Add to Parameter Table**. Confirm that the table has `pipeline` in the job column and the selected parameter file in the parameter file column.
+3. Either save custom values with **Save Custom Values**, or choose an existing entry under **Use saved custom values**.
+4. Click **Use Selected Values**. Confirm that the table has `pipeline` in the job column and the selected saved values in the saved values column.
 5. Click **Add to Job Table**. The job table row should show `pipeline/<parameter-file>` in the `params` column.
 6. Click **Export and Start Job**.
 
