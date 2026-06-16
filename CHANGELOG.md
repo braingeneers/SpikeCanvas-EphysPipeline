@@ -5,3 +5,4 @@
 2026-06-16 10:11 | dashboard parameters | document and enable Ephys Pipeline curation parameter files
 2026-06-16 10:11 | release images | align dashboard listener and pipeline defaults on v0.80
 2026-06-16 10:22 | dashboard parameters | add inline custom-parameter help and align release defaults on v0.81
+2026-06-16 10:31 | dashboard parameters | clarify create-versus-select parameter workflow and align release defaults on v0.82

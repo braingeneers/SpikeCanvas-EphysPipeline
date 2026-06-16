@@ -107,7 +107,7 @@ layout = dbc.Container([
     # New row for parameter setting
     dbc.Row([dbc.Col(dbc.Card([
                                html.Span([
-                                   "Set new parameters: ",
+                                   "Create a parameter file: ",
                                    html.Span("?", id="custom-params-help", role="button", tabIndex=0,
                                              style={
                                                  "display": "inline-flex",
@@ -125,14 +125,24 @@ layout = dbc.Container([
                                              })
                                ]),
                                dbc.Tooltip(
-                                   [
-                                       html.Div("To apply custom parameters, select exactly one job, fill in a file name and values, then click Save Parameters."),
-                                       html.Div("Choose the saved file under Select a job to load parameter file, click Add to Parameter Table, then Add to Job Table."),
-                                       html.Div("For Ephys Pipeline, use the recording checklist path. Batch Process with Standard Pipeline does not attach parameter-table selections."),
-                                       html.Div("MaxTwo datasets copy the selected pipeline parameter file to every per-well sorter job.")
-                                   ],
+                                   html.Div([
+                                       html.Div("Custom parameter workflow", style={"fontWeight": "bold", "marginBottom": "6px"}),
+                                       html.Ul([
+                                           html.Li("Create a parameter file only when you need new values. Enter a file name and values, then click Save Parameters."),
+                                           html.Li("Select an existing parameter file when you want to reuse saved values or a default file."),
+                                           html.Li("The preview textbox is read-only. It shows the selected JSON file; it does not override or save values."),
+                                           html.Li("Click Add to Parameter Table, then Add to Job Table. The job row should show pipeline/<file>."),
+                                           html.Li("For Ephys Pipeline custom parameters, use recording selection plus Add to Job Table. The Batch shortcut does not attach parameter-table selections."),
+                                           html.Li("For MaxTwo, the selected pipeline parameter file is applied to every per-well sorter job.")
+                                       ], style={"paddingLeft": "18px", "marginBottom": "0"})
+                                   ], style={
+                                       "textAlign": "left",
+                                       "maxWidth": "430px",
+                                       "whiteSpace": "normal"
+                                   }),
                                    target="custom-params-help",
                                    placement="right",
+                                   style={"maxWidth": "460px"},
                                ),
                                dbc.CardBody(id="set_parameter"),
                                dbc.Button("Save Parameters",
@@ -145,11 +155,12 @@ layout = dbc.Container([
                                ]), width="auto"),
              html.Br(),
              html.Br(),
-             dbc.Col(dbc.Card(["Select a job to load parameter file: ",
+             dbc.Col(dbc.Card(["Select an existing parameter file: ",
                                dbc.CardBody(id="load_job_params"),
                                dcc.Textarea(
                                     id="display_params",
                                     value="",
+                                    placeholder="Selected parameter file contents appear here. This preview is read-only.",
                                     contentEditable=False,
                                     readOnly=True,
                                     style={'width': '70%', 'height': 150}, 
@@ -321,8 +332,9 @@ def show_parameters_to_job(jobs):
         parameter_fields = []
         parameter_fields.append(
             dbc.Card([
-                dbc.Label("File name", html_for=f"params_file_name"),
-                dcc.Textarea(id=f"params_file_name", 
+                dbc.Label("Parameter file name", html_for=f"params_file_name"),
+                dcc.Textarea(id=f"params_file_name",
+                             placeholder="Example: kd_fusion_qc",
                              style={'width': '100%', 'height': 30}),
                 html.Br()
                     ]))

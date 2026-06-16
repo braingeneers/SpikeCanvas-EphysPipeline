@@ -43,8 +43,8 @@ SpikeCanvas provides a complete suite of tools for electrophysiology data analys
 
 ## 3. Parameter Settings
 
-### Setting Parameters
-- **Set new parameters**: This section allows you to set parameters for the selected job. Input the parameter file name and values in the text areas provided.
+### Creating Parameter Files
+- **Create a parameter file**: Use this section when you need a new saved JSON parameter file. Select exactly one job, input a parameter file name, enter the values, and click **Save Parameters**.
 
 For **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**, the parameter fields control the auto-curation step that runs after Kilosort2. The dashboard saves these fields as JSON under:
 
@@ -70,10 +70,11 @@ For example, to exclude putative neuronal units with ISI violation rates above `
 }
 ```
 
-through the dashboard fields, and click **Save Parameters**. The dashboard will create `params_kd_fusion_qc.json` in the `pipeline` parameter folder.
+through the dashboard fields, and click **Save Parameters**. The dashboard will create `params_kd_fusion_qc.json` in the `pipeline` parameter folder. The file name field is the suffix used after `params_`; for example, entering `kd_fusion_qc` creates `params_kd_fusion_qc.json`.
 
-### Loading Parameter Files
-- **Select a job to load parameter file**: Choose a job to load the corresponding parameter file. The parameters will display in the text area.
+### Selecting Existing Parameter Files
+- **Select an existing parameter file**: Use this section when you want to reuse a saved file, including a default file. Selecting a file previews its JSON contents in the textbox.
+- The preview textbox is read-only. It does not edit, override, or save parameter values. To change values, create and save a new parameter file.
 
 ### Current Parameter Setting
 - **Parameter Table**: View and manage the current parameter settings in a table. You can add or remove parameter files as needed.
@@ -81,7 +82,7 @@ through the dashboard fields, and click **Save Parameters**. The dashboard will 
 ### Applying Parameters to a Job
 1. Select the dataset UUID and recording(s).
 2. Select **Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)**.
-3. Either create a new parameter file with **Save Parameters**, or choose an existing file under **Select a job to load parameter file**.
+3. Either create a new parameter file with **Save Parameters**, or choose an existing file under **Select an existing parameter file**.
 4. Click **Add to Parameter Table**. Confirm that the table has `pipeline` in the job column and the selected parameter file in the parameter file column.
 5. Click **Add to Job Table**. The job table row should show `pipeline/<parameter-file>` in the `params` column.
 6. Click **Export and Start Job**.
