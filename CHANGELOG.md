@@ -11,3 +11,5 @@
 2026-06-16 11:36 | release images | align dashboard listener and pipeline defaults on v0.84
 2026-06-16 13:05 | dashboard parameters | clarify ISI violation rate field wording and fraction entry guidance
 2026-06-16 14:36 | release images | publish Maxwell dashboard v0.85 for parameter wording refresh
+2026-06-24 16:24 | pipeline curation | preserve full footprint neighbor arrays in Ephys Pipeline curation outputs
+2026-06-24 16:27 | release images | align dashboard listener and pipeline defaults on v0.86

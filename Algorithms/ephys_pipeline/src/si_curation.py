@@ -239,7 +239,7 @@ class QualityMetrics:
         np.savez(qm_npz, **spike_data)
         return qm_npz
 
-    def compile_data(self, n=12):
+    def compile_data(self):
         """
         compile the cleaned sorting to npz with braingeneers compatible structure
         """
@@ -267,7 +267,7 @@ class QualityMetrics:
             amps = amplitudes[phy_ids == c]
             waveforms_all = self.we_clean.get_waveforms(unit_id=c)
             temp = templates[i]
-            sorted_idx = sort_template_amplitude(temp)[:n]
+            sorted_idx = sort_template_amplitude(temp)
             temp = temp.T
             best_idx = sorted_idx[0]
             waveforms = waveforms_all[:, :, best_idx]

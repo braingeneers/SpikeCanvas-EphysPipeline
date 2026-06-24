@@ -67,7 +67,7 @@ CONVERT_TO_JSON = {
 }
 
 DEFAULT_JOBS = {"batch":
-                    {"image": "braingeneers/ephys_pipeline:v0.84",
+                    {"image": "braingeneers/ephys_pipeline:v0.86",
                      "args": "./run.sh",
                      "cpu_request": 12,
                      "memory_request": 32,
@@ -77,7 +77,7 @@ DEFAULT_JOBS = {"batch":
                      "next_job": "None"
                      },
                 "chained": {
-                    0: {"image": "braingeneers/ephys_pipeline:v0.84",  # for running individual recording
+                    0: {"image": "braingeneers/ephys_pipeline:v0.86",  # for running individual recording
                         "args": "./run.sh",
                         "cpu_request": 12,
                         "memory_request": 32,
@@ -128,6 +128,7 @@ IMG_JOB_LOOPUP = {
     "braingeneers/ephys_pipeline:v0.82": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "braingeneers/ephys_pipeline:v0.83": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "braingeneers/ephys_pipeline:v0.84": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
+    "braingeneers/ephys_pipeline:v0.86": "Ephys Pipeline (Kilosort2, Auto-Curation, Visualization)",
     "surygeng/local_field_potential:v0.1": "Local Field Potential Subbands",
     "surygeng/qm_curation:v0.2": "Auto-Curation by Quality Metrics",
     "surygeng/visualization:v0.1": "Visualization"
